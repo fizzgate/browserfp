@@ -9,3 +9,4 @@ csrc/*.so
 csrc/ja4cli
 csrc/lookup_test
 csrc/profiles.inc
+spec/cache/
