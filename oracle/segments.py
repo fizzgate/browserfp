@@ -40,7 +40,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 OUT_DIR = os.path.join(HERE, "..", "spec", "segments")
 
 MAX_WORKERS = 5          # 对方是公共服务器，别打太狠
-KEYS = ("ciphers", "sig_algs", "extensions")
+KEYS = ("ciphers", "sig_algs", "extensions", "curves", "sct")
 
 
 def _key(tables):
@@ -89,8 +89,12 @@ def boundary_diff(a, b):
         x, y = a["tables"][k], b["tables"][k]
         if x == y:
             continue
-        added = [f"0x{v:04x}" for v in y if v not in x]
-        removed = [f"0x{v:04x}" for v in x if v not in y]
+        if not isinstance(x, list) or not isinstance(y, list):
+            out[k] = f"{x} → {y}"
+            continue
+        fmt = (lambda v: f"0x{v:04x}") if all(isinstance(v, int) for v in x + y) else str
+        added = [fmt(v) for v in y if v not in x]
+        removed = [fmt(v) for v in x if v not in y]
         if not added and not removed:
             out[k] = "顺序变化"
         else:

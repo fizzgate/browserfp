@@ -46,7 +46,18 @@ FILES = {
     # Firefox 不直接用 NSS 的默认表：它在这里调 SSL_SignatureSchemePrefSet /
     # SSL_CipherPrefSet 覆盖顺序。只读 NSS 会得到错的 sig_algs 次序。
     "gecko_ssl": "security/manager/ssl/nsNSSComponent.cpp",
+    # curves 顺序不在 NSS 里：gecko 硬编码了两份 group 列表，按 enable_kyber
+    # 分支选。只读 NSS 的 ssl_named_groups 会得到 33 项的完整定义表，那不是
+    # ClientHello 里发的东西。
+    "iolayer": "security/manager/ssl/nsNSSIOLayer.cpp",
+    # 条件发送的扩展由 pref 决定，而 pref 默认值在这里（不在 all.js）。
+    "staticprefs": "modules/libpref/init/StaticPrefList.yaml",
 }
+
+# release 桌面构建里**未定义**的宏。StaticPrefList.yaml 的默认值大量包在
+# 这些条件里，取错分支会得到与真实 release 相反的结论。
+UNDEFINED_IN_RELEASE = ("EARLY_BETA_OR_EARLIER", "ANDROID", "NIGHTLY_BUILD",
+                        "MOZ_WIDGET_ANDROID", "MOZ_DEV_EDITION", "DEBUG")
 
 
 def tag_candidates(version):
@@ -99,6 +110,84 @@ def fetch(version, name, attempts=3):
                 if i + 1 < attempts:
                     time.sleep(1.5 * (i + 1))
     raise last if last else RuntimeError(f"{version}/{name} 取不到")
+
+
+def _cond_holds(expr):
+    """在 release 桌面构建下求值一个 #if 条件（只支持 defined/!/&&/||）。"""
+    e = expr.strip()
+    for macro in UNDEFINED_IN_RELEASE:
+        e = e.replace(f"defined({macro})", "False")
+    e = re.sub(r"defined\([A-Za-z_]\w*\)", "True", e)   # 其余宏视为已定义
+    e = e.replace("&&", " and ").replace("||", " or ").replace("!", " not ")
+    try:
+        return bool(eval(e, {"__builtins__": {}}, {"True": True, "False": False}))
+    except Exception:
+        return True          # 判不了就按"条件成立"走，宁可保守
+
+
+def pref_value(text, name):
+    """取某个 pref 在 **release 桌面构建**下的默认值。
+
+    **不能只取第一个 `value:`**。这些默认值大量包在 C 预处理条件里，而首个
+    分支往往是 nightly/android 的值。实测 Firefox 133 首个 value 是 2、
+    release 实为 0；135 首个是 0、桌面 release 实为 2——两个版本恰好都取反，
+    据此推出的结论会与真实完全颠倒。
+    """
+    m = re.search(r"- name: " + re.escape(name) + r"\n(.*?)(?=\n- name:|\Z)",
+                  text, re.S)
+    if not m:
+        return None
+    body = m.group(1)
+    if "#if" not in body:
+        v = re.search(r"value:\s*(\S+)", body)
+        return v.group(1) if v else None
+
+    # 逐行走一遍条件块，只收当前分支成立时的 value
+    active, taken, val = True, False, None
+    for line in body.splitlines():
+        t = line.strip()
+        if t.startswith("#ifdef "):
+            active, taken = _cond_holds(f"defined({t[7:].strip()})"), False
+            taken = active
+        elif t.startswith("#ifndef "):
+            active = not _cond_holds(f"defined({t[8:].strip()})")
+            taken = active
+        elif t.startswith("#if "):
+            active = _cond_holds(t[4:])
+            taken = active
+        elif t.startswith("#else"):
+            active = not taken
+        elif t.startswith("#elif "):
+            active = (not taken) and _cond_holds(t[6:])
+            taken = taken or active
+        elif t.startswith("#endif"):
+            active, taken = True, False
+        elif active and t.startswith("value:"):
+            val = t.split(":", 1)[1].strip()
+    return val
+
+
+def gecko_groups(version):
+    """gecko 硬编码的 group 列表：[含 KEM 的, 不含的]。ClientHello 用前者
+    （enable_kyber 默认开、TLS1.3、非 retry），后者是降级路径。"""
+    d = fetch(version, "iolayer")
+    out = []
+    for m in re.finditer(r"const SSLNamedGroup namedGroups\[\]\s*=\s*\{(.*?)\};",
+                         d, re.S):
+        out.append(re.findall(r"ssl_grp_\w+", m.group(1)))
+    return out
+
+
+def sends_sct(version):
+    """是否发 signed_certificate_timestamp(0x0012)。
+
+    该扩展在 sender 表里恒存在，是否真发由 SSL_ENABLE_SIGNED_CERT_TIMESTAMPS
+    决定，而它 = (CT mode != Disabled)。只读 sender 表会认为所有版本都发，
+    与三个参考项目的实测（133 不发、135 发）矛盾。
+    """
+    v = pref_value(fetch(version, "staticprefs"),
+                   "security.pki.certificate_transparency.mode")
+    return None if v is None else v.strip() != "0"
 
 
 def _consts(text, pattern):
@@ -160,7 +249,14 @@ def extract(version):
     body = _strip_comments(_block(ext, r"clientHelloSendersTLS\[\]\s*=\s*\{"))
     exts = [emap[n] for n in re.findall(r"(ssl_\w+_xtn)", body) if n in emap]
 
-    return {"ciphers": ciphers, "sig_algs": sigs, "extensions": exts}
+    # 条件发送的扩展要按实际条件裁剪，否则段表看不出 133/134 与 135 的区别
+    sct = sends_sct(version)
+    if sct is False and emap.get("ssl_signed_cert_timestamp_xtn") in exts:
+        exts = [e for e in exts if e != emap["ssl_signed_cert_timestamp_xtn"]]
+
+    groups = gecko_groups(version)
+    return {"ciphers": ciphers, "sig_algs": sigs, "extensions": exts,
+            "curves": groups[0] if groups else [], "sct": sct}
 
 
 def check_prefs(version):
