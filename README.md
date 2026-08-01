@@ -98,6 +98,7 @@ python -m spec.test_match              # 识别器：认得出 + 认不出必须
 python -m spec.test_real_stability     # 真机反复连接，每次都须认出（含充分性断言）
 python -m spec.test_collector_merge    # 采集器必须合并写（防止只采子集冲掉其余样本）
 python -m spec.test_ja4t               # TCP 层 JA4T 解析器（构造向量，不需抓包权限）
+python -m spec.test_quic               # QUIC：RFC 9001 官方向量 + 真机端到端
 python -m spec.test_cf_discrimination  # 指纹是否被区别对待（三臂对照）
 python -m oracle.coverage              # 开源表对真机的覆盖矩阵
 python -m oracle.srcaudit              # 源码审计：还有哪些扩展我们从没见过
@@ -285,9 +286,23 @@ key_share 那条是有价值的阴性结果：它证明现有 13 字段判据**�
 
   pingly 另有三个我们尚未实现的 TCP 层维度：`SatoriFingerprint`（含 quirks）、
   `NetworkEstimate`（TTL 推断跳数）、`LinkEstimate`（MTU 估计）。
-- **HTTP/3 与 QUIC 整层缺失**：现有观测点只做 TCP 上的 TLS，QUIC 走 UDP 且 TLS
-  握手内嵌在 QUIC 帧里，需要另一套观测点。`srcaudit` 报出的 `0x0039`/`0xffa5`
-  （quic_transport_parameters）盲区即源于此。
+- **QUIC 的 ClientHello 已覆盖，H3 应用层待做**。`oracle/quic.py` + `quicprobe.py`
+  可从 UDP 上的 Initial 包解出 ClientHello：QUIC Initial 的密钥由**公开 salt +
+  客户端自选 DCID** 派生（RFC 9001 §5.2），旁路观测无需服务端私钥。密钥派生已对齐
+  RFC 9001 Appendix A.1 官方向量（key/iv/hp 三项逐字节一致）。
+
+  **QUIC 与 TCP 是两套指纹**，不能互相顶替——实测 Chrome 151：
+
+  ```
+  QUIC  q13i0310h3_55b375c5d22e_653d80c3fe9d  10 个扩展  ALPN=[h3]
+  TCP   t13i1515h2_8daaf6152771_806a8c22fdea  15 个扩展  ALPN=[h2,http/1.1]
+  ```
+
+  QUIC 版含 `0x39 quic_transport_parameters` —— 正是 `srcaudit` 长期报"从未观测到"
+  的盲区之一，至此消除。已采 chromium 系三个浏览器（chrome/chromium/edge 指纹一致）。
+
+  仍缺：H3 应用层（SETTINGS + 伪头顺序，需完成 QUIC 握手）；Firefox/Safari 的 QUIC
+  （需 about:config 预置 prefs，非命令行开关）。
 - **12 个扩展从未观测到**（`srcaudit` 实测）：BoringSSL 声明 31 个，我们见过 19 个。
   其中 `0x002a early_data`（0-RTT）、`0x0039`/`0xffa5`（QUIC）是真实会遇到的，仍是
   识别盲区。`0x002c cookie` 已试图触发：HRR 确实发生了，但 Go 服务端未下发 cookie
