@@ -66,6 +66,24 @@ http {
             }
         }
 
+        location /h2 {
+            content_by_lua_block {
+                local tlsfp = require "tlsfp"
+                tlsfp.load("/app/csrc/libtlsfp.so")
+                local a = ngx.req.get_uri_args()
+                local rec, prof = tlsfp.h2_preface(a.brand, tonumber(a.version))
+                if not rec then
+                    ngx.say("ERR\\t" .. tostring(prof))
+                else
+                    local hex = rec:gsub(".", function(c)
+                        return string.format("%02x", string.byte(c))
+                    end)
+                    ngx.say(prof.id .. "\\t" .. tostring(prof.h2_pseudo)
+                            .. "\\t" .. hex)
+                end
+            }
+        }
+
         location /client_hello {
             content_by_lua_block {
                 local tlsfp = require "tlsfp"
@@ -152,6 +170,64 @@ def _check_client_hello(opener, mapper):
     return bad
 
 
+def _check_h2(opener):
+    """h2 开场也要在真 worker 里验一遍。
+
+    它和 client_hello 一样走 FFI 输出缓冲，而且**必须与 TLS 层同源**：
+    两层取自不同 profile 就给出一个现实中不存在的组合。这里顺带断言
+    "没有 h2 数据的 profile 确实被拒绝"，那条分支只有真跑才走得到。
+    """
+    import json as _json
+    from spec.test_h2_build import parse_preface
+
+    with open(os.path.join(HERE, "profiles.json")) as f:
+        by_id = {r["id"]: r for r in _json.load(f)}
+
+    bad = []
+    # 用例要挑**确实有 h2 数据**的版本。firefox 153 不行：它映射到
+    # real:firefox153，那是本项目自己的实采，当时只抓了 ClientHello 没抓
+    # h2 层 —— 属于真实数据缺口（见 H2_BASELINE），不是构造器的问题。
+    cases = [("chrome", 151, True), ("firefox", 152, True),
+             ("safari-mobile", 27, True),
+             ("chrome", 70, False)]      # 有 profile 但无 h2 数据，必须被拒
+    for brand, ver, want_ok in cases:
+        url = f"http://127.0.0.1:{PORT}/h2?brand={brand}&version={ver}"
+        try:
+            line = opener.open(url, timeout=20).read().decode().strip()
+        except Exception as e:
+            bad.append(f"{brand} {ver}: 请求失败 {type(e).__name__}")
+            continue
+        if not want_ok:
+            if not line.startswith("ERR"):
+                bad.append(f"{brand} {ver}: 无 h2 数据却构造出了开场")
+            continue
+        parts = line.split("\t")
+        if len(parts) != 3 or parts[0] == "ERR":
+            bad.append(f"{brand} {ver}: worker 返回 {line[:60]}")
+            continue
+        pid, pseudo, hexs = parts
+        rec = by_id.get(pid)
+        if not rec or not rec.get("h2"):
+            bad.append(f"{brand} {ver}: profile {pid} 没有 h2 数据")
+            continue
+        try:
+            settings, window, prios = parse_preface(bytes.fromhex(hexs))
+        except Exception as e:
+            bad.append(f"{brand} {ver}: 开场解析失败 {e}")
+            continue
+        h2 = rec["h2"]
+        if settings != [tuple(x) for x in (h2.get("settings") or [])]:
+            bad.append(f"{brand} {ver}: SETTINGS 与 golden 不符")
+        if (window or 0) != (h2.get("window_update") or 0):
+            bad.append(f"{brand} {ver}: WINDOW_UPDATE 与 golden 不符")
+        if prios != [tuple(x) for x in (h2.get("priorities") or [])]:
+            bad.append(f"{brand} {ver}: PRIORITY 与 golden 不符")
+        want_pseudo = ",".join(k[1] for k in (h2.get("pseudo_header_order") or []))
+        if pseudo != want_pseudo:
+            bad.append(f"{brand} {ver}: 伪头序 {pseudo} != {want_pseudo}")
+    return bad, len(cases)
+
+
 def main():
     if not _docker_ok():
         print("无 docker，跳过（非失败）", file=sys.stderr)
@@ -210,7 +286,13 @@ def main():
         for b in ch_bad:
             print(f"    ✗ {b}")
 
-        failed = bad or ch_bad
+        h2_bad, h2_n = _check_h2(opener)
+        print(f"  h2 开场 {h2_n - len(h2_bad)}/{h2_n} 组合与 golden 一致"
+              f"（含 1 组「无 h2 数据必须拒绝」）")
+        for b in h2_bad:
+            print(f"    ✗ {b}")
+
+        failed = bad or ch_bad or h2_bad
         print(f"\n{'C 模块在生产形态下与 Python 一致' if not failed else '存在分歧'}")
         return 1 if failed else 0
     finally:
