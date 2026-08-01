@@ -125,10 +125,28 @@ SNI"——cloudflare.com 有默认证书不介意，claude.ai 多租户直接 ha
 - **12 个扩展从未观测到**（`srcaudit` 实测）：BoringSSL 声明 31 个，我们见过 19 个。
   其中 `0x002a early_data`（0-RTT）、`0x002c cookie`（HelloRetryRequest 之后）、
   `0x0039`/`0xffa5`（QUIC）是真实会遇到的，仍是识别盲区。
-- **Safari 27 的恢复态未采到**：连续 6 次连接全部全新握手，形态完全一致，连
-  `session_ticket(0x23)` 都不发。**不等于"Safari 不做会话恢复"** —— 更可能是它对
-  「IP 地址 + 临时信任的自签 CA」这一场景不缓存 session。要判定其对真实站点的
-  行为，需换一个有正规证书的域名观测点。
+- **Safari 没有恢复态，这是 WebKit 的行为而非我们的采集问题**（已查证，见下节）。
+
+## 一个可用的伪装破绽：Safari 从不发 pre_shared_key
+
+实测真 Safari 27 连续 6 次连接全部全新握手，不发 `session_ticket(0x23)`，也从不
+发 `pre_shared_key(0x29)`。起初怀疑是我们的采集场景（IP 地址 + 临时信任的自签
+CA）导致，**查证后否定了这个推测**：
+
+Apple 开发者论坛 thread/796184 有人做了同样的对照实验——同一个本地 OpenSSL
+服务器、自签证书、localhost：Chrome 有 `pre_shared_key`，Safari 没有。结论是与
+自签证书/localhost/IP 均无关，是 Safari/WebKit 网络栈的根本限制。Apple DTS
+工程师 Quinn 确认问题存在、"比看起来更复杂"，仍在调查中；影响 macOS 15.6 与 iOS。
+
+由此得到一条识别判据：
+
+| 观测 | 判定 |
+|---|---|
+| Safari 指纹 + 带 `pre_shared_key` | **不是真 Safari** |
+
+curl_cffi 的 10 个 safari target（safari153/155/170/180/184/260 及 _ios 变体）
+**全部**能采到 PSK 形态，真 Safari 一个都没有——curl-impersonate 只复刻了
+ClientHello 的形状，没有复刻 WebKit 不做会话恢复这一行为。
 
 ## 真机采集的四条信任路径
 
