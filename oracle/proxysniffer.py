@@ -144,6 +144,29 @@ def firefox_profile(port):
     return d
 
 
+def is_firefox(path):
+    return "firefox" in os.path.basename(path).lower()
+
+
+def launch_argv(path, port, url):
+    """两家浏览器的代理配置方式不同，profile 也不同。
+
+    Chromium 系用命令行 --proxy-server，Firefox 只能靠 profile 里的 pref
+    （命令行没有等价开关）。两边都用一次性 profile，不碰用户正在用的那个。
+    """
+    import tempfile
+    if is_firefox(path):
+        prof = firefox_profile(port)
+        return [path, "-profile", prof, "-no-remote", "-new-instance", url], prof
+    prof = tempfile.mkdtemp(prefix="tlsfp-cr-")
+    return ([path,
+             f"--proxy-server=http://127.0.0.1:{port}",
+             f"--user-data-dir={prof}",
+             "--no-first-run", "--no-default-browser-check",
+             "--disable-background-networking",
+             url], prof)
+
+
 def main(argv):
     """采一次本机 Firefox：python -m oracle.proxysniffer [浏览器路径]"""
     import shutil
@@ -160,11 +183,9 @@ def main(argv):
     ver = subprocess.run([path, "--version"], capture_output=True, text=True,
                          timeout=20).stdout.strip()
     with ProxySniffer() as sniffer:
-        prof = firefox_profile(sniffer.port)
-        proc = subprocess.Popen(
-            [path, "-profile", prof, "-no-remote", "-new-instance",
-             "https://example.com/"],
-            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        argv, prof = launch_argv(path, sniffer.port, "https://example.com/")
+        proc = subprocess.Popen(argv, stdout=subprocess.DEVNULL,
+                                stderr=subprocess.DEVNULL)
         try:
             record, target = sniffer.pop(timeout=90)
             fp = fingerprint(record)
