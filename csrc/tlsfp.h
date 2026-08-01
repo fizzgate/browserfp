@@ -40,6 +40,18 @@ typedef struct {
     const uint16_t *extlen;
     uint16_t client_version;
     uint16_t session_id_len;
+
+    /* HTTP/2 连接级开场。TLS 指纹对了、h2 层不对，照样能被判出来 —— 两层
+       必须来自同一个 profile。这里存的是结构化值而非 akamai 字符串：
+         h2_settings   扁平的 (id, value) 对，长度 = n_h2_settings * 2
+         h2_window     连接级 WINDOW_UPDATE 增量，0 表示不发这一帧
+         h2_prio       扁平的 (stream, dep, exclusive, weight) 四元组
+         h2_pseudo     伪头序，缩写形式如 "m,a,s,p"（HEADERS 由调用方发，
+                       内容依赖具体请求，本库只能给出顺序） */
+    const uint32_t *h2_settings; size_t n_h2_settings;
+    uint32_t        h2_window;
+    const uint32_t *h2_prio;     size_t n_h2_prio;
+    const char     *h2_pseudo;
 } tlsfp_profile;
 
 typedef struct {
@@ -96,6 +108,18 @@ const tlsfp_profile *tlsfp_profile_at(size_t idx);
  *
  * 返回写入的字节数；out 空间不足或 profile 缺重建字段时返回 -1。
  * 与库里其他函数一样是**内存进内存出、非阻塞**的，可直接在 nginx worker 里调。 */
+/* HTTP/2 连接开场：PREFACE + SETTINGS + WINDOW_UPDATE + PRIORITY。
+ * 这一段完全由 profile 决定，与请求无关，所以能一次性构造出来。
+ * HEADERS 不在其中 —— 它的内容依赖具体请求，调用方按 h2_pseudo 的顺序自己发。
+ * 返回写入字节数；缓冲不够或 profile 无 h2 数据返回 -1。 */
+int tlsfp_build_h2_preface(const tlsfp_profile *p, uint8_t *out, size_t outlen);
+
+/* 伪头序（缩写形式，如 "m,a,s,p"）。做成函数而不是让调用方直接读结构体字段：
+ * Lua 侧的 ffi.cdef 里 tlsfp_profile 是截断声明（只到 sigalgs），h2 字段排在
+ * 更后面，按偏移读会读到垃圾。补全那份声明要把中间所有字段都写一遍，往后每加
+ * 一个字段两处都得同步 —— 用访问器就没有这个耦合。 */
+const char *tlsfp_h2_pseudo(const tlsfp_profile *p);
+
 int tlsfp_build_client_hello(const tlsfp_profile *p, const char *sni,
                              const uint8_t *random32, const uint8_t *session_id,
                              uint8_t *out, size_t outlen);

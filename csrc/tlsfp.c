@@ -304,6 +304,84 @@ const tlsfp_profile *tlsfp_profile_at(size_t idx) {
     return idx < TLSFP_PROFILE_COUNT ? &tlsfp_profiles[idx] : NULL;
 }
 
+/* ---- HTTP/2 连接开场组装 ------------------------------------------------- */
+
+/* 定长数组塞不下字符串字面量的结尾 NUL，会触发
+   -Wunterminated-string-initialization；用 sizeof-1 的惯用写法回避。 */
+static const char H2_PREFACE[] = "PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n";
+#define H2_PREFACE_LEN (sizeof(H2_PREFACE) - 1)
+
+static size_t put_u24(uint8_t *p, uint32_t v) {
+    p[0] = (uint8_t)(v >> 16); p[1] = (uint8_t)(v >> 8); p[2] = (uint8_t)v;
+    return 3;
+}
+
+static size_t put_u32(uint8_t *p, uint32_t v) {
+    p[0] = (uint8_t)(v >> 24); p[1] = (uint8_t)(v >> 16);
+    p[2] = (uint8_t)(v >> 8);  p[3] = (uint8_t)v;
+    return 4;
+}
+
+/* 帧头 9 字节：长度(24) 类型(8) 标志(8) 流 ID(31，最高位保留必须为 0) */
+static size_t put_frame_head(uint8_t *p, uint32_t len, uint8_t type,
+                             uint8_t flags, uint32_t sid) {
+    size_t n = put_u24(p, len);
+    p[n++] = type;
+    p[n++] = flags;
+    n += put_u32(p + n, sid & 0x7FFFFFFFu);
+    return n;
+}
+
+const char *tlsfp_h2_pseudo(const tlsfp_profile *p) {
+    return p ? p->h2_pseudo : NULL;
+}
+
+int tlsfp_build_h2_preface(const tlsfp_profile *p, uint8_t *out, size_t outlen) {
+    if (!p || !out) return -1;
+    /* 没有 h2 数据的 profile（库里 81 条里有 25 条）不能凭空造一个开场 ——
+       随便发一组 SETTINGS 等于给出一个不属于任何浏览器的 h2 指纹。 */
+    if (!p->n_h2_settings && !p->h2_window && !p->n_h2_prio) return -1;
+
+    size_t need = H2_PREFACE_LEN
+                + 9 + p->n_h2_settings * 6
+                + (p->h2_window ? 9 + 4 : 0)
+                + p->n_h2_prio * (9 + 5);
+    if (outlen < need) return -1;
+
+    size_t o = 0;
+    memcpy(out + o, H2_PREFACE, H2_PREFACE_LEN);
+    o += H2_PREFACE_LEN;
+
+    /* SETTINGS：每项 6 字节（id 16 位 + value 32 位），流 ID 恒为 0。
+       即便一项都没有也要发这个空帧 —— 协议要求 PREFACE 之后紧跟 SETTINGS。 */
+    o += put_frame_head(out + o, (uint32_t)(p->n_h2_settings * 6), 4, 0, 0);
+    for (size_t i = 0; i < p->n_h2_settings; i++) {
+        uint32_t id = p->h2_settings[i * 2], val = p->h2_settings[i * 2 + 1];
+        out[o++] = (uint8_t)(id >> 8);
+        out[o++] = (uint8_t)id;
+        o += put_u32(out + o, val);
+    }
+
+    /* 连接级 WINDOW_UPDATE（流 ID 0）。0 表示这个浏览器不发，不能补一个默认值。 */
+    if (p->h2_window) {
+        o += put_frame_head(out + o, 4, 8, 0, 0);
+        o += put_u32(out + o, p->h2_window & 0x7FFFFFFFu);
+    }
+
+    /* PRIORITY：Firefox 会在开场发一组优先级树，Chrome 系一般不发。
+       载荷 5 字节 = 依赖流(31) + 独占位(1) + 权重(8)。
+       线上权重比实际值小 1（RFC 7540 §6.3），而 h2probe 解析时 +1 还原，
+       所以这里必须减回去 —— 不减会让权重逐轮漂移。 */
+    for (size_t i = 0; i < p->n_h2_prio; i++) {
+        uint32_t sid = p->h2_prio[i * 4], dep = p->h2_prio[i * 4 + 1];
+        uint32_t excl = p->h2_prio[i * 4 + 2], wt = p->h2_prio[i * 4 + 3];
+        o += put_frame_head(out + o, 5, 2, 0, sid);
+        o += put_u32(out + o, (dep & 0x7FFFFFFFu) | (excl ? 0x80000000u : 0u));
+        out[o++] = (uint8_t)(wt ? wt - 1 : 0);
+    }
+    return (int)o;
+}
+
 /* ---- ClientHello 组装 ---------------------------------------------------- */
 
 static size_t put_u16(uint8_t *p, uint16_t v) {

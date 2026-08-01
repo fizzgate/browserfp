@@ -19,7 +19,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from oracle.covscan import TARGETS, scan                       # noqa: E402
+from oracle.covscan import TARGETS, h2scan, scan                       # noqa: E402
 from oracle.uamap import UAMapper                              # noqa: E402
 
 # 当前水位：每个品牌允许的最大缺漏版本数。
@@ -31,6 +31,21 @@ BASELINE = {
     "firefox-mobile": 0,     # 同上（桌面等价回落 + 145-153 派生）
     "safari": 3,             # 12-14 —— 闭源无段表，桌面侧无数据
     "safari-mobile": 0,      # 已全覆盖
+}
+
+# h2 层的水位，单独一张表。**不能并进上面那张**：TLS 覆盖 99.5% 而 h2 只有
+# 67.7%，合并成一个数字会把后者藏起来 —— 而"TLS 像 Chrome、h2 不像任何浏览器"
+# 恰恰是最容易被判的组合。
+#
+# 缺口几乎全部来自只建模 TLS 的来源库（utls 全系没有 h2），chrome 70-98 大量
+# 落在那些条目上。补法只有两条：真机采（oracle/h2probe.py 那套）或读 Chromium
+# 的 h2 源码 —— 不能借隔壁 profile 的 h2 顶上，那是把两个浏览器拼在一起。
+H2_BASELINE = {
+    "chrome": 29, "chrome-mobile": 29,
+    "firefox": 25, "firefox-mobile": 24,
+    "edge": 20, "edge-mobile": 20,
+    "opera": 29, "opera-mobile": 29,
+    "safari": 0, "safari-mobile": 2,
 }
 
 
@@ -84,12 +99,27 @@ def main():
         print(f"\n↓ {brand} 缺漏降到 {n}（水位 {limit}），"
               "确认是真的补上了而非判据放宽后，把 BASELINE 改成新值。")
 
+    h2_worse, h2_total = [], 0
+    print(f"\n{'品牌':16s} {'缺 h2':>6} {'水位':>6}")
+    for brand in TARGETS:
+        n = len(h2scan(brand, mapper))
+        h2_total += n
+        limit = H2_BASELINE.get(brand, 0)
+        mark = "  ✗ 变差" if n > limit else ("  ↓ 可收紧水位" if n < limit else "")
+        if n > limit:
+            h2_worse.append((brand, n, limit))
+        print(f"{brand:16s} {n:>6} {limit:>6}{mark}")
+    print(f"\nh2 层缺口合计 {h2_total} 个版本（水位合计 {sum(H2_BASELINE.values())}）")
+    for brand, n, limit in h2_worse:
+        print(f"\n✗ {brand} 的 h2 缺口 {n} 超过水位 {limit} —— "
+              "要么补 h2 数据，要么查清是不是映射改动把版本挪到了无 h2 的条目上。")
+
     rng = check_scan_range(mapper)
     print(f"\n扫描范围覆盖已有数据  {'OK' if not rng else '失败'}")
     for b in rng:
         print(f"  ✗ {b}")
 
-    failed = worse or rng
+    failed = worse or rng or h2_worse
     print(f"\n{'覆盖未倒退' if not failed else '覆盖或扫描范围有问题'}")
     return 1 if failed else 0
 

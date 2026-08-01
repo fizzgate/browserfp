@@ -55,6 +55,8 @@ int  tlsfp_ja4(const tlsfp_hello *h, char transport, char *out, size_t outlen);
 int  tlsfp_build_client_hello(const tlsfp_profile *p, const char *sni,
                               const uint8_t *random32, const uint8_t *session_id,
                               uint8_t *out, size_t outlen);
+int  tlsfp_build_h2_preface(const tlsfp_profile *p, uint8_t *out, size_t outlen);
+const char *tlsfp_h2_pseudo(const tlsfp_profile *p);
 const tlsfp_profile *tlsfp_profile_at(size_t idx);
 const tlsfp_profile *tlsfp_lookup_ja4(const char *ja4);
 size_t tlsfp_profile_count(void);
@@ -159,6 +161,7 @@ end
 
 -- 复用缓冲区，避免每请求分配（nginx worker 里这条很重要）
 local ch_buf   = ffi.new("uint8_t[16384]")
+local h2_buf = ffi.new("uint8_t[?]", 8192)
 local rnd_buf  = ffi.new("uint8_t[32]")
 local sid_buf  = ffi.new("uint8_t[32]")
 
@@ -201,6 +204,34 @@ function _M.client_hello(brand, version, sni)
                                            ch_buf, ffi.sizeof(ch_buf))
     if n < 0 then return nil, "组装失败（缓冲区不足或 profile 缺重建字段）" end
     return ffi.string(ch_buf, n), prof
+end
+
+-- HTTP/2 连接开场：PREFACE + SETTINGS + WINDOW_UPDATE + PRIORITY。
+--
+-- **TLS 与 h2 必须取自同一个 profile**。伪装是分层的：ClientHello 伪装成
+-- Chrome、h2 的 SETTINGS 却是别的形态，就给出了一个现实中不存在的组合 ——
+-- 那比不伪装更容易被判。所以这里和 client_hello 走同一条 by_ua 查表。
+--
+-- HEADERS 不在返回值里：它的内容依赖具体请求，本库只能给出伪头**顺序**，
+-- 由第二个返回值 profile.h2_pseudo 提供（形如 "m,a,s,p"）。
+--
+-- @return string 开场字节, table profile   或  nil, err
+function _M.h2_preface(brand, version)
+    if not lib then return nil, "libtlsfp.so 未加载" end
+    local prof, err = _M.by_ua(brand, version)
+    if not prof then return nil, err or "无可用 profile" end
+
+    local p = lib.tlsfp_lookup_ua(brand, version, conf_buf)
+    if p == nil then return nil, "profile 已失效" end
+    local n = lib.tlsfp_build_h2_preface(p, h2_buf, ffi.sizeof(h2_buf))
+    -- 没有 h2 数据的 profile 返回 -1。**不能退回一组默认 SETTINGS** ——
+    -- 那等于发一个不属于任何浏览器的 h2 指纹。调用方该走 HTTP/1.1，
+    -- 或者换一个有 h2 数据的版本。
+    if n < 0 then return nil, "该 profile 没有 h2 数据，不能构造开场" end
+
+    local ps = lib.tlsfp_h2_pseudo(p)
+    prof.h2_pseudo = ps ~= nil and ffi.string(ps) or nil
+    return ffi.string(h2_buf, n), prof
 end
 
 function _M.profile_count()

@@ -43,6 +43,14 @@ def load_segments():
     return out
 
 
+def c_u32_array(name, vals):
+    """h2 的 SETTINGS 值与 window_update 都可能超过 16 位，必须用 u32。"""
+    if not vals:
+        return f"static const uint32_t {name}[1] = {{0}};"
+    body = ", ".join(str(v) for v in vals)
+    return f"static const uint32_t {name}[{len(vals)}] = {{{body}}};"
+
+
 def c_u16_array(name, values):
     if not values:
         return f"static const uint16_t {name}[1] = {{0}};"
@@ -284,11 +292,25 @@ def main():
         out.append(c_u16_array(f"p{i}_curves", tls.get("curves") or []))
         out.append(c_u16_array(f"p{i}_sigalgs", tls.get("sig_algs") or []))
 
+        # h2 连接级开场。此前只导出 akamai 指纹**字符串** —— 那是识别用的
+        # 标识符，出站伪装拿它没用：调用方得自己反解析才能知道该发什么
+        # SETTINGS。TLS 层有 build_client_hello，h2 层不该只有一个字符串。
+        h2 = rec.get("h2") or {}
+        st = [x for pair in (h2.get("settings") or []) for x in pair]
+        out.append(c_u32_array(f"p{i}_h2set", st))
+        pr = [x for q in (h2.get("priorities") or [])
+              for x in (q + [0, 0, 0, 0])[:4]]
+        out.append(c_u32_array(f"p{i}_h2prio", pr))
+
     out.append("")
     out.append("static const tlsfp_profile tlsfp_profiles[] = {")
     for i, rec in enumerate(profiles):
         tls = rec["tls"]
-        h2 = (rec.get("h2") or {}).get("akamai_fingerprint") or ""
+        h2rec = rec.get("h2") or {}
+        h2 = h2rec.get("akamai_fingerprint") or ""
+        # 伪头序按 akamai 的写法缩成首字母（m=method a=authority s=scheme
+        # p=path），与 h2_akamai 字符串末段同一套记法，调用方好对照。
+        pseudo = ",".join(k[1] for k in (h2rec.get("pseudo_header_order") or []))
         out.append(
             f'    {{"{rec["id"]}", "{tls.get("ja4","")}", "{h2}", '
             f'"{rec.get("mode","initial")}", '
@@ -300,7 +322,11 @@ def main():
             f'p{i}_rawext, {len(tls.get("raw_extensions") or [])}, '
             f'p{i}_extblob, p{i}_extoff, p{i}_extlen, '
             f'{tls.get("client_version") or 0x0303}, '
-            f'{tls.get("session_id_len") or 32}}},')
+            f'{tls.get("session_id_len") or 32}, '
+            f'p{i}_h2set, {len(h2rec.get("settings") or [])}, '
+            f'{h2rec.get("window_update") or 0}, '
+            f'p{i}_h2prio, {len(h2rec.get("priorities") or [])}, '
+            f'"{pseudo}"}},')
     out.append("};")
     out.append(f"#define TLSFP_PROFILE_COUNT {len(profiles)}")
     out.append("")

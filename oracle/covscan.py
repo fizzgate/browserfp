@@ -126,6 +126,35 @@ def scan(brand, mapper):
     return missing, lo, hi
 
 
+def h2scan(brand, mapper, registry=None):
+    """哪些版本能查到 profile、但那条 profile **没有 h2 数据**。
+
+    伪装是分层的：TLS 对了、h2 发不出匹配的开场，要么退回 HTTP/1.1（现代
+    浏览器不这么干，本身就是信号），要么发一组不属于任何浏览器的 SETTINGS
+    ——后者比不伪装更容易被判。所以 h2 层要单独算覆盖率，不能被 TLS 层的
+    99.5% 掩盖。
+
+    缺口主要来自**只建模 TLS 的来源库**：utls 全系没有 h2 数据，而 chrome
+    70-98 恰好大量落在 utls 的条目上。这类缺口不能靠"借隔壁 profile 的 h2"
+    来补 —— 那是把两个浏览器的两层拼在一起，正是本项目一直在防的事。
+    """
+    if registry is None:
+        with open(os.path.join(os.path.dirname(HERE), "spec",
+                               "profiles.json")) as f:
+            registry = json.load(f)
+    byid = {r["id"]: r for r in registry}
+    tpl, lo, hi = TARGETS[brand]
+    skip = NEVER_RELEASED.get(brand, set())
+    missing = []
+    for v in range(lo, hi + 1):
+        if v in skip:
+            continue
+        pid = mapper.lookup(tpl.format(v=v))["profile"]
+        if pid and not byid.get(pid, {}).get("h2"):
+            missing.append(v)
+    return missing
+
+
 def main(argv):
     only = argv[1] if len(argv) > 1 else None
     mapper = UAMapper()
