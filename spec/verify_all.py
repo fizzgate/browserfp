@@ -29,8 +29,23 @@ PY = os.path.join(ROOT, ".venv", "bin", "python")
 NETWORK_GATES = {"test_live_handshake", "test_cf_discrimination"}
 
 
+# 各门禁真正的结论行长什么样 —— 取末行常常抓到的是附注而非结论。实测
+# test_live_handshake 的末行是"跳过的纯 TLS1.2 profile…"，把最关键的
+# "130/130 组合可用"淹没了。
+VERDICT_HINTS = ("组合可用", "一致", "通过", "OK", "成立", "印证", "可信",
+                 "未倒退", "合规", "无跨品牌")
+
+
+def _pick_verdict(lines):
+    """从输出里挑出真正的结论行：优先含结论词的最后一条，否则退回末行。"""
+    for line in reversed(lines):
+        if any(h in line for h in VERDICT_HINTS):
+            return line.strip()
+    return lines[-1].strip() if lines else "无输出"
+
+
 def _run(mod, timeout=300):
-    """跑一个模块，返回 (成功?, 末行摘要)。"""
+    """跑一个模块，返回 (成功?, 结论摘要)。"""
     env = dict(os.environ)
     for k in ("http_proxy", "https_proxy", "HTTP_PROXY", "HTTPS_PROXY"):
         env.pop(k, None)
@@ -40,7 +55,7 @@ def _run(mod, timeout=300):
     except subprocess.TimeoutExpired:
         return False, f"超时（{timeout}s）"
     lines = [l for l in out.stdout.splitlines() if l.strip()]
-    return out.returncode == 0, (lines[-1] if lines else "无输出")
+    return out.returncode == 0, _pick_verdict(lines)
 
 
 def gates(include_network):

@@ -105,11 +105,20 @@ def brand_versions(rec):
                  "firefox": "firefox", "safari": "safari"}.get(head)
             if b:
                 brands.add(b)
+    # 条目若同时带移动端别名，说明这一份指纹在两个平台都被观测到，桌面
+    # versions 里的版本号也该注册给移动端 —— 与 oracle/uamap.py 同一条判据。
+    # 实测 real:safari 是本机 Safari 27 的实采、iOS 别名只到 26，不补这条会
+    # 出现"同一份指纹，桌面有 27 而 safari-mobile 说没有"。
+    has_mobile_alias = any(
+        MOBILE_ALIAS.search(a.split(":", 1)[1])
+        for a in [rec["id"]] + rec.get("aliases", []))
     for vs in (rec.get("versions") or []):
         mm = re.match(r"^(?:\D*?)(\d+)", str(vs))
         if mm:
             for b in brands:
                 out.add((b, int(mm.group(1))))
+                if has_mobile_alias:
+                    out.add((b + "-mobile", int(mm.group(1))))
     for cv in (rec.get("covers_versions") or []):
         for b in brands:
             out.add((b, cv))

@@ -31,13 +31,11 @@ from oracle.uamap import UAMapper, parse_ua                   # noqa: E402
 #   Python  移动端表没有该版本时，回落到**桌面段表**内取最近
 #   C       只在 <移动端段 ∩ 桌面段可替代> 的交集里补条目，补不出来就靠查表时
 #           的 same-seg 推断，而那条要求 lo 与 hi 都存在、同组同库
-# 实测 firefox-mobile 110/111/120/123 落在这个差集里。修法是把两侧的取值范围
-# 统一，但那要动 C 的查表顺序，牵连面比看上去大 —— 先记住水位，不让它继续变差。
-#
-# **这几处都是 C 比 Python 宽或严一档，不会让 C 发出 Python 判 fallback 的
-# 指纹之外的东西**：110/120/123 上 C 更严（拒绝），111 上 C 更宽，而 111 那条
-# 已经在上一轮通过 desk_ok 限制堵掉了大部分同类情况。
-FULL_RANGE_BASELINE = 5
+# 那批 firefox-mobile 的分歧已随实采补齐而消失（108-111 与 119-123 两段拿到
+# 实采锚之后，两侧都能在段内取到同一个最近版本）。现在只剩 chrome 151 一处：
+# 它是 confidence 归类差异（Python 报 same-seg、C 报 exact），profile 本身一致，
+# 不会让任何一侧发出对方拒绝的指纹。
+FULL_RANGE_BASELINE = 1
 
 
 def _full_range_diff(mapper):
