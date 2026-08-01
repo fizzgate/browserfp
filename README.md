@@ -231,8 +231,8 @@ local r = tlsfp.by_ua("chrome", 150)
 
 ```
 exact       82.3%
-same-seg     7.9%     ← 可安全伪装合计 90.2%
-fallback     2.0%     ← 严格模式下不伪装，**全部是移动端**
+same-seg     9.2%     ← 可安全伪装合计 91.5%
+fallback     0.8%     ← 严格模式下不伪装，**全部是移动端**
 unparsed     7.8%     ← 非浏览器 UA（扫描器、UC 浏览器、残缺 UA 等）
 ```
 
@@ -268,7 +268,7 @@ iOS ≡ macOS 覆盖 153/155/180/26）。`test_ua_mapping` 断言该数不少于
 | 品牌 | 已有版本 | 生产需要但缺 |
 |---|---|---|
 | `safari-mobile` | 15, 16, 17, 18, 26 | —（已全覆盖）|
-| `chrome-mobile` | 99, 131 | 101, 121, 125, 126, 134 |
+| `chrome-mobile` | 99, 131（+ 源码段表覆盖 97–132）| 134 |
 | `firefox-mobile` | 135（+ 源码段表覆盖 124–144）| 115 |
 | `edge-mobile` | — | 120 |
 
@@ -283,7 +283,24 @@ Android 只有 1 条（FirefoxAndroid135，单版本单来源）。段表 5 个�
 没有任何 golden，所以只有 124–144 段真正可用。要提高置信度只能补更多 Android
 实采。
 
-Android Chrome 走 Chromium 的 `IS_ANDROID` 分支、iOS Safari 闭源，这两条仍用不上。
+**Android Chrome 同样可推导**。差异同源于硬编码的平台分支：
+
+```c
+BASE_FEATURE(kPostQuantumKyber, "PostQuantumKyber",
+#if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_IOS)
+             base::FEATURE_DISABLED_BY_DEFAULT);   // 移动端默认关
+#else
+             base::FEATURE_ENABLED_BY_DEFAULT);
+```
+
+而 `PostQuantumKeyAgreementEnabled()` 就是 `IsEnabled(kPostQuantumKyber)`。据此
+建的 `chrome-mobile` 段表，边界与实采吻合（`chrome131_android` 落在启用 MLKEM
+之前的段、确实没有 `0x11ec`）。再补上 ECH 维度（`kEncryptedClientHello` 在 M119
+翻成 ENABLED、M124 起转正为默认行为）后，97–118 与 119–132 两段各自内部一致，
+覆盖了生产里 chrome-mobile 的四个缺口版本。
+
+iOS Safari 闭源，这条仍用不上 —— 但 iOS 上所有浏览器共用系统 WebKit，
+`safari-mobile` 靠实采 golden 已全覆盖。
 四个开源库里的 android 变体（okhttp4_android_*、nike_android_mobile 等）绝大多数
 是 **App 的 OkHttp 栈**而非浏览器，不能拿来服务浏览器 UA。
 

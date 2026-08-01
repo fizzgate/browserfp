@@ -488,6 +488,27 @@ def alps_enabled(tag):
     return bool(feature_default(tag, "kAlpsForHttp2"))
 
 
+def chrome_ech(tag, platform="desktop"):
+    """是否默认发 encrypted_client_hello(0xfe0d)。
+
+    由 kEncryptedClientHello 决定，实测 M119 起翻成 ENABLED（99-117 都是
+    DISABLED）。M124 起该 feature 从 features.cc 消失 —— 那是它已成为默认行为、
+    不再需要开关，此时按 True 处理。实采两侧都对得上：curl_cffi 的
+    chrome99_android 不发 ECH、chrome131_android 发。
+
+    **feature 消失当成 True 是有前提的**：仅当该扩展在更早版本已翻成 ENABLED。
+    若一个 feature 从未 ENABLED 过就消失，那是功能被删而非转正，不能这么判。
+    """
+    try:
+        d = _get(f"{JSD}/chromium/chromium@{tag}/net/base/features.cc",
+                 os.path.join(CACHE, tag, "features.cc"))
+    except Exception:
+        return None
+    if "kEncryptedClientHello" not in d:
+        return True          # 已转正为默认行为
+    return bool(feature_default(tag, "kEncryptedClientHello", platform))
+
+
 def extract(major, platform="desktop"):
     """返回该 Chrome 主版本在指定平台下的 ClientHello 相关表。
 
@@ -547,6 +568,7 @@ def extract(major, platform="desktop"):
         "cipher_excludes": cipher_excludes,
         "channel_id": channel_id,
         "alps": alps_enabled(tag),
+        "ech": chrome_ech(tag, platform),
         "ext_order": ext_order,
         "tag": tag,
         "boringssl": rev,

@@ -177,12 +177,13 @@ KEYS_BY_BRAND = {
     # 89 起 0xfe09…），而这些扩展是否真发根本没有依据。要用它必须先按实采
     # 学到的发送集合过滤，那已经依赖 golden 而不是纯源码推导了。
     "chrome": ("curves", "key_share_groups", "verify_sigalgs", "verify_prefs",
-               "cipher_excludes", "channel_id", "alps"),
+               "cipher_excludes", "channel_id", "alps", "ech"),
     # Android Chrome 与桌面同源，差异集中在后量子密钥交换（kPostQuantumKyber
     # 在 #if BUILDFLAG(IS_ANDROID) 下默认关闭），判段字段与桌面相同，只是按
     # android 平台求值。
     "chrome-mobile": ("curves", "key_share_groups", "verify_sigalgs",
-                      "verify_prefs", "cipher_excludes", "channel_id", "alps"),
+                      "verify_prefs", "cipher_excludes", "channel_id", "alps",
+                      "ech"),
 }
 KEYS = KEYS_BY_BRAND["firefox"]
 

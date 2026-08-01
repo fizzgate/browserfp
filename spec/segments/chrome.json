@@ -19,6 +19,7 @@
         "curves": [
           "boringssl-default"
         ],
+        "ech": null,
         "ext_order": [
           65281,
           0,
@@ -113,6 +114,7 @@
         "curves": [
           "boringssl-default"
         ],
+        "ech": true,
         "ext_order": [
           0,
           23,
@@ -207,6 +209,7 @@
         "curves": [
           "boringssl-default"
         ],
+        "ech": true,
         "ext_order": [
           0,
           23,
@@ -302,6 +305,7 @@
         "curves": [
           "boringssl-default"
         ],
+        "ech": true,
         "ext_order": [
           0,
           23,
@@ -405,6 +409,7 @@
         "curves": [
           "boringssl-default"
         ],
+        "ech": true,
         "ext_order": [
           0,
           65033,
@@ -504,7 +509,7 @@
     {
       "from": 97,
       "substitutable": false,
-      "substitution_reason": "\u6bb5\u5212\u7c97\u4e86\uff08\u5f3a\u8bc1\u636e\uff09\uff1acurl_cffi \u8986\u76d6 10 \u7248\u672c\u5374\u6709 3 \u79cd\u6307\u7eb9\u3001tls_client \u8986\u76d6 12 \u7248\u672c\u5374\u6709 2 \u79cd\u6307\u7eb9\u3001utls \u8986\u76d6 3 \u7248\u672c\u5374\u6709 2 \u79cd\u6307\u7eb9\u3001wreq \u8986\u76d6 16 \u7248\u672c\u5374\u6709 3 \u79cd\u6307\u7eb9",
+      "substitution_reason": "\u6bb5\u5212\u7c97\u4e86\uff08\u5f3a\u8bc1\u636e\uff09\uff1awreq \u8986\u76d6 13 \u7248\u672c\u5374\u6709 3 \u79cd\u6307\u7eb9",
       "tables": {
         "alps": true,
         "boringssl": "69030a0ceabfe69c58cb2b83d9d4852333e3d0c2",
@@ -515,6 +520,7 @@
         "curves": [
           "boringssl-default"
         ],
+        "ech": false,
         "ext_order": [
           0,
           65037,
@@ -605,6 +611,89 @@
           "SSL_SIGN_RSA_PKCS1_SHA1"
         ]
       },
+      "to": 118
+    },
+    {
+      "from": 119,
+      "substitutable": false,
+      "substitution_reason": "\u6bb5\u5212\u7c97\u4e86\uff08\u5f3a\u8bc1\u636e\uff09\uff1acurl_cffi \u8986\u76d6 3 \u7248\u672c\u5374\u6709 2 \u79cd\u6307\u7eb9\u3001wreq \u8986\u76d6 3 \u7248\u672c\u5374\u6709 2 \u79cd\u6307\u7eb9",
+      "tables": {
+        "alps": true,
+        "boringssl": "d24a38200fef19150eef00cad35b138936c08767",
+        "channel_id": false,
+        "cipher_excludes": [
+          "kRSA"
+        ],
+        "curves": [
+          "boringssl-default"
+        ],
+        "ech": true,
+        "ext_order": [],
+        "extensions_set": [
+          "application_layer_protocol_negotiation",
+          "application_settings",
+          "application_settings_old",
+          "cert_compression",
+          "certificate_timestamp",
+          "channel_id",
+          "cookie",
+          "delegated_credential",
+          "early_data",
+          "ec_point_formats",
+          "encrypted_client_hello",
+          "extended_master_secret",
+          "key_share",
+          "next_proto_neg",
+          "psk_key_exchange_modes",
+          "quic_transport_parameters",
+          "quic_transport_parameters_legacy",
+          "renegotiate",
+          "server_name",
+          "session_ticket",
+          "signature_algorithms",
+          "srtp",
+          "status_request",
+          "supported_groups",
+          "supported_versions"
+        ],
+        "key_share_groups": [],
+        "sign_sigalgs": [
+          "SSL_SIGN_ED25519",
+          "SSL_SIGN_ECDSA_SECP256R1_SHA256",
+          "SSL_SIGN_RSA_PSS_RSAE_SHA256",
+          "SSL_SIGN_RSA_PKCS1_SHA256",
+          "SSL_SIGN_ECDSA_SECP384R1_SHA384",
+          "SSL_SIGN_RSA_PSS_RSAE_SHA384",
+          "SSL_SIGN_RSA_PKCS1_SHA384",
+          "SSL_SIGN_ECDSA_SECP521R1_SHA512",
+          "SSL_SIGN_RSA_PSS_RSAE_SHA512",
+          "SSL_SIGN_RSA_PKCS1_SHA512",
+          "SSL_SIGN_ECDSA_SHA1",
+          "SSL_SIGN_RSA_PKCS1_SHA1"
+        ],
+        "tag": "119.0.6045.105",
+        "verify_prefs": [
+          "SSL_SIGN_ECDSA_SECP256R1_SHA256",
+          "SSL_SIGN_RSA_PSS_RSAE_SHA256",
+          "SSL_SIGN_RSA_PKCS1_SHA256",
+          "SSL_SIGN_ECDSA_SECP384R1_SHA384",
+          "SSL_SIGN_RSA_PSS_RSAE_SHA384",
+          "SSL_SIGN_RSA_PKCS1_SHA384",
+          "SSL_SIGN_RSA_PSS_RSAE_SHA512",
+          "SSL_SIGN_RSA_PKCS1_SHA512"
+        ],
+        "verify_sigalgs": [
+          "SSL_SIGN_ECDSA_SECP256R1_SHA256",
+          "SSL_SIGN_RSA_PSS_RSAE_SHA256",
+          "SSL_SIGN_RSA_PKCS1_SHA256",
+          "SSL_SIGN_ECDSA_SECP384R1_SHA384",
+          "SSL_SIGN_RSA_PSS_RSAE_SHA384",
+          "SSL_SIGN_RSA_PKCS1_SHA384",
+          "SSL_SIGN_RSA_PSS_RSAE_SHA512",
+          "SSL_SIGN_RSA_PKCS1_SHA512",
+          "SSL_SIGN_RSA_PKCS1_SHA1"
+        ]
+      },
       "to": 123
     },
     {
@@ -624,6 +713,7 @@
           "secp256r1",
           "secp384r1"
         ],
+        "ech": true,
         "ext_order": [],
         "extensions_set": [
           "application_layer_protocol_negotiation",
@@ -709,6 +799,7 @@
           "secp256r1",
           "secp384r1"
         ],
+        "ech": true,
         "ext_order": [],
         "extensions_set": [
           "application_layer_protocol_negotiation",
@@ -795,6 +886,7 @@
           "secp256r1",
           "secp384r1"
         ],
+        "ech": true,
         "ext_order": [],
         "extensions_set": [
           "application_layer_protocol_negotiation",
@@ -883,6 +975,7 @@
           "secp256r1",
           "secp384r1"
         ],
+        "ech": true,
         "ext_order": [],
         "extensions_set": [
           "application_layer_protocol_negotiation",
@@ -974,6 +1067,7 @@
           "secp256r1",
           "secp384r1"
         ],
+        "ech": true,
         "ext_order": [],
         "extensions_set": [
           "application_layer_protocol_negotiation",
