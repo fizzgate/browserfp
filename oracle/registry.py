@@ -37,6 +37,7 @@ SOURCES = [
     ("curl_cffi", "curl_cffi_nosni.json", "h2_curl_cffi.json", "opensource-table", "initial"),
     ("tls_client", "tls_client_nosni.json", "h2_tls_client.json", "opensource-table", "initial"),
     ("wreq", "wreq_nosni.json", None, "opensource-table", "initial"),
+    ("utls", "utls_nosni.json", None, "opensource-table", "initial"),
     ("real", "real_browsers.json", "h2_real_browsers.json", "real-capture", "initial"),
     ("curl_cffi_psk", "curl_cffi_psk.json", "h2_curl_cffi.json", "opensource-table", "resumed"),
     ("real_psk", "real_browsers_psk.json", "h2_real_browsers.json", "real-capture", "resumed"),

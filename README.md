@@ -9,11 +9,11 @@
 
 | 指标 | 数值 |
 |---|---|
-| 唯一指纹 | **59**（来自 269 个 target 名，按 13 个确定性字段去重） |
-| 连接形态 | 首连 44 + 会话恢复 15 |
-| 来源 | 开源表 52 + 真机采集 7 |
-| 含 h2 层 | 50/59 |
-| 重建门禁 | 59/59 |
+| 唯一指纹 | **74**（来自 305 个 target 名，按 13 个确定性字段去重） |
+| 连接形态 | 首连 59 + 会话恢复 15 |
+| 来源 | 开源表 67 + 真机采集 7 |
+| 含 h2 层 | 50/74 |
+| 重建门禁 | 74/74 |
 | 可用性门禁 | 66/68（34 profile × 2 真实站点） |
 
 ### 用途决定了要覆盖什么
@@ -39,11 +39,22 @@
 | curl_cffi 0.13.0 | 31 | ≤136 | ≤135 | 26.0 | **101** | — |
 | bogdanfinn/tls-client 1.14.0 | 76 | ≤146 | ≤147 | 16.0 | **101** | 91 |
 | 0x676e67/wreq（Rust） | 134 | ≤149 | ≤151 | 26_4 | **148** | 131 |
+| refraction/utls v1.8.3-dev | 36 | 58–133 | 55–148 | 16.0 / **26_3** | 85–106 | — |
 | 真机采集 | 4 | 151 | 149 | 27 | — | — |
 
 wreq 补上了前两家最大的缺口：**Edge 在 curl_cffi 与 tls-client 都停在 2022 年的
 101，wreq 到 148**。它还独有几个维度：`FirefoxPrivate`（隐私模式）、
 `FirefoxAndroid`、`SafariIpad`。
+
+utls 上游的价值不在最新版，而在**别处没有的老版本与国产浏览器**：Chrome 58/62/70/72、
+Firefox 55/56/63/65、QQ 11.1、360 7.5/11.0 —— 它 36 个变体贡献了 15 个新唯一指纹，
+比 wreq 的 133 个贡献 5 个还多。另有两个填空洞的：`HelloSafari_26_3`（JA4 与真机
+Safari 27 完全相同）与 `HelloFirefox_148`（`record_size_limit=16385`，与真机
+Firefox 149 一致，而 curl_cffi:firefox135 是 4001）。
+
+构建注意：utls v1.8.3-dev 依赖 `crypto/mlkem`（Go 1.24+ 标准库）。**不要设
+`GOTOOLCHAIN=local`** —— 本机 `/usr/local/go` 是 1.23.1 会编译失败，默认工具链
+1.25.7 可用。
 
 wreq 要求 Python ≥3.11，而主 venv 是系统 Python 3.9（curl_cffi 在其上工作正常，
 不动它），故单独建 `.venv-wreq`（anaconda 3.12）。
@@ -58,6 +69,7 @@ ML-DSA（`0x0904/0905/0906`），连 `tls_client:chrome_146` 都没有。所以�
 采集 ─┬─ oracle/collect.py     curl_cffi 31 个（带/不带 SNI 两套）
       ├─ oracle/gocollect.py   tls-client 67 个（Go 采集器发真实 ClientHello）
       ├─ oracle/wreqcollect.py wreq 133 个（须用 .venv-wreq/bin/python 跑）
+      ├─ oracle/utlscollect.py refraction utls 36 个（老版本 + QQ/360）
       ├─ oracle/goh2collect.py tls-client 71 个的 h2 层
       ├─ oracle/browsers.py    真机浏览器 TLS 层
       └─ oracle/h2collect.py   真机浏览器 h2 层
@@ -176,7 +188,7 @@ key_share 那条是有价值的阴性结果：它证明现有 13 字段判据**�
   废弃草案，cryptography 未实现。刻意不加豁免表，让它每次都报出来。
 - **5 个纯 TLS1.2 profile 未覆盖**：cloudscraper / confirmed_android / mesh_android_2 /
   okhttp4_android_7 / okhttp4_android_8。参考实现只做 TLS 1.3。
-- **4 个缺 h2 层**：cloudscraper / mesh_android_2 / mms_ios / mms_ios_2 ——
+- **24 个缺 h2 层**（wreq 与 utls 两源只采了 TLS 层，未采 h2）。原先的 4 个：cloudscraper / mesh_android_2 / mms_ios / mms_ios_2 ——
   **均为非浏览器 app profile，浏览器侧无缺口**（四个真机浏览器全部三层齐全）。
 - **CF 挑战未验证**：claude.ai 根路径本就不设防（三种指纹结果一致、无 `cf-mitigated`），
   要验 managed challenge 需要一个真正会触发的端点。

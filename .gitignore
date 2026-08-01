@@ -2,3 +2,5 @@
 __pycache__/
 oracle/gotls/fizztls-probe
 oracle/gotls/hrrserver/hrrserver
+oracle/goutls/fizztls-utls
+oracle/gosurf/fizztls-surf
