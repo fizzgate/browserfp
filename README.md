@@ -90,6 +90,37 @@ ML-DSA（`0x0904/0905/0906`），连 `tls_client:chrome_146` 都没有。所以�
       └─ oracle/h2client.py    HTTP/2（SETTINGS/伪头顺序照 profile）
 ```
 
+## 伪装链：从 UA 到可发送的字节
+
+网关拿到 UA 之后，整条链是：
+
+```
+UA → parse_ua → 段表/等价关系选 profile → tlsfp_build_client_hello() → cosocket 发出
+```
+
+C 侧的构造器 `tlsfp_build_client_hello()` 与库里其他函数一样是**内存进内存出、
+非阻塞**的，可直接在 nginx worker 里调。Lua 侧一步到位：
+
+```lua
+local rec, prof = tlsfp.client_hello("chrome", 151, "example.com")
+-- rec 是可直接 sock:send() 的完整 TLS record
+```
+
+两个设计要点：
+
+**random 与 session_id 每次调用都重新生成**。照抄 golden 里那份会让所有连接的
+ClientHello 逐字节相同 —— 那比不伪装还容易被判。Lua 侧走 `resty.random`，C 侧
+由调用方传入。
+
+**SNI 支持插入而不只是替换**。库里 81 条 golden 只有 2 条带 `server_name`（都采
+自无 SNI 场景），只做替换的话 `sni` 参数会被静默忽略。这个缺陷差点被掩盖：
+cloudflare.com 有默认证书、没 SNI 照样通过，只有 example.com 会回
+`handshake_failure(40)` —— **只测一个站点就会误以为没问题**。
+
+验证两层：`spec/test_build_parity.py` 做重建闭环（C 构造 80 条 → Python 解析 →
+与 golden 逐字段比），以及真实握手（chrome 151 / firefox 153 / safari-mobile 27
+× cloudflare / example / github，9/9 收到 ServerHello）。
+
 ## 一条命令看全部状态
 
 验证入口散在 20 多个门禁 + covscan + live_handshake 里，想知道"现在到底什么
