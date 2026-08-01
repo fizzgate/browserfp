@@ -30,15 +30,75 @@ extensions 三张表，**没有覆盖 curves(supported_groups)**。三个参考�
 import concurrent.futures
 import json
 import os
+import re
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from oracle.nsssrc import extract as ff_extract                # noqa: E402
 from oracle.chromiumsrc import extract as cr_extract           # noqa: E402
+from oracle.coverage import FIELDS, SET_FIELDS                 # noqa: E402
+
+# 由调用方设置、与浏览器版本无关，判段内一致性时排除
+CALLER_SET = ("alpn",)
+
+
+def _fp_key(tls):
+    return json.dumps(
+        {f: (sorted(tls.get(f) or []) if f in SET_FIELDS else tls.get(f))
+         for f in FIELDS if f not in CALLER_SET}, sort_keys=True)
+
+
+def golden_by_version(brand):
+    """{主版本: [(来源库, 指纹key)]}，取自实采注册表。"""
+    if not os.path.exists(REGISTRY):
+        return {}
+    with open(REGISTRY) as f:
+        registry = json.load(f)
+    pat = (r"^(\w+):(?:[Cc]hrome|[Cc]hromium)[-_]?(\d+)$" if brand == "chrome"
+           else r"^(\w+):[Ff]irefox[-_]?(\d+)$")
+    out = {}
+    for rec in registry:
+        if rec.get("mode") != "initial" or not rec.get("default_config", True):
+            continue
+        for alias in [rec["id"]] + rec.get("aliases", []):
+            m = re.match(pat, alias)
+            if m:
+                out.setdefault(int(m.group(2)), []).append(
+                    (m.group(1), _fp_key(rec["tls"])))
+    return out
+
+
+def segment_substitutable(seg, golden):
+    """该段能否用于段内替代 —— **逐段判**，不是整个品牌一刀切。
+
+    判据：段内实采 golden 指纹一致。一致说明"同段即同指纹"在这一段被实测证实；
+    不一致说明段划粗了，段内替代会发错指纹。段内无 golden 也判 false——没有可
+    替代者，谈不上替代。
+
+    **必须在同一来源库内比**。各库抓包的环境、时间、feature 配置都不同，实测
+    同一版本在不同库里指纹就不一致（29 个多库收录版本中 17 个有分歧）。拿跨库
+    差异当"段划粗"的证据，会把采集噪声记成我们的错，几乎每段都会被误判成不可
+    替代。
+
+    这比品牌级开关精确得多：Chrome 段 83-96 内 utls 自己的 83 与 96 就不同
+    （ALPS 差异），该段必须禁止；而某些段内各库自洽，就可以放开。
+    """
+    per_src = {}
+    for v in range(seg["from"], seg["to"] + 1):
+        for src, key in golden.get(v, []):
+            per_src.setdefault(src, set()).add(key)
+    if not per_src:
+        return False, "段内无实采 golden"
+    split = {src: len(ks) for src, ks in per_src.items() if len(ks) > 1}
+    if split:
+        return False, ("段划粗了："
+                       + "、".join(f"{s} 内部 {n} 种指纹" for s, n in sorted(split.items())))
+    return True, f"{sorted(per_src)} 各自内部指纹一致"
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 OUT_DIR = os.path.join(HERE, "..", "spec", "segments")
+REGISTRY = os.path.join(HERE, "..", "spec", "profiles.json")
 
 MAX_WORKERS = 5          # 对方是公共服务器，别打太狠
 
@@ -192,10 +252,14 @@ def main(argv):
         #            Chrome 版本在不同用户/地区/时间可能发出不同指纹，
         #            "版本 → 唯一指纹"对 Chrome 不成立。它只能用于反向判断：
         #            curves/sigalgs 这类硬编码表变了则**必定**不同段。
+        golden = golden_by_version(brand)
+        seg_flags = [segment_substitutable(s, golden) for s in segs]
+        n_ok = sum(1 for ok, _ in seg_flags if ok)
         substitutable = brand == "firefox"
         payload = {
             "brand": brand,
             "usable_for_substitution": substitutable,
+            "substitutable_segments": n_ok,
             "substitution_note": (
                 "段内可安全替代（源码三表 + curves + sct 已覆盖决定性维度）"
                 if substitutable else
@@ -207,11 +271,17 @@ def main(argv):
             "scanned": [lo, hi],
             "unavailable": sorted(failed, key=int),
             "segments": [{"from": s["from"], "to": s["to"],
-                          "tables": s["tables"]} for s in segs],
+                          "tables": s["tables"],
+                          "substitutable": ok, "substitution_reason": why}
+                         for s, (ok, why) in zip(segs, seg_flags)],
         }
         with open(path, "w") as f:
             json.dump(payload, f, indent=2, sort_keys=True)
             f.write("\n")
+        print(f"\n逐段可替代性：{n_ok}/{len(segs)} 段可用于段内替代")
+        for s, (ok, why) in zip(segs, seg_flags):
+            span = f"{s['from']}-{s['to']}"
+            print(f"  {'✅' if ok else '❌'} {span:<10} {why}")
         print(f"\n落盘 → {os.path.normpath(path)}")
     return 0
 

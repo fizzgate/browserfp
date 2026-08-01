@@ -21,7 +21,10 @@ SEGMENTS_DIR = os.path.join(HERE, "..", "spec", "segments")
 
 
 def load_segments():
-    """加载源码段表，只收标了 usable_for_substitution 的品牌。
+    """加载源码段表，**逐段**筛选，只收 substitutable=true 的段。
+
+    早先按品牌整体开关，太粗——Firefox 也有 4 个段的实采 golden 在同一来源库
+    内就不一致（段划粗了），拿它们替代同样会发错指纹。
 
     与 oracle/uamap.py 用同一份数据、同一条判据——两边算法不一致的话，
     spec/test_c_ua_parity.py 会立刻抓到，但那时已经浪费一轮排查了。
@@ -34,8 +37,9 @@ def load_segments():
             continue
         with open(os.path.join(SEGMENTS_DIR, name)) as f:
             data = json.load(f)
-        if data.get("usable_for_substitution"):
-            out[data["brand"]] = data["segments"]
+        usable = [s for s in data["segments"] if s.get("substitutable")]
+        if usable:
+            out[data["brand"]] = usable
     return out
 
 

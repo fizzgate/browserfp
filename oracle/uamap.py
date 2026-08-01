@@ -47,12 +47,15 @@ SEGMENTS_DIR = os.path.join(HERE, "..", "spec", "segments")
 
 
 def load_segments():
-    """加载各品牌的源码段表，**只收标了可替代的**。
+    """加载源码段表，**逐段**筛选，只收 substitutable=true 的段。
 
-    chrome.json 的 usable_for_substitution 是 false：Chrome 大量行为由运行期
-    feature flag 决定，静态分析覆盖不到，实测同段内各参考项目仍有多种指纹
-    （段 131-141 里四家独立地都把 131 与 132+ 分开）。拿它做段内替代就会发出
-    错的指纹，正是严格模式要防的事。
+    早先是品牌级开关（firefox 整体可用、chrome 整体不可用），太粗：Firefox
+    也有 4 个段的实采 golden 在同一来源库内就不一致（段划粗了），拿它们做替代
+    同样会发错指纹。逐段判之后 firefox 5/9、chrome 1/8 段可用。
+
+    每段的 substitutable 由 oracle/segments.py 落盘时算出：该段内实采 golden
+    在**同一来源库内**是否一致。跨库差异是采集环境噪声（29 个多库收录版本中
+    17 个有分歧），不能当作段划粗的证据。
     """
     out = {}
     if not os.path.isdir(SEGMENTS_DIR):
@@ -62,8 +65,9 @@ def load_segments():
             continue
         with open(os.path.join(SEGMENTS_DIR, name)) as f:
             data = json.load(f)
-        if data.get("usable_for_substitution"):
-            out[data["brand"]] = data["segments"]
+        usable = [s for s in data["segments"] if s.get("substitutable")]
+        if usable:
+            out[data["brand"]] = usable
     return out
 
 # 顺序有意义：Edge/Opera 的 UA 里也含 "Chrome/"，必须先匹配更具体的标记。
