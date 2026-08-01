@@ -27,8 +27,8 @@ from oracle.uamap import UAMapper                              # noqa: E402
 BASELINE = {
     "chrome": 2,             # 71, 153 —— 段内无实采 golden
     "chrome-mobile": 2,      # 同上
-    "firefox": 3,            # 119/121-122 —— 段内 tls_client 1:1 平局
-    "firefox-mobile": 3,     # 同上（111 已由 Linux 容器实采打破平局）
+    "firefox": 0,            # 已全覆盖（78/83/111/121 四份 Linux 容器实采作锚）
+    "firefox-mobile": 0,     # 同上（桌面等价回落 + 145-153 派生）
     "safari": 3,             # 12-14 —— 闭源无段表，桌面侧无数据
     "safari-mobile": 0,      # 已全覆盖
 }
