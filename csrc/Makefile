@@ -8,6 +8,16 @@ LDFLAGS ?= -L$(OPENSSL_PREFIX)/lib -lcrypto
 # tlsfp.c 的行为，门禁却报旧行为，既能假绿也能假红。
 all: ja4cli uacli lookup_test libtlsfp.so
 
+# **改了数据源就用 `make regen`，别手工 rm profiles.inc**。实测两次踩同一个坑：
+# 手工删掉 inc 再 make，重建出来的仍是旧内容（wildcard 在 make 启动时求值，
+# 而此时文件刚被删），于是 C 侧拿着陈旧的表跑、差分门禁报出并不存在的分歧，
+# 而 make 全程不报错 —— 排查方向会被彻底带偏。
+.PHONY: regen
+regen:
+	rm -f profiles.inc
+	python3 gen_profiles.py > profiles.inc
+	$(MAKE) all
+
 # **依赖必须列全**：profiles.inc 还取决于段表产物，段表变了却不重建，C 侧就会
 # 拿着旧表跑，而 make 不会报错 —— 差分门禁曾因此在还原变异后仍报 8 处不符，
 # 实际源码早已恢复，只是 inc 没跟着重建。
