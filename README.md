@@ -61,6 +61,8 @@ ML-DSA（`0x0904/0905/0906`），连 `tls_client:chrome_146` 都没有。所以�
                 │
 合成 ──  oracle/registry.py    三源合并去重 → spec/profiles.json
                 │
+识别 ──  oracle/match.py       ClientHello → 已知 profile 或明确的 unknown
+                │
 消费 ─┬─ oracle/chbuild.py     profile → ClientHello 字节
       ├─ oracle/tls13.py       TLS 1.3 握手（含 X25519MLKEM768）
       └─ oracle/h2client.py    HTTP/2（SETTINGS/伪头顺序照 profile）
@@ -71,12 +73,36 @@ ML-DSA（`0x0904/0905/0906`），连 `tls_client:chrome_146` 都没有。所以�
 ```bash
 python -m spec.test_rebuild            # 数据自洽：profile → 字节 → 解析 → 逐字段比
 python -m spec.test_live_handshake     # 真实可用：34 profile × 2 站点，真握手 + h2
+python -m spec.test_match              # 识别器：认得出 + 认不出必须报 unknown
 python -m spec.test_cf_discrimination  # 指纹是否被区别对待（三臂对照）
 python -m oracle.coverage              # 开源表对真机的覆盖矩阵
 python -m oracle.srcaudit              # 源码审计：还有哪些扩展我们从没见过
 ```
 
 自洽 ≠ 可用：字节拼得出、解析回来一致，不代表服务端会接受。两者必须分开验。
+
+## 识别器
+
+`oracle/match.py` 是整条链路的落点：输入 ClientHello，输出已知 profile 或 unknown。
+
+| 档位 | 含义 |
+|---|---|
+| `exact` | 13 个确定性字段逐项相同 |
+| `exact-no-pad` | 忽略 padding(0x15) 后相同（HRR 前后的真实差异） |
+| `unknown` | 都不满足；同时给出最接近者与差异字段，供补录 |
+
+**认不出时必须报 unknown，不许硬套最近的**——把陌生流量安静归到某个已知 profile
+比认不出更糟，它让盲区永远不可见。`spec/test_match.py` 的重点因此是阴性对照：
+
+```
+自识别                    54/54 exact
+变异必须 unknown          5/5（改 sig_algs / ciphers / curves / 扩展 / alpn）
+容忍 padding              12/12
+真实 HRR 端到端            chrome136:exact  safari184:exact-no-pad
+```
+
+最后一项是真触发一次 HelloRetryRequest 后识别第二个 ClientHello——safari184 正是
+靠 `exact-no-pad` 命中的，padding 容忍在真实场景中确实起了作用。
 
 ## 关键方法论
 
