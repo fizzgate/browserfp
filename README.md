@@ -9,11 +9,11 @@
 
 | 指标 | 数值 |
 |---|---|
-| 唯一指纹 | **54**（来自 136 个 target 名，按 13 个确定性字段去重） |
-| 连接形态 | 首连 39 + 会话恢复 15 |
-| 来源 | 开源表 47 + 真机采集 7 |
-| 含 h2 层 | 50/54 |
-| 重建门禁 | 54/54 |
+| 唯一指纹 | **59**（来自 269 个 target 名，按 13 个确定性字段去重） |
+| 连接形态 | 首连 44 + 会话恢复 15 |
+| 来源 | 开源表 52 + 真机采集 7 |
+| 含 h2 层 | 50/59 |
+| 重建门禁 | 59/59 |
 | 可用性门禁 | 66/68（34 profile × 2 真实站点） |
 
 ### 用途决定了要覆盖什么
@@ -32,13 +32,21 @@
 交付物是 `spec/profiles.json` —— 每条含 `id` / `aliases` / `provenance` / `tls` / `h2`。
 下游引擎读它即可产出正确的 ClientHello，**不需要再去 curl-impersonate 的 C 源码抄表**。
 
-## 为什么需要三个来源
+## 为什么需要四个来源
 
-| 来源 | 覆盖 | 短板 |
-|---|---|---|
-| curl_cffi 0.13.0 | 31 target | Chrome≤136、Firefox≤135，落后当前版本 |
-| bogdanfinn/tls-client 1.14.0 | 76 profile | Chrome≤146、Firefox≤147，仍落后 |
-| 真机采集 | 本机 4 个浏览器 | 只有本机装了的 |
+| 来源 | 数量 | Chrome | Firefox | Safari | Edge | Opera |
+|---|---|---|---|---|---|---|
+| curl_cffi 0.13.0 | 31 | ≤136 | ≤135 | 26.0 | **101** | — |
+| bogdanfinn/tls-client 1.14.0 | 76 | ≤146 | ≤147 | 16.0 | **101** | 91 |
+| 0x676e67/wreq（Rust） | 134 | ≤149 | ≤151 | 26_4 | **148** | 131 |
+| 真机采集 | 4 | 151 | 149 | 27 | — | — |
+
+wreq 补上了前两家最大的缺口：**Edge 在 curl_cffi 与 tls-client 都停在 2022 年的
+101，wreq 到 148**。它还独有几个维度：`FirefoxPrivate`（隐私模式）、
+`FirefoxAndroid`、`SafariIpad`。
+
+wreq 要求 Python ≥3.11，而主 venv 是系统 Python 3.9（curl_cffi 在其上工作正常，
+不动它），故单独建 `.venv-wreq`（anaconda 3.12）。
 
 **两张开源表合起来也覆盖不了当前浏览器版本**：真机 Chrome 151 的 `sig_algs` 含
 ML-DSA（`0x0904/0905/0906`），连 `tls_client:chrome_146` 都没有。所以架构必须是
@@ -49,6 +57,7 @@ ML-DSA（`0x0904/0905/0906`），连 `tls_client:chrome_146` 都没有。所以�
 ```
 采集 ─┬─ oracle/collect.py     curl_cffi 31 个（带/不带 SNI 两套）
       ├─ oracle/gocollect.py   tls-client 67 个（Go 采集器发真实 ClientHello）
+      ├─ oracle/wreqcollect.py wreq 133 个（须用 .venv-wreq/bin/python 跑）
       ├─ oracle/goh2collect.py tls-client 71 个的 h2 层
       ├─ oracle/browsers.py    真机浏览器 TLS 层
       └─ oracle/h2collect.py   真机浏览器 h2 层

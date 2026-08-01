@@ -36,6 +36,7 @@ OUT = os.path.join(HERE, "..", "spec", "profiles.json")
 SOURCES = [
     ("curl_cffi", "curl_cffi_nosni.json", "h2_curl_cffi.json", "opensource-table", "initial"),
     ("tls_client", "tls_client_nosni.json", "h2_tls_client.json", "opensource-table", "initial"),
+    ("wreq", "wreq_nosni.json", None, "opensource-table", "initial"),
     ("real", "real_browsers.json", "h2_real_browsers.json", "real-capture", "initial"),
     ("curl_cffi_psk", "curl_cffi_psk.json", "h2_curl_cffi.json", "opensource-table", "resumed"),
     ("real_psk", "real_browsers_psk.json", "h2_real_browsers.json", "real-capture", "resumed"),
@@ -60,7 +61,7 @@ def build():
     registry = {}
     for source, tls_file, h2_file, provenance, mode in SOURCES:
         tls_data = _load(tls_file)
-        h2_data = _load(h2_file)
+        h2_data = _load(h2_file) if h2_file else {}
         for name, entry in tls_data.items():
             # real_browsers.json 多包一层 {version, engine, fingerprint}
             fp = entry.get("fingerprint", entry)
