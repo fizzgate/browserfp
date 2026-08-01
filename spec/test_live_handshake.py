@@ -132,11 +132,36 @@ def main(argv):
         print(f"\n跳过的 QUIC 形态（{len(quic)}，TCP 测试不适用）："
               + " ".join(r["id"] for r in quic))
     if unsupported_kx:
-        print(f"\n跳过：参考实现未实现其密钥交换（{len(unsupported_kx)}）—— "
-              "含 Kyber768Draft00(0x6399) 而无 MLKEM，参考实现只做 X25519 与 "
-              "X25519MLKEM768。**这是我们的能力缺口，不是 profile 不可用**：")
+        print(f"\n参考实现未实现其密钥交换（{len(unsupported_kx)}）—— 含 "
+              "Kyber768Draft00(0x6399) 而无 MLKEM。**这是我们的能力缺口，不是 "
+              "profile 不可用**，所以改用 curl_cffi 补验：它自己能完成这类握手，"
+              "只要它打得通，就说明该 profile 在真实网络上可用。")
         for r in unsupported_kx:
-            print(f"  {r['id']}")
+            # 补验有两个前提，缺一不可，报告时要分辨清楚是哪一个不满足：
+            #   1. 得是 curl_cffi 自家的 target —— utls 的 PQ 变体它跑不了
+            #   2. 得是首连形态 —— PSK（会话恢复）要先建会话再复用，单次
+            #      请求根本走不到那条路径
+            if (r.get("mode") or "") == "resumed":
+                print(f"  {r['id']:28s} PSK 会话恢复形态，单次请求验不了")
+                continue
+            target = None
+            for alias in [r["id"]] + r.get("aliases", []):
+                if alias.startswith("curl_cffi:"):
+                    target = alias.split(":", 1)[1]
+                    break
+            if not target:
+                print(f"  {r['id']:28s} 非 curl_cffi 变体，它跑不了这个 target")
+                continue
+            marks = []
+            for host in hosts:
+                try:
+                    from curl_cffi import requests as creq
+                    resp = creq.get(f"https://{host}/", impersonate=target,
+                                    timeout=20, allow_redirects=False)
+                    marks.append(f"{host}:{resp.status_code}")
+                except Exception as e:
+                    marks.append(f"{host}:{type(e).__name__}")
+            print(f"  {r['id']:28s} curl_cffi[{target}] → {' | '.join(marks)}")
     if tls12:
         print(f"\n跳过的纯 TLS1.2 profile（{len(tls12)}）："
               + " ".join(r["id"] for r in tls12))
