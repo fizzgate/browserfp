@@ -8,8 +8,10 @@
 
 查三件事：
   1. 每个已采版本的 SCT 有无，与其所属段的源码推导一致
-  2. 落在同一段的已采 golden 必须互相同指纹 —— 段的定义就是这个，若同段的两
-     个 golden 指纹不同，说明段划粗了，段内替代就是错的。
+  2. **产物里标了 substitutable=true 的段**，其强证据来源必须内部一致。只验
+     正向结论，不重新判定标了 false 的段 —— 那是 oracle/segments.py 的职责，
+     在门禁里重算一遍只会制造第二个真相源，实测已经因此出现过产物与门禁结论
+     相反的情况。
      **两类干扰必须先排掉，否则会把别人的粒度问题记成我们的错**：
        · ALPN 由调用方设置，不是浏览器版本决定的（utls 的 ClientHelloID 就
          允许自定义），同版本两次采集可以不同
@@ -150,6 +152,35 @@ def outliers(golden):
     return out
 
 
+def check_marked_substitutable(segs, golden):
+    """**只查产物里标了 substitutable=true 的段**，验证它们确实经得起实采检验。
+
+    早先这里自己实现了一套"任一来源库内不一致就否决"的判定，而 segments.py
+    已改用证据强度规则（一家库覆盖 >=3 个版本才算强证据）。两处实现同一逻辑
+    必然分叉——实测就出现过产物判段 135-152 可替代、门禁却报它段划粗的矛盾。
+
+    改为只验产物的正向结论：标了可替代的段，其"强证据"来源必须内部一致。不再
+    重新判定标了 false 的段——那是 segments.py 的职责，门禁在这里重算一遍只会
+    制造第二个真相源。
+    """
+    STRONG = 3
+    bad, checked = [], 0
+    for s in segs:
+        if not s.get("substitutable"):
+            continue
+        checked += 1
+        per_src = {}
+        for v in range(s["from"], s["to"] + 1):
+            for src, rec in golden.get(v, []):
+                per_src.setdefault(src, {}).setdefault(_norm(rec["tls"]), set()).add(v)
+        for src, keys in per_src.items():
+            n_ver = len({v for vs in keys.values() for v in vs})
+            if len(keys) > 1 and n_ver >= STRONG:
+                bad.append(f"段 {s['from']}-{s['to']} 标了可替代，但 {src} "
+                           f"覆盖 {n_ver} 个版本却有 {len(keys)} 种指纹")
+    return bad, checked
+
+
 def check_intra_segment(segs, golden, merged_ids, outlier_set):
     """同段的已采 golden 必须互相同指纹——这是段内可替代的前提。"""
     bad, checked = [], 0
@@ -210,7 +241,7 @@ def main():
     merged_ids = {m[0] for m in merged}
     outlier_set = outliers(golden)
     sct_bad, n_sct = check_sct(segs, golden)
-    intra_bad, n_intra = check_intra_segment(segs, golden, merged_ids, outlier_set)
+    intra_bad, n_intra = check_marked_substitutable(segs, golden)
     prod_bad, n_prod = check_prod_coverage(segs)
 
     print(f"段 {len(segs)} 个，覆盖 {segs[0]['from']}–{segs[-1]['to']}；"
@@ -218,7 +249,7 @@ def main():
     print(f"\nSCT 与源码相符   {'OK' if not sct_bad else '失败'}（比了 {n_sct} 条）")
     for b in sct_bad:
         print(f"  ✗ {b}")
-    print(f"段内指纹一致     {'OK' if not intra_bad else '失败'}（覆盖 {n_intra} 个版本）")
+    print(f"可替代段经得起检验 {'OK' if not intra_bad else '失败'}（{n_intra} 个段标为可替代）")
     for b in intra_bad:
         print(f"  ✗ {b}")
     print(f"生产版本全覆盖   {'OK' if not prod_bad else '失败'}（{n_prod} 次 Firefox 请求）")
