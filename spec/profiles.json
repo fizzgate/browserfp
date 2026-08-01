@@ -69,6 +69,7 @@
       ],
       "window_update": 15663105
     },
+    "h3": null,
     "id": "curl_cffi:chrome100",
     "mode": "initial",
     "provenance": "opensource-table",
@@ -252,6 +253,7 @@
       ],
       "window_update": 15663105
     },
+    "h3": null,
     "id": "curl_cffi:chrome119",
     "mode": "initial",
     "provenance": "opensource-table",
@@ -436,6 +438,7 @@
       ],
       "window_update": 15663105
     },
+    "h3": null,
     "id": "curl_cffi:chrome123",
     "mode": "initial",
     "provenance": "opensource-table",
@@ -621,6 +624,7 @@
       ],
       "window_update": 15663105
     },
+    "h3": null,
     "id": "curl_cffi:chrome124",
     "mode": "initial",
     "provenance": "opensource-table",
@@ -819,6 +823,7 @@
       ],
       "window_update": 15663105
     },
+    "h3": null,
     "id": "curl_cffi:chrome131",
     "mode": "initial",
     "provenance": "opensource-table",
@@ -996,6 +1001,7 @@
       ],
       "window_update": 12517377
     },
+    "h3": null,
     "id": "curl_cffi:firefox133",
     "mode": "initial",
     "provenance": "opensource-table",
@@ -1178,6 +1184,7 @@
       ],
       "window_update": 12517377
     },
+    "h3": null,
     "id": "curl_cffi:firefox135",
     "mode": "initial",
     "provenance": "opensource-table",
@@ -1356,6 +1363,7 @@
       ],
       "window_update": 10485760
     },
+    "h3": null,
     "id": "curl_cffi:safari153",
     "mode": "initial",
     "provenance": "opensource-table",
@@ -1564,6 +1572,7 @@
       ],
       "window_update": 10485760
     },
+    "h3": null,
     "id": "curl_cffi:safari155",
     "mode": "initial",
     "provenance": "opensource-table",
@@ -1764,6 +1773,7 @@
       ],
       "window_update": 10420225
     },
+    "h3": null,
     "id": "curl_cffi:safari180",
     "mode": "initial",
     "provenance": "opensource-table",
@@ -1947,6 +1957,7 @@
       ],
       "window_update": 10420225
     },
+    "h3": null,
     "id": "curl_cffi:safari260",
     "mode": "initial",
     "provenance": "opensource-table",
@@ -2129,6 +2140,7 @@
       ],
       "window_update": 10420225
     },
+    "h3": null,
     "id": "curl_cffi:safari260_ios",
     "mode": "initial",
     "provenance": "opensource-table",
@@ -2314,6 +2326,7 @@
       ],
       "window_update": 12517377
     },
+    "h3": null,
     "id": "curl_cffi:tor145",
     "mode": "initial",
     "provenance": "opensource-table",
@@ -2485,6 +2498,7 @@
       ],
       "window_update": 15663105
     },
+    "h3": null,
     "id": "curl_cffi_psk:chrome100",
     "mode": "resumed",
     "provenance": "opensource-table",
@@ -2664,6 +2678,7 @@
       ],
       "window_update": 15663105
     },
+    "h3": null,
     "id": "curl_cffi_psk:chrome119",
     "mode": "resumed",
     "provenance": "opensource-table",
@@ -2843,6 +2858,7 @@
       ],
       "window_update": 15663105
     },
+    "h3": null,
     "id": "curl_cffi_psk:chrome124",
     "mode": "resumed",
     "provenance": "opensource-table",
@@ -3023,6 +3039,7 @@
       ],
       "window_update": 15663105
     },
+    "h3": null,
     "id": "curl_cffi_psk:chrome131",
     "mode": "resumed",
     "provenance": "opensource-table",
@@ -3203,6 +3220,7 @@
       ],
       "window_update": 12517377
     },
+    "h3": null,
     "id": "curl_cffi_psk:firefox133",
     "mode": "resumed",
     "provenance": "opensource-table",
@@ -3388,6 +3406,7 @@
       ],
       "window_update": 12517377
     },
+    "h3": null,
     "id": "curl_cffi_psk:firefox135",
     "mode": "resumed",
     "provenance": "opensource-table",
@@ -3568,6 +3587,7 @@
       ],
       "window_update": 10485760
     },
+    "h3": null,
     "id": "curl_cffi_psk:safari153",
     "mode": "resumed",
     "provenance": "opensource-table",
@@ -3753,6 +3773,7 @@
       ],
       "window_update": 10485760
     },
+    "h3": null,
     "id": "curl_cffi_psk:safari155",
     "mode": "resumed",
     "provenance": "opensource-table",
@@ -3944,6 +3965,7 @@
       ],
       "window_update": 10420225
     },
+    "h3": null,
     "id": "curl_cffi_psk:safari180",
     "mode": "resumed",
     "provenance": "opensource-table",
@@ -4127,6 +4149,7 @@
       ],
       "window_update": 10420225
     },
+    "h3": null,
     "id": "curl_cffi_psk:safari260",
     "mode": "resumed",
     "provenance": "opensource-table",
@@ -4312,6 +4335,7 @@
       ],
       "window_update": 10420225
     },
+    "h3": null,
     "id": "curl_cffi_psk:safari260_ios",
     "mode": "resumed",
     "provenance": "opensource-table",
@@ -4496,6 +4520,7 @@
       ],
       "window_update": 12517377
     },
+    "h3": null,
     "id": "curl_cffi_psk:tor145",
     "mode": "resumed",
     "provenance": "opensource-table",
@@ -4697,6 +4722,7 @@
       ],
       "window_update": 15663105
     },
+    "h3": null,
     "id": "real:chromium",
     "mode": "initial",
     "provenance": "real-capture",
@@ -4875,6 +4901,7 @@
       ],
       "window_update": 15663105
     },
+    "h3": null,
     "id": "real:edge",
     "mode": "initial",
     "provenance": "real-capture",
@@ -5069,6 +5096,7 @@
       ],
       "window_update": 12517377
     },
+    "h3": null,
     "id": "real:firefox",
     "mode": "initial",
     "provenance": "real-capture",
@@ -5263,6 +5291,7 @@
       ],
       "window_update": 10420225
     },
+    "h3": null,
     "id": "real:safari",
     "mode": "initial",
     "provenance": "real-capture",
@@ -5446,6 +5475,7 @@
       ],
       "window_update": 15663105
     },
+    "h3": null,
     "id": "real_psk:chromium",
     "mode": "resumed",
     "provenance": "real-capture",
@@ -5627,6 +5657,7 @@
       ],
       "window_update": 15663105
     },
+    "h3": null,
     "id": "real_psk:edge",
     "mode": "resumed",
     "provenance": "real-capture",
@@ -5811,6 +5842,7 @@
       ],
       "window_update": 12517377
     },
+    "h3": null,
     "id": "real_psk:firefox",
     "mode": "resumed",
     "provenance": "real-capture",
@@ -5967,6 +5999,130 @@
   },
   {
     "aliases": [
+      "real_quic:chrome",
+      "real_quic:chromium",
+      "real_quic:edge"
+    ],
+    "h2": null,
+    "h3": {
+      "h3_text": "1:65536,6:262144,7:100,51:1|m,a,s,p",
+      "has_grease_setting": true,
+      "pseudo_header_order": [
+        ":method",
+        ":authority",
+        ":scheme",
+        ":path"
+      ],
+      "settings": {
+        "1": 65536,
+        "109968663132": 563659858,
+        "51": 1,
+        "6": 262144,
+        "7": 100
+      }
+    },
+    "id": "real_quic:edge",
+    "mode": "quic",
+    "provenance": "real-capture",
+    "tls": {
+      "alpn": [
+        "h3"
+      ],
+      "app_settings": [],
+      "cert_compression": [
+        2
+      ],
+      "ciphers": [
+        4865,
+        4866,
+        4867
+      ],
+      "client_version": 771,
+      "compression": [
+        0
+      ],
+      "curves": [
+        4588,
+        29,
+        23,
+        24
+      ],
+      "ech": true,
+      "extension_bodies": {
+        "10": "000811ec001d00170018",
+        "13": "0012040308040401050308050501080606010201",
+        "16": "0003026833",
+        "17613": "0003026833",
+        "27": "020002",
+        "43": "020304",
+        "45": "0101",
+        "51": "04e811ec04c0d3732ada2b8adfd5bf398baf9835231bb98a70d3a191a901ba6387d3090afd3384e76609b79923a37b59ec4692f3d252d94965b6573132459f954319f34ba00558656cfb7a75d474372925110648804b1848b8cfcbd2b7c36bbd22542b88665dbd87a5042708a48c28a7d80e7ba19798906fceba889cd869e5706bd23c7a6209284bd087ce093e8d375e9456af4be7757e5b26c1d8cec5a0c6c0826163e874d24611f7362d346a94c19494423490702b12d584b5f0f086ded417dfa2737fb99a7a335c082b9fded174741475a1c5bca07b3abd7482e089229c6c457322af6792c566f74dd23b983a39a35f52135f067499e6cdfe98119ed4a5b786a898b3aa749b36032a4d4bc705318193e4123a288aae12360081e68dd5c30a73d160646908aee6956cfb052257c7da1b5338304fec1717bca366a60c491342900f9c74b045abd055778ebc28bca191e929291ca34b38c1cc689102350c7f5f31afabe0b9b655a9ee83c44c066964f53a08c17ba08a015f380073bc30989663c5ec858154a9d1945eed968fcf77bb75bab903e92e020441225b75769a819b26878a576b4ab27231905bfe02a1d71bc300601847b9492de324a3f3a748cbaa167a03059b3ed6ccaecd4280cd6355eb2432a31805e923988778c40c2bc5cf2648dff9040a861831770df74c7ba1ea952b235f4404cd18211f1bb35c220b673fcc227bb3c3c988c7bbaaa6b03cb89364ae07a842b47598a2e3a01a26aacf2004c0e3c8b2f48c7d1c85fa26b019f29ce9b7277bb2a722670af8e830267965b4d844e7c6ca3e547ae2ba4ba59a0526ec70dbd45c0c7608cf4073bc6730faf38558d9ba16b5344ca699279c14c4c6cbf328751318bb389083773a10a3f284c8b6b9b4d98a916abfe561b13533779ad11fe51b9fdc41b8de7a8b8a3627948754e769654802683b58cbac57c6f32a05454296211612043a5cd6905ddb19892a356aee430b8ff293ad5c4d6df136a9b49afd4073e196a310a3add6d58041f85e5d50034ee700e49a136c046676b635bc4211a65b1d63f7aa107ab1fb6a12e3845e6294cd2deb7ea4aa67be64231ef5cfe46112a3e2587f15c8d9e1cdfcb1cd30f9594f787f37200ce9a72c3b6928cf8502ead72f89452b8464397a283d69d0adb67031373b909cbc070ccb97ee920f0e0c11dfb24793a00825551529ccb72d57554d4149f46437f212283e4c61c2c3081aebcb83d1a54da0b164c61f1c057dfb1a102db5ab81118c4c3506e5a96baf5b12dec3a6b2a3b73d71c5e6145484652c50547c62662ff0110205922254f30ca145cfe1da4e99d760cd9aa0b1155c819486b8c7b01fc7cf86962e17251cb3954c2c8423f2150545387f02a8a1c0270be697bd3a50367f3611f7e9bfa362398a631a93f6228287257a4aaf3b76c95bcc6204d01532903d07730f0a06703ae7a501c5ae4818bfbd9a50f5eb076656bf09ccc2fed335ecd360187567f6515eb8590bcd45c5f07b1cd658ceb4c09131bab74386a37f4c27cd101094c1b82fbabd541274bc050e3a3b2c41fa34934b9fe2eb16e9bca24ff361b7bc8b8aa75f4e82057b83c1293139a0d023f21813421bc634080676946a9f2b9ef3958bbb9c12638a8418ac326b24f2c885e995787271cc72884448adb7f78353b3e60fabbf246d204a8a1402568a0fdf1af7d8eb8e32059c80a52ab39dab8144bd1654001d0020a3f048aa5867f9d2bc67cf3ff2a6904f31a07fb39826559ced3d1988a3c8ce6e",
+        "57": "f5ba7da8c43becf408d997485053994833040480f000007128044f524947050480600000090240670604806000000f00110c00000001000000018acacaba20048001000008024064070480600000030245c0010480007530",
+        "65037": "00000100011a0020eb1c64fe8fbb632eb150bed161e987f3fc6d1ba8b082d650838bcf7df062cc4a00d05e0234f425208975ae61557f3ffc9e2b2d48a3026b537b8441bbbc123b00385d6713734b2f892e9964b0690fdedf59c7fe68440f6c0ab2fe21ee22d3b84256a02e872d2c373e1b462ecc4b25c5ff5eceb3283a330bc6425906ad99dfe4b372cd726693c43814e1f7641fb698e8811d8626f8915f0734f9498eed39deaa59fac9bb5f3ad61062cdfd7b2092cf9152c93a646fb47063e5baa25909cdff41cedb0ae25ea4a5605bf45f35780834fe55e83f27eab124e7b55e860af32f51bfd8cbcca752b045225b99a895595a906c1e2753"
+      },
+      "extensions_ordered": [
+        57,
+        16,
+        17613,
+        51,
+        13,
+        45,
+        10,
+        27,
+        65037,
+        43
+      ],
+      "has_grease": false,
+      "ja3": "771,4865-4866-4867,57-16-17613-51-13-45-10-27-65037-43,4588-29-23-24,",
+      "ja3_hash": "77788a977174e27e0e1b6c0e55f6a5dc",
+      "ja4": "t13i0310h3_55b375c5d22e_653d80c3fe9d",
+      "ja4q": "q13i0310h3_55b375c5d22e_653d80c3fe9d",
+      "point_formats": [],
+      "psk_modes": [
+        1
+      ],
+      "raw_ciphers": [
+        4865,
+        4866,
+        4867
+      ],
+      "raw_extensions": [
+        57,
+        16,
+        17613,
+        51,
+        13,
+        45,
+        10,
+        27,
+        65037,
+        43
+      ],
+      "record_size_limit": null,
+      "session_id_len": 0,
+      "sig_algs": [
+        1027,
+        2052,
+        1025,
+        1283,
+        2053,
+        1281,
+        2054,
+        1537,
+        513
+      ],
+      "supported_versions": [
+        772
+      ]
+    },
+    "versions": [
+      "151.0.7922.72",
+      "142.0.7444.175",
+      "151.0.4129.59"
+    ]
+  },
+  {
+    "aliases": [
       "tls_client:chrome_133"
     ],
     "h2": {
@@ -5998,6 +6154,7 @@
       ],
       "window_update": 15663105
     },
+    "h3": null,
     "id": "tls_client:chrome_133",
     "mode": "initial",
     "provenance": "opensource-table",
@@ -6174,6 +6331,7 @@
       ],
       "window_update": 15663105
     },
+    "h3": null,
     "id": "tls_client:chrome_146",
     "mode": "initial",
     "provenance": "opensource-table",
@@ -6324,6 +6482,7 @@
       "tls_client:cloudscraper"
     ],
     "h2": null,
+    "h3": null,
     "id": "tls_client:cloudscraper",
     "mode": "initial",
     "provenance": "opensource-table",
@@ -6445,6 +6604,7 @@
       ],
       "window_update": 16711681
     },
+    "h3": null,
     "id": "tls_client:confirmed_android",
     "mode": "initial",
     "provenance": "opensource-table",
@@ -6593,6 +6753,7 @@
       ],
       "window_update": 15663105
     },
+    "h3": null,
     "id": "tls_client:confirmed_ios",
     "mode": "initial",
     "provenance": "opensource-table",
@@ -6802,6 +6963,7 @@
       ],
       "window_update": 12517377
     },
+    "h3": null,
     "id": "tls_client:firefox_102",
     "mode": "initial",
     "provenance": "opensource-table",
@@ -7009,6 +7171,7 @@
       ],
       "window_update": 12517377
     },
+    "h3": null,
     "id": "tls_client:firefox_110",
     "mode": "initial",
     "provenance": "opensource-table",
@@ -7208,6 +7371,7 @@
       ],
       "window_update": 12517377
     },
+    "h3": null,
     "id": "tls_client:firefox_120",
     "mode": "initial",
     "provenance": "opensource-table",
@@ -7408,6 +7572,7 @@
       ],
       "window_update": 12517377
     },
+    "h3": null,
     "id": "tls_client:firefox_123",
     "mode": "initial",
     "provenance": "opensource-table",
@@ -7587,6 +7752,7 @@
       ],
       "window_update": 12517377
     },
+    "h3": null,
     "id": "tls_client:firefox_132",
     "mode": "initial",
     "provenance": "opensource-table",
@@ -7764,6 +7930,7 @@
       ],
       "window_update": 12517377
     },
+    "h3": null,
     "id": "tls_client:firefox_135",
     "mode": "initial",
     "provenance": "opensource-table",
@@ -7941,6 +8108,7 @@
       ],
       "window_update": 12517377
     },
+    "h3": null,
     "id": "tls_client:firefox_147",
     "mode": "initial",
     "provenance": "opensource-table",
@@ -8126,6 +8294,7 @@
       ],
       "window_update": 15663105
     },
+    "h3": null,
     "id": "tls_client:mesh_android",
     "mode": "initial",
     "provenance": "opensource-table",
@@ -8272,6 +8441,7 @@
       "tls_client:mesh_android_2"
     ],
     "h2": null,
+    "h3": null,
     "id": "tls_client:mesh_android_2",
     "mode": "initial",
     "provenance": "opensource-table",
@@ -8407,6 +8577,7 @@
       ],
       "window_update": 15663105
     },
+    "h3": null,
     "id": "tls_client:mesh_ios_2",
     "mode": "initial",
     "provenance": "opensource-table",
@@ -8556,6 +8727,7 @@
       "tls_client:mms_ios_1"
     ],
     "h2": null,
+    "h3": null,
     "id": "tls_client:mms_ios",
     "mode": "initial",
     "provenance": "opensource-table",
@@ -8681,6 +8853,7 @@
       "tls_client:mms_ios_2"
     ],
     "h2": null,
+    "h3": null,
     "id": "tls_client:mms_ios_2",
     "mode": "initial",
     "provenance": "opensource-table",
@@ -8842,6 +9015,7 @@
       ],
       "window_update": 15663105
     },
+    "h3": null,
     "id": "tls_client:mms_ios_3",
     "mode": "initial",
     "provenance": "opensource-table",
@@ -9018,6 +9192,7 @@
       ],
       "window_update": 15663105
     },
+    "h3": null,
     "id": "tls_client:nike_android_mobile",
     "mode": "initial",
     "provenance": "opensource-table",
@@ -9162,6 +9337,7 @@
       ],
       "window_update": 16711681
     },
+    "h3": null,
     "id": "tls_client:okhttp4_android_7",
     "mode": "initial",
     "provenance": "opensource-table",
@@ -9284,6 +9460,7 @@
       ],
       "window_update": 16711681
     },
+    "h3": null,
     "id": "tls_client:okhttp4_android_8",
     "mode": "initial",
     "provenance": "opensource-table",
@@ -9422,6 +9599,7 @@
       ],
       "window_update": 15663105
     },
+    "h3": null,
     "id": "tls_client:zalando_android_mobile",
     "mode": "initial",
     "provenance": "opensource-table",
@@ -9554,6 +9732,7 @@
       "utls:Chrome_70"
     ],
     "h2": null,
+    "h3": null,
     "id": "utls:360_11_0",
     "mode": "initial",
     "provenance": "opensource-table",
@@ -9705,6 +9884,7 @@
       "utls:360_7_5"
     ],
     "h2": null,
+    "h3": null,
     "id": "utls:360_7_5",
     "mode": "initial",
     "provenance": "opensource-table",
@@ -9833,6 +10013,7 @@
       "utls:Android_11_OkHttp"
     ],
     "h2": null,
+    "h3": null,
     "id": "utls:Android_11_OkHttp",
     "mode": "initial",
     "provenance": "opensource-table",
@@ -9932,6 +10113,7 @@
       "utls:Chrome_115_PQ"
     ],
     "h2": null,
+    "h3": null,
     "id": "utls:Chrome_115_PQ",
     "mode": "initial",
     "provenance": "opensource-table",
@@ -10079,6 +10261,7 @@
       "utls:Chrome_62"
     ],
     "h2": null,
+    "h3": null,
     "id": "utls:Chrome_58",
     "mode": "initial",
     "provenance": "opensource-table",
@@ -10200,6 +10383,7 @@
       "utls:Chrome_72"
     ],
     "h2": null,
+    "h3": null,
     "id": "utls:Chrome_72",
     "mode": "initial",
     "provenance": "opensource-table",
@@ -10350,6 +10534,7 @@
       "utls:Edge_85"
     ],
     "h2": null,
+    "h3": null,
     "id": "utls:Chrome_83",
     "mode": "initial",
     "provenance": "opensource-table",
@@ -10496,6 +10681,7 @@
       "utls:QQ_11_1"
     ],
     "h2": null,
+    "h3": null,
     "id": "utls:Chrome_96",
     "mode": "initial",
     "provenance": "opensource-table",
@@ -10646,6 +10832,7 @@
       "utls:Firefox_102"
     ],
     "h2": null,
+    "h3": null,
     "id": "utls:Firefox_102",
     "mode": "initial",
     "provenance": "opensource-table",
@@ -10792,6 +10979,7 @@
       "utls:Firefox_56"
     ],
     "h2": null,
+    "h3": null,
     "id": "utls:Firefox_55",
     "mode": "initial",
     "provenance": "opensource-table",
@@ -10910,6 +11098,7 @@
       "utls:Firefox_65"
     ],
     "h2": null,
+    "h3": null,
     "id": "utls:Firefox_63",
     "mode": "initial",
     "provenance": "opensource-table",
@@ -11057,6 +11246,7 @@
       "utls:Firefox_99"
     ],
     "h2": null,
+    "h3": null,
     "id": "utls:Firefox_99",
     "mode": "initial",
     "provenance": "opensource-table",
@@ -11207,6 +11397,7 @@
       "utls:IOS_11_1"
     ],
     "h2": null,
+    "h3": null,
     "id": "utls:IOS_11_1",
     "mode": "initial",
     "provenance": "opensource-table",
@@ -11340,6 +11531,7 @@
       "utls:IOS_12_1"
     ],
     "h2": null,
+    "h3": null,
     "id": "utls:IOS_12_1",
     "mode": "initial",
     "provenance": "opensource-table",
@@ -11481,6 +11673,7 @@
       "utls:IOS_13"
     ],
     "h2": null,
+    "h3": null,
     "id": "utls:IOS_13",
     "mode": "initial",
     "provenance": "opensource-table",
@@ -11667,6 +11860,7 @@
       ],
       "window_update": 12517377
     },
+    "h3": null,
     "id": "wreq:Firefox133",
     "mode": "initial",
     "provenance": "opensource-table",
@@ -11849,6 +12043,7 @@
       ],
       "window_update": 12517377
     },
+    "h3": null,
     "id": "wreq:FirefoxAndroid135",
     "mode": "initial",
     "provenance": "opensource-table",
@@ -12023,6 +12218,7 @@
       ],
       "window_update": 16711681
     },
+    "h3": null,
     "id": "wreq:OkHttp3_11",
     "mode": "initial",
     "provenance": "opensource-table",
@@ -12169,6 +12365,7 @@
       ],
       "window_update": 16711681
     },
+    "h3": null,
     "id": "wreq:OkHttp3_9",
     "mode": "initial",
     "provenance": "opensource-table",
@@ -12324,6 +12521,7 @@
       ],
       "window_update": 10485760
     },
+    "h3": null,
     "id": "wreq:Safari15_3",
     "mode": "initial",
     "provenance": "opensource-table",

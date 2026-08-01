@@ -4,6 +4,9 @@
 是谁；**说不出的时候必须明说是 unknown，而不是硬套最近的那个**——把陌生流量
 安静地归到某个已知 profile，比认不出更糟，因为它让盲区不可见。
 
+识别结果同时给出该指纹对应的 h2（Akamai）与 h3（h3_text）应用层特征——
+若观测到的应用层与之不符，就是 TLS 层与协议栈对不上的 split-brain。
+
 匹配分三档：
   exact          13 个确定性字段逐项相同
   exact-no-pad   忽略 padding(0x15) 后相同
@@ -62,6 +65,19 @@ class Matcher:
             self._nopad.setdefault(
                 json.dumps(_norm(rec["tls"], True), sort_keys=True), rec)
 
+    def find(self, alias):
+        """按 id 或 aliases 查记录，找不到抛 KeyError。
+
+        注册表按指纹去重，保留的 id 可能是任意一个别名——只按 id 找会对
+        chrome136、real:chrome 这类被合并掉的名字扑空。**同一个坑已在
+        test_cf_discrimination、test_match、以及 QUIC 并库时各踩过一次**，
+        故抽成公共方法，调用方不要再自己写循环。
+        """
+        for rec in self.registry:
+            if rec["id"] == alias or alias in rec.get("aliases", []):
+                return rec
+        raise KeyError(f"{alias} 不在注册表（含 aliases）")
+
     def identify(self, fp):
         """fp 为 clienthello.fingerprint() 的输出。返回识别结果 dict。"""
         rec = self._strict.get(json.dumps(_norm(fp), sort_keys=True))
@@ -95,6 +111,7 @@ class Matcher:
             "provenance": rec.get("provenance"),
             "aliases": rec.get("aliases", []),
             "h2": rec.get("h2", {}).get("akamai_fingerprint") if rec.get("h2") else None,
+            "h3": rec.get("h3", {}).get("h3_text") if rec.get("h3") else None,
         }
 
 

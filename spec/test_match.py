@@ -51,7 +51,7 @@ def _find(m, alias):
 
 def t_mutations_are_unknown(m):
     """改动任一判据字段后必须判 unknown —— 不许硬套最近的。"""
-    base = _find(m, "curl_cffi:chrome136")
+    base = m.find("curl_cffi:chrome136")   # 见 Matcher.find 的说明
     cases = {
         "sig_algs 增一项": lambda f: f["sig_algs"].append(0x0999),
         "ciphers 删一项": lambda f: f["ciphers"].pop(),

@@ -41,6 +41,10 @@ SOURCES = [
     ("real", "real_browsers.json", "h2_real_browsers.json", "real-capture", "initial"),
     ("curl_cffi_psk", "curl_cffi_psk.json", "h2_curl_cffi.json", "opensource-table", "resumed"),
     ("real_psk", "real_browsers_psk.json", "h2_real_browsers.json", "real-capture", "resumed"),
+    # QUIC 的 ClientHello 是**独立形态**，不是 TCP 那份的附加字段：实测
+    # Chrome 151 的 QUIC 版 10 个扩展、TCP 版 15 个，且含 quic_transport_parameters。
+    # 用首连表去认 QUIC 连接一个都认不出，故必须单列。
+    ("real_quic", "quic_real_browsers.json", None, "real-capture", "quic"),
 ]
 
 
@@ -75,6 +79,7 @@ def build():
                 "mode": mode,
                 "tls": fp,
                 "h2": None,
+                "h3": None,
                 "versions": [],
             })
             rec["aliases"].append(f"{source}:{name}")
@@ -84,6 +89,13 @@ def build():
             if provenance == "real-capture":
                 rec["id"] = f"{source}:{name}"
                 rec["provenance"] = provenance
+            if mode == "quic":
+                h3 = _load("h3_real_browsers.json").get(name)
+                if h3 and not rec.get("h3"):
+                    rec["h3"] = {"h3_text": h3.get("h3_text"),
+                                 "settings": h3.get("settings"),
+                                 "pseudo_header_order": h3.get("pseudo_header_order"),
+                                 "has_grease_setting": h3.get("has_grease_setting")}
             h2 = h2_data.get(name)
             if h2 and not rec["h2"]:
                 rec["h2"] = {
@@ -117,7 +129,9 @@ def main():
         print(f"  {prov:18s} {n}")
     for mode, n in sorted(by_mode.items()):
         print(f"  形态 {mode:<13} {n}")
+    with_h3 = sum(1 for r in out if r.get("h3"))
     print(f"  含 h2 层           {with_h2}/{len(out)}")
+    print(f"  含 h3 层           {with_h3}（QUIC 形态）")
     print(f"\n→ {os.path.normpath(OUT)}")
 
     missing_h2 = [r["id"] for r in out if not r["h2"]]
