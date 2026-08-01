@@ -59,6 +59,12 @@ SOURCES = [
     # 用首连表去认 QUIC 连接一个都认不出，故必须单列。
     ("real_quic", "quic_real_browsers.json", None, "real-capture", "quic"),
     ("linux", "linux_browsers.json", None, "real-capture", "initial"),
+    # 按源码给出的平台差异从桌面 golden 派生的移动端形态（oracle/derive.py）。
+    # provenance 单列 source-derived，**不能混进 real-capture 的统计** ——
+    # 它没有被任何来源实际观测过，只是规则推出来的。派生规则本身在有实采
+    # golden 的锚点版本上验证过（桌面 Firefox 135 减 SCT 减 MLKEM = 实采
+    # wreq:FirefoxAndroid135，逐字段一致），且每次派生都会重跑该验证。
+    ("derived", "derived_mobile.json", None, "source-derived", "initial"),
 ]
 
 

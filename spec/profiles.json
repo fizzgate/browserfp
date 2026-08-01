@@ -4680,6 +4680,162 @@
   },
   {
     "aliases": [
+      "derived:firefox-mobile-153"
+    ],
+    "default_config": true,
+    "h2": null,
+    "h3": null,
+    "id": "derived:firefox-mobile-153",
+    "mode": "initial",
+    "provenance": "source-derived",
+    "tls": {
+      "alpn": [
+        "h2",
+        "http/1.1"
+      ],
+      "app_settings": [],
+      "cert_compression": [
+        1,
+        2,
+        3
+      ],
+      "ciphers": [
+        4865,
+        4867,
+        4866,
+        49195,
+        49199,
+        52393,
+        52392,
+        49196,
+        49200,
+        49162,
+        49171,
+        49172,
+        156,
+        157,
+        47,
+        53
+      ],
+      "client_version": 771,
+      "compression": [
+        0
+      ],
+      "curves": [
+        4588,
+        29,
+        23,
+        24,
+        25,
+        256,
+        257
+      ],
+      "ech": true,
+      "extension_bodies": {
+        "10": "000e11ec001d00170018001901000101",
+        "11": "0100",
+        "13": "001604030503060308040805080604010501060102030201",
+        "16": "000c02683208687474702f312e31",
+        "23": "",
+        "27": "06000100020003",
+        "28": "4001",
+        "34": "00080403050306030203",
+        "35": "",
+        "43": "0403040303",
+        "45": "0101",
+        "5": "0100000000",
+        "51": "052d11ec04c0219a5e99a6684cc90fec72211d90752de14e0651b151068f28e04aa7fcb512114576c01445295b5e48b58b273861e8a5db5200597cab052aabde7bb71dfb072594c538aab8b9840d18b4435e5293af0b134920a89fd269de9a8e3305a5a155a18cea7ba4f593eb3c914144b8843622fda4474619a76452287b180a2d4763c2cc53d4496141c6cae96018c7ec87f9a0ac80a9135807099ae635c0ba0896d558e05a2ad573047ecc4b69e09cfd95b37a010f71383fb3d98962533d42615eac836722780638eaa3f6a21d13db9770aa783eba5ea4848eea5b6551b64454370c43974bd0b326e8718031f18f61e19029779a06648698a14283f52ada3c9af6c011102c0f1e56179ff0612ab179d3435af5a10bde75ba952672efba59506a3c3861c64407cd2cb7096e773976b50c5a4507ebc8bc2d29b053e88d21e631c63320e36575bbe5ba61c3b18a576ea89ccc59c22306895fa003a0cd285767e1039921c18bbba084eb9fc6819b0a9ba4def6ae0d190bc43022f32b3c3e93240a4acb77d9bcef34c1419b233648264c2a8453544ceecb986cdc4483fa0714bc60a5b78310d11974f89cefb51020f9b12064a64a5947d9cb8ba4575a64e1aae32b4a32ca354c25c38a6bca520340fe97559d35ba80aa2d650228246a3f4c7a56316633f39c3c6604598375b075c91b5f018aba0235e5e95096384730bbae6f1a972ae72c13119be3c76b69721e23202085d6893da96a07ea98d64968fd67cae4d8a36568405d861528620cf98896fd412c74636564ecc75d506be723cc4e3986eed010dd40bfa0846362b7156145c9ecd52b3407a69b1219fb624e3918b7afdb658f951bc48b19bc81166ec56f5c1badea42963616c418ba5dccf320fe4c96fcd568e4c9671e7381c8d4cc334515dad0ad99ac7d71e015b07ab8b9062e1ec073e2b36cad5aa357d84f94f31704b84d6b664fd40a652f248ffde958ca8aa2a3290513f8bc8f166cefba88e759990c78ca1c6abe26b7aba6f970f92c8f8f953214771de0ab811e903bc624bbb05a5dd4e2abb1379da64a6431297a24f5425d949533546357e772f133089c731e1f917c4bd5c576361cb7b62591f85b9e4bc153a50bb8e07ae7411cbecc90bcb6b632f6346ae61e694ca85751429d959f645c8f56969a61659bb65414ce900e4a52271064a960b301ada41d0b18c37a3b0511987080fa76a840b601cb752a1315e114be81f49c36daac59f2a3798b72ec5517d00c89a5c310f2da866b2bb21bc4bb95c27aa8db459fe09771436326f86a186b9a85163832ac5ca7997b77648153727acb0965f13c03e23a7b65738a18294ec2709305062a579576f0a2bdc9b160acd08ca533731834c7462c6f1055c659d335b92b82b99a183de1acf8c7b343a154204448dfe432796874ec294e058a3aae15261478232a232c4b930ffe1b44a5364e5feba3fea57354b8b8f51aad380ca2c44a44a1fb6576971bbc956a36fa9d7a95c34ed428a89c2076781b9c7c48095a9324a3c627b110e81b2d2f02a1b3f729f191122d020146fa29ec86b62810370f51a1502306699054bf8b08c8e0a15a0ab500003d20fb0dbce04b70380156f9b1f18c3ff7db60b50c11b5469ba33aec5efc52991b9c4975f1b8119361ca0b92ce0c882ad19a855c3c9b7c8a8dfb81f2e1ae8c10a76c8c442e68692e441d911d746b0c6ccaa721ae6b4c001d00207c8a8dfb81f2e1ae8c10a76c8c442e68692e441d911d746b0c6ccaa721ae6b4c0017004104404f3cf9c9cff902483ad71193c94ffef4ec4ccf72d475a3767d9cd007998f9cb22b979cf59d7bdc03c70ef890d7bc3305e740600e9763f470246fde527c0d62",
+        "65037": "00000100014e0020f07b38bc0892afa36b98707ae440e978fea3fe45347583598e1d212bb43c7ba200efb4979582f17ff6df351865553f1ebb8d9c84b0c9178f2152614fc9ccd2a6dd222924a06c5fcc5e0f13b1912003375ef03783749a91a2d6306fd7f460f7b327d21c3c2817434ef44698d096dc47d9e9d1e2264fe293055e2dc40640070f00c4c8d0926c96cd653b27bd2b9db71a789a580b5d6dd66cea8a299b5c978ae91fb58b0f5fe315a593ebfbd091364152e9f1a145dd8c36914b5ca561610763b3f95c5048d730e3fcda71ad62b972a1838bd3ba144b6b1f243370bca5fe75a374e3ff37bc59c2e418a92d7fbc4dc296cfdc66ce7321a301974306a84ce5b81f606e4e63cf4fc4b75379003291352a7fdd81e2",
+        "65281": "00"
+      },
+      "extensions_ordered": [
+        23,
+        65281,
+        10,
+        11,
+        35,
+        16,
+        5,
+        34,
+        51,
+        43,
+        13,
+        45,
+        28,
+        27,
+        65037
+      ],
+      "has_grease": false,
+      "ja3": "771,4865-4867-4866-49195-49199-52393-52392-49196-49200-49162-49171-49172-156-157-47-53,23-65281-10-11-35-16-5-34-18-51-43-13-45-28-27-65037,4588-29-23-24-25-256-257,0",
+      "ja3_hash": "dfc1768fa3cf4a239df894bbfbe05c3d",
+      "ja4": "t13i1615h2_86a278354501_eeeea6562960",
+      "point_formats": [
+        0
+      ],
+      "psk_modes": [
+        1
+      ],
+      "raw_ciphers": [
+        4865,
+        4867,
+        4866,
+        49195,
+        49199,
+        52393,
+        52392,
+        49196,
+        49200,
+        49162,
+        49171,
+        49172,
+        156,
+        157,
+        47,
+        53
+      ],
+      "raw_extensions": [
+        23,
+        65281,
+        10,
+        11,
+        35,
+        16,
+        5,
+        34,
+        51,
+        43,
+        13,
+        45,
+        28,
+        27,
+        65037
+      ],
+      "record_size_limit": 16385,
+      "session_id_len": 32,
+      "sig_algs": [
+        1027,
+        1283,
+        1539,
+        2052,
+        2053,
+        2054,
+        1025,
+        1281,
+        1537,
+        515,
+        513
+      ],
+      "supported_versions": [
+        772,
+        771
+      ]
+    },
+    "versions": [
+      "firefox-mobile 153"
+    ]
+  },
+  {
+    "aliases": [
       "linux:chromium-linux"
     ],
     "default_config": true,
