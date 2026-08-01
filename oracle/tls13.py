@@ -1,0 +1,327 @@
+"""TLS 1.3 客户端握手（RFC 8446）—— 按 profile 发指纹化 ClientHello。
+
+**定位**：C 模块的 Python 参考实现。用它验证"从 golden 重建的 ClientHello 能
+真的完成握手并跑 h2"，而不是拿来跑生产——生产走 BoringSSL C 模块。
+
+对外暴露 send/read/settimeout/close 四方法，与 fizz-node-resty 的
+tls13_client.lua、proxy_endpoint.lua:_browser_tls() 同一个契约，将来换引擎
+下游不用改。
+
+**已知局限（Python 实现固有，C 模块无此问题）**：
+key_share 只发 X25519。Chrome 131+ 的第一条曲线是 X25519MLKEM768（后量子
+混合，0x11ec），Python 没有现成实现，BoringSSL 有。影响面：supported_groups
+扩展里 0x11ec 仍然照发（所以 JA3/JA4 与扩展列表都正确，上游按这些判别时看
+不出差异），但 key_share 少了 MLKEM 那一条，ClientHello 总长度比真 Chrome
+短约 1.2KB。要逐字节对齐必须上 C 模块。
+"""
+
+import hashlib
+import hmac
+import os
+import struct
+import sys
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from cryptography.hazmat.primitives.asymmetric.x25519 import (      # noqa: E402
+    X25519PrivateKey, X25519PublicKey)
+from cryptography.hazmat.primitives.ciphers.aead import (           # noqa: E402
+    AESGCM, ChaCha20Poly1305)
+
+from oracle.chbuild import _u16, _vec                               # noqa: E402
+from oracle.clienthello import is_grease                            # noqa: E402
+
+X25519_GROUP = 0x001D
+
+CIPHER_PARAMS = {
+    0x1301: ("sha256", AESGCM, 16),      # TLS_AES_128_GCM_SHA256
+    0x1302: ("sha384", AESGCM, 32),      # TLS_AES_256_GCM_SHA384
+    0x1303: ("sha256", ChaCha20Poly1305, 32),  # TLS_CHACHA20_POLY1305_SHA256
+}
+
+HS_SERVER_HELLO = 2
+HS_ENCRYPTED_EXTENSIONS = 8
+HS_CERTIFICATE = 11
+HS_CERTIFICATE_VERIFY = 15
+HS_FINISHED = 20
+HS_NEW_SESSION_TICKET = 4
+
+
+class TLSError(Exception):
+    pass
+
+
+def hkdf_extract(salt, ikm, hashname):
+    return hmac.new(salt, ikm, hashname).digest()
+
+
+def hkdf_expand(prk, info, length, hashname):
+    out, t, i = b"", b"", 1
+    while len(out) < length:
+        t = hmac.new(prk, t + info + bytes([i]), hashname).digest()
+        out += t
+        i += 1
+    return out[:length]
+
+
+def hkdf_expand_label(secret, label, context, length, hashname):
+    info = _u16(length) + _vec(b"tls13 " + label, 1) + _vec(context, 1)
+    return hkdf_expand(secret, info, length, hashname)
+
+
+def derive_secret(secret, label, messages, hashname):
+    digest = hashlib.new(hashname, messages).digest()
+    return hkdf_expand_label(secret, label, digest, len(digest), hashname)
+
+
+class _Keys:
+    """一个方向的 AEAD 上下文：key + iv + 序号。"""
+
+    def __init__(self, secret, aead_cls, key_len, hashname):
+        self.key = hkdf_expand_label(secret, b"key", b"", key_len, hashname)
+        self.iv = hkdf_expand_label(secret, b"iv", b"", 12, hashname)
+        self.aead = aead_cls(self.key)
+        self.seq = 0
+
+    def nonce(self):
+        n = bytearray(self.iv)
+        seq = struct.pack(">Q", self.seq)
+        for i in range(8):
+            n[4 + i] ^= seq[i]
+        self.seq += 1
+        return bytes(n)
+
+
+class TLS13Client:
+    """在已连接的 socket 上跑 TLS 1.3 握手，之后当加密管道用。
+
+    verify=False 时跳过证书校验——参考实现只用于指纹验证与本地联调，生产由
+    C 模块承担，那里必须开校验（server Finished 的 HMAC 只保握手完整性、
+    不绑证书，缺了链校验一样能被 MITM）。
+    """
+
+    def __init__(self, sock, profile, sni, verify=False):
+        self.sock = sock
+        self.profile = profile
+        self.sni = sni
+        self.verify = verify
+        self.transcript = b""
+        self._inbuf = b""
+        self._plainbuf = b""
+        self.negotiated_alpn = None
+        self.cipher_suite = None
+        self._closed = False
+
+    # ---- 网络原语 -------------------------------------------------------
+    def _recv_exact(self, n):
+        while len(self._inbuf) < n:
+            chunk = self.sock.recv(65536)
+            if not chunk:
+                raise TLSError(f"connection closed ({len(self._inbuf)}/{n})")
+            self._inbuf += chunk
+        out, self._inbuf = self._inbuf[:n], self._inbuf[n:]
+        return out
+
+    def _read_record(self):
+        head = self._recv_exact(5)
+        length = struct.unpack_from(">H", head, 3)[0]
+        return head[0], head, self._recv_exact(length)
+
+    # ---- 握手 -----------------------------------------------------------
+    def handshake(self):
+        priv = X25519PrivateKey.generate()
+        pub = priv.public_key().public_bytes_raw()
+
+        record = self._build_hello(pub)
+        # transcript 只含 handshake 消息体，不含 record 头
+        self.transcript += record[5:]
+        self.sock.sendall(record)
+
+        server_pub, self.cipher_suite = self._read_server_hello()
+        hashname, aead_cls, key_len = CIPHER_PARAMS[self.cipher_suite]
+        hlen = hashlib.new(hashname).digest_size
+
+        shared = priv.exchange(X25519PublicKey.from_public_bytes(server_pub))
+
+        early = hkdf_extract(b"\x00" * hlen, b"\x00" * hlen, hashname)
+        derived = derive_secret(early, b"derived", b"", hashname)
+        hs_secret = hkdf_extract(derived, shared, hashname)
+
+        c_hs = derive_secret(hs_secret, b"c hs traffic", self.transcript, hashname)
+        s_hs = derive_secret(hs_secret, b"s hs traffic", self.transcript, hashname)
+        self._rx = _Keys(s_hs, aead_cls, key_len, hashname)
+        self._tx = _Keys(c_hs, aead_cls, key_len, hashname)
+
+        self._read_server_flight(hashname)
+
+        # server Finished 已进 transcript，此处的摘要用于导出 application 密钥
+        after_server = self.transcript
+        finished_key = hkdf_expand_label(c_hs, b"finished", b"", hlen, hashname)
+        verify_data = hmac.new(
+            finished_key, hashlib.new(hashname, after_server).digest(), hashname).digest()
+        fin = bytes([HS_FINISHED]) + _vec(verify_data, 3)
+        self._send_encrypted(fin, 0x16)
+        self.transcript += fin
+
+        derived2 = derive_secret(hs_secret, b"derived", b"", hashname)
+        master = hkdf_extract(derived2, b"\x00" * hlen, hashname)
+        c_ap = derive_secret(master, b"c ap traffic", after_server, hashname)
+        s_ap = derive_secret(master, b"s ap traffic", after_server, hashname)
+        self._tx = _Keys(c_ap, aead_cls, key_len, hashname)
+        self._rx = _Keys(s_ap, aead_cls, key_len, hashname)
+        return self
+
+    def _build_hello(self, pubkey):
+        """按 profile 组装 ClientHello，但用真实 key_share 与真实 SNI 覆写。"""
+        p = self.profile
+        bodies = {int(k): bytes.fromhex(v)
+                  for k, v in p["extension_bodies"].items()}
+
+        ext_bytes = b""
+        for ext_id in p["raw_extensions"]:
+            if is_grease(ext_id):
+                ext_bytes += _u16(ext_id) + _vec(bodies.get(ext_id, b""), 2)
+                continue
+            if ext_id == 0x0000:
+                entry = bytes([0]) + _vec(self.sni.encode(), 2)
+                body = _vec(entry, 2)
+            elif ext_id == 0x0033:
+                body = _vec(_u16(X25519_GROUP) + _vec(pubkey, 2), 2)
+            elif ext_id == 0x0029:
+                continue          # pre_shared_key：无票据可用，整个扩展不发
+            elif ext_id == 0xFE0D:
+                continue          # ECH：需要服务端配置，参考实现不发
+            else:
+                body = bodies.get(ext_id, b"")
+            ext_bytes += _u16(ext_id) + _vec(body, 2)
+
+        hello = _u16(p.get("client_version", 0x0303))
+        hello += os.urandom(32)
+        hello += _vec(os.urandom(p.get("session_id_len", 32) or 32), 1)
+        hello += _vec(b"".join(_u16(c) for c in p["raw_ciphers"]), 2)
+        hello += _vec(bytes(p.get("compression", [0])), 1)
+        hello += _vec(ext_bytes, 2)
+
+        handshake = bytes([0x01]) + _vec(hello, 3)
+        return bytes([0x16]) + _u16(0x0301) + _vec(handshake, 2)
+
+    def _read_server_hello(self):
+        ctype, head, body = self._read_record()
+        if ctype != 0x16:
+            raise TLSError(f"expected handshake, got content type {ctype}")
+        if body[0] != HS_SERVER_HELLO:
+            raise TLSError(f"expected ServerHello, got handshake type {body[0]}")
+        self.transcript += body
+
+        o = 4 + 2 + 32                       # type/len + version + random
+        sid_len = body[o]
+        o += 1 + sid_len
+        cipher = struct.unpack_from(">H", body, o)[0]
+        o += 2 + 1                            # cipher + compression
+        ext_total = struct.unpack_from(">H", body, o)[0]
+        o += 2
+        end = o + ext_total
+
+        server_pub = None
+        while o < end:
+            eid, elen = struct.unpack_from(">HH", body, o)
+            ebody = body[o + 4:o + 4 + elen]
+            o += 4 + elen
+            if eid == 0x0033:                 # key_share
+                group = struct.unpack_from(">H", ebody, 0)[0]
+                if group != X25519_GROUP:
+                    raise TLSError(
+                        f"server chose group 0x{group:04x}; 参考实现只支持 X25519")
+                klen = struct.unpack_from(">H", ebody, 2)[0]
+                server_pub = ebody[4:4 + klen]
+
+        if server_pub is None:
+            raise TLSError("ServerHello 无 key_share（可能回落到 TLS 1.2）")
+        if cipher not in CIPHER_PARAMS:
+            raise TLSError(f"unsupported cipher 0x{cipher:04x}")
+        return server_pub, cipher
+
+    def _decrypt_record(self, head, payload):
+        plain = self._rx.aead.decrypt(self._rx.nonce(), payload, head)
+        # 去掉尾部 padding，最后一个非零字节是真实 content type
+        i = len(plain) - 1
+        while i >= 0 and plain[i] == 0:
+            i -= 1
+        if i < 0:
+            raise TLSError("decrypted record is all padding")
+        return plain[i], plain[:i]
+
+    def _read_server_flight(self, hashname):
+        """读 EncryptedExtensions..Finished，沿途累积 transcript。"""
+        pending = b""
+        while True:
+            ctype, head, payload = self._read_record()
+            if ctype == 0x14:                 # ChangeCipherSpec：middlebox 兼容，忽略
+                continue
+            if ctype != 0x17:
+                raise TLSError(f"unexpected content type {ctype} during flight")
+            inner_type, plain = self._decrypt_record(head, payload)
+            if inner_type != 0x16:
+                raise TLSError(f"expected handshake, got inner type {inner_type}")
+            pending += plain
+
+            while len(pending) >= 4:
+                htype = pending[0]
+                hlen = (pending[1] << 16) | (pending[2] << 8) | pending[3]
+                if len(pending) < 4 + hlen:
+                    break
+                msg, pending = pending[:4 + hlen], pending[4 + hlen:]
+                if htype == HS_ENCRYPTED_EXTENSIONS:
+                    self._parse_encrypted_extensions(msg)
+                self.transcript += msg
+                if htype == HS_FINISHED:
+                    return
+
+    def _parse_encrypted_extensions(self, msg):
+        o, total = 4, struct.unpack_from(">H", msg, 4)[0]
+        o += 2
+        end = o + total
+        while o < end:
+            eid, elen = struct.unpack_from(">HH", msg, o)
+            ebody = msg[o + 4:o + 4 + elen]
+            o += 4 + elen
+            if eid == 0x0010 and len(ebody) >= 3:      # ALPN
+                self.negotiated_alpn = ebody[3:3 + ebody[2]].decode()
+
+    # ---- 应用数据 -------------------------------------------------------
+    def _send_encrypted(self, data, inner_type):
+        plain = data + bytes([inner_type])
+        head = bytes([0x17]) + _u16(0x0303) + _u16(len(plain) + 16)
+        self.sock.sendall(head + self._tx.aead.encrypt(self._tx.nonce(), plain, head))
+
+    def send(self, data):
+        self._send_encrypted(data, 0x17)
+        return len(data)
+
+    def read(self):
+        """返回一段应用数据（语义同 tls13_client.lua:read —— 有多少给多少）。"""
+        while not self._plainbuf:
+            ctype, head, payload = self._read_record()
+            if ctype == 0x14:
+                continue
+            inner_type, plain = self._decrypt_record(head, payload)
+            if inner_type == 0x16:
+                continue                       # NewSessionTicket 等，忽略
+            if inner_type == 0x15:             # alert
+                if len(plain) >= 2 and plain[1] == 0:
+                    return b""                 # close_notify
+                raise TLSError(f"alert level={plain[0]} desc={plain[1]}")
+            self._plainbuf += plain
+        out, self._plainbuf = self._plainbuf, b""
+        return out
+
+    def settimeout(self, seconds):
+        self.sock.settimeout(seconds)
+
+    def close(self):
+        if not self._closed:
+            self._closed = True
+            try:
+                self.sock.close()
+            except OSError:
+                pass
