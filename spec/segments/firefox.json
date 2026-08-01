@@ -2,13 +2,14 @@
   "brand": "firefox",
   "scanned": [
     78,
-    152
+    153
   ],
   "segments": [
     {
       "from": 78,
-      "substitutable": false,
-      "substitution_reason": "\u6bb5\u5185\u65e0\u5b9e\u91c7 golden",
+      "same_as_desktop": false,
+      "substitutable": true,
+      "substitution_reason": "['linux'] \u5404\u81ea\u5185\u90e8\u4e00\u81f4\uff08\u5171 1 \u4e2a\u7248\u672c\uff09",
       "tables": {
         "ciphers": [
           4865,
@@ -103,6 +104,7 @@
     },
     {
       "from": 83,
+      "same_as_desktop": false,
       "substitutable": false,
       "substitution_reason": "\u6bb5\u5185\u65e0\u5b9e\u91c7 golden",
       "tables": {
@@ -199,6 +201,7 @@
     },
     {
       "from": 85,
+      "same_as_desktop": false,
       "substitutable": true,
       "substitution_reason": "['utls'] \u5404\u81ea\u5185\u90e8\u4e00\u81f4\uff08\u5171 1 \u4e2a\u7248\u672c\uff09",
       "tables": {
@@ -294,6 +297,7 @@
     },
     {
       "from": 102,
+      "same_as_desktop": false,
       "substitutable": true,
       "substitution_reason": "tls_client \u8986\u76d6 4 \u4e2a\u7248\u672c\u4e00\u81f4",
       "tables": {
@@ -388,6 +392,7 @@
     },
     {
       "from": 108,
+      "same_as_desktop": false,
       "substitutable": false,
       "substitution_reason": "\u8bc1\u636e\u4e0d\u8db3\uff1atls_client \u8986\u76d6 2 \u7248\u672c\u6709 2 \u79cd\u6307\u7eb9",
       "tables": {
@@ -481,6 +486,7 @@
     },
     {
       "from": 112,
+      "same_as_desktop": false,
       "substitutable": true,
       "substitution_reason": "['tls_client', 'wreq'] \u5404\u81ea\u5185\u90e8\u4e00\u81f4\uff08\u5171 1 \u4e2a\u7248\u672c\uff09",
       "tables": {
@@ -576,6 +582,7 @@
     },
     {
       "from": 119,
+      "same_as_desktop": false,
       "substitutable": false,
       "substitution_reason": "\u8bc1\u636e\u4e0d\u8db3\uff1atls_client \u8986\u76d6 2 \u7248\u672c\u6709 2 \u79cd\u6307\u7eb9",
       "tables": {
@@ -671,6 +678,7 @@
     },
     {
       "from": 124,
+      "same_as_desktop": false,
       "substitutable": true,
       "substitution_reason": "['wreq'] \u5404\u81ea\u5185\u90e8\u4e00\u81f4\uff08\u5171 1 \u4e2a\u7248\u672c\uff09",
       "tables": {
@@ -767,6 +775,7 @@
     },
     {
       "from": 132,
+      "same_as_desktop": false,
       "substitutable": true,
       "substitution_reason": "['curl_cffi', 'tls_client', 'wreq'] \u5404\u81ea\u5185\u90e8\u4e00\u81f4\uff08\u5171 2 \u4e2a\u7248\u672c\uff09",
       "tables": {
@@ -864,8 +873,9 @@
     },
     {
       "from": 135,
+      "same_as_desktop": false,
       "substitutable": true,
-      "substitution_reason": "wreq \u8986\u76d6 13 \u4e2a\u7248\u672c\u4e00\u81f4\uff1b\u53e6\u6709 tls_client(2 \u7248\u672c 2 \u79cd) \u5206\u6b67\uff0c\u8bc1\u636e\u5f31\u4e8e\u524d\u8005",
+      "substitution_reason": "wreq \u8986\u76d6 13 \u4e2a\u7248\u672c\u4e00\u81f4\uff1b\u53e6\u6709 real(2 \u7248\u672c 2 \u79cd)\u3001tls_client(2 \u7248\u672c 2 \u79cd) \u5206\u6b67\uff0c\u8bc1\u636e\u5f31\u4e8e\u524d\u8005",
       "tables": {
         "ciphers": [
           4865,
@@ -958,10 +968,10 @@
           514
         ]
       },
-      "to": 152
+      "to": 153
     }
   ],
-  "substitutable_segments": 6,
+  "substitutable_segments": 7,
   "substitution_note": "\u6bb5\u5185\u53ef\u5b89\u5168\u66ff\u4ee3\uff08\u6e90\u7801\u4e09\u8868 + curves + sct \u5df2\u8986\u76d6\u51b3\u5b9a\u6027\u7ef4\u5ea6\uff09",
   "unavailable": [],
   "usable_for_substitution": true

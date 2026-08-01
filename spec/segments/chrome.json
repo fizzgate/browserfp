@@ -7,6 +7,7 @@
   "segments": [
     {
       "from": 70,
+      "same_as_desktop": false,
       "substitutable": true,
       "substitution_reason": "['utls'] \u5404\u81ea\u5185\u90e8\u4e00\u81f4\uff08\u5171 1 \u4e2a\u7248\u672c\uff09",
       "tables": {
@@ -102,6 +103,7 @@
     },
     {
       "from": 71,
+      "same_as_desktop": false,
       "substitutable": false,
       "substitution_reason": "\u6bb5\u5185\u65e0\u5b9e\u91c7 golden",
       "tables": {
@@ -197,6 +199,7 @@
     },
     {
       "from": 72,
+      "same_as_desktop": false,
       "substitutable": true,
       "substitution_reason": "['utls'] \u5404\u81ea\u5185\u90e8\u4e00\u81f4\uff08\u5171 1 \u4e2a\u7248\u672c\uff09",
       "tables": {
@@ -292,6 +295,7 @@
     },
     {
       "from": 83,
+      "same_as_desktop": false,
       "substitutable": true,
       "substitution_reason": "['utls'] \u5404\u81ea\u5185\u90e8\u4e00\u81f4\uff08\u5171 2 \u4e2a\u7248\u672c\uff09",
       "tables": {
@@ -396,6 +400,7 @@
     },
     {
       "from": 91,
+      "same_as_desktop": false,
       "substitutable": true,
       "substitution_reason": "['utls'] \u5404\u81ea\u5185\u90e8\u4e00\u81f4\uff08\u5171 1 \u4e2a\u7248\u672c\uff09",
       "tables": {
@@ -508,6 +513,7 @@
     },
     {
       "from": 97,
+      "same_as_desktop": false,
       "substitutable": false,
       "substitution_reason": "\u6bb5\u5212\u7c97\u4e86\uff08\u5f3a\u8bc1\u636e\uff09\uff1awreq \u8986\u76d6 13 \u7248\u672c\u5374\u6709 3 \u79cd\u6307\u7eb9",
       "tables": {
@@ -615,6 +621,7 @@
     },
     {
       "from": 119,
+      "same_as_desktop": false,
       "substitutable": false,
       "substitution_reason": "\u6bb5\u5212\u7c97\u4e86\uff08\u5f3a\u8bc1\u636e\uff09\uff1acurl_cffi \u8986\u76d6 3 \u7248\u672c\u5374\u6709 2 \u79cd\u6307\u7eb9\u3001wreq \u8986\u76d6 3 \u7248\u672c\u5374\u6709 2 \u79cd\u6307\u7eb9",
       "tables": {
@@ -698,6 +705,7 @@
     },
     {
       "from": 124,
+      "same_as_desktop": false,
       "substitutable": true,
       "substitution_reason": "wreq \u8986\u76d6 6 \u4e2a\u7248\u672c\u4e00\u81f4",
       "tables": {
@@ -784,6 +792,7 @@
     },
     {
       "from": 131,
+      "same_as_desktop": false,
       "substitutable": false,
       "substitution_reason": "\u6bb5\u5212\u7c97\u4e86\uff08\u5f3a\u8bc1\u636e\uff09\uff1awreq \u8986\u76d6 10 \u7248\u672c\u5374\u6709 2 \u79cd\u6307\u7eb9",
       "tables": {
@@ -871,6 +880,7 @@
     },
     {
       "from": 141,
+      "same_as_desktop": false,
       "substitutable": true,
       "substitution_reason": "['wreq'] \u5404\u81ea\u5185\u90e8\u4e00\u81f4\uff08\u5171 1 \u4e2a\u7248\u672c\uff09",
       "tables": {
@@ -960,8 +970,9 @@
     },
     {
       "from": 142,
+      "same_as_desktop": false,
       "substitutable": true,
-      "substitution_reason": "wreq \u8986\u76d6 8 \u4e2a\u7248\u672c\u4e00\u81f4\uff1b\u53e6\u6709 tls_client(2 \u7248\u672c 2 \u79cd) \u5206\u6b67\uff0c\u8bc1\u636e\u5f31\u4e8e\u524d\u8005",
+      "substitution_reason": "wreq \u8986\u76d6 8 \u4e2a\u7248\u672c\u4e00\u81f4\uff1b\u53e6\u6709 real(2 \u7248\u672c 2 \u79cd)\u3001tls_client(2 \u7248\u672c 2 \u79cd) \u5206\u6b67\uff0c\u8bc1\u636e\u5f31\u4e8e\u524d\u8005",
       "tables": {
         "alps": true,
         "boringssl": "91f3df0a20f6d3dd3e2f749b4a2730b68c3d585e",
@@ -1052,6 +1063,7 @@
     },
     {
       "from": 153,
+      "same_as_desktop": false,
       "substitutable": false,
       "substitution_reason": "\u6bb5\u5185\u65e0\u5b9e\u91c7 golden",
       "tables": {

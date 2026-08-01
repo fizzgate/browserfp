@@ -68,6 +68,22 @@ def golden_by_version(brand):
     for rec in registry:
         if rec.get("mode") != "initial" or not rec.get("default_config", True):
             continue
+
+        # **真机采集的条目版本号在 versions 字段里，alias 里没有**。实采
+        # firefox 78 的 id 是 linux:firefox-78-linux —— 版本号不在末尾，
+        # 按 alias 正则怎么都提不出来，段表因此误报"段内无实采 golden"，
+        # 而 uamap 早就通过 versions 认出了它。两处判据必须一致。
+        vers = rec.get("versions") or []
+        if vers and brand.split("-")[0] in " ".join(
+                [rec["id"]] + rec.get("aliases", [])).lower():
+            is_mob = bool(MOB.search(" ".join([rec["id"]] + rec.get("aliases", []))))
+            if is_mob == brand.endswith("-mobile"):
+                for vs in vers:
+                    mm = re.match(r"^(?:\D*?)(\d+)", str(vs))
+                    if mm:
+                        out.setdefault(int(mm.group(1)), []).append(
+                            (rec["id"].split(":", 1)[0], _fp_key(rec["tls"])))
+
         for alias in [rec["id"]] + rec.get("aliases", []):
             src, name = alias.split(":", 1)
             if brand in ("firefox-mobile", "chrome-mobile"):
