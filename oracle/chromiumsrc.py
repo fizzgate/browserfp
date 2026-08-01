@@ -336,13 +336,18 @@ def chromium_sig_and_cipher(tag):
         d = _get(f"{JSD}/chromium/chromium@{tag}/net/socket/ssl_client_socket_impl.cc",
                  os.path.join(CACHE, tag, "ssl_client_socket_impl.cc"))
     except Exception:
-        return None, []
+        return None, [], False
+    # Channel ID(0x7550) 是 Google 私有扩展，BoringSSL 的 kExtensions 表里
+    # **每个版本都有**，但 Chromium 在 M72 把使用它的代码整片删掉了（M70 有
+    # 35 处引用、M72 起 0 处）。utls 实采印证：Chrome_70 发 0x7550、Chrome_72
+    # 不发。只看 BoringSSL 的表会以为所有版本都发——又一例"表里有 ≠ 会发"。
+    channel_id = bool(re.search(r"[Cc]hannel[_ ]?[Ii][Dd]", d))
     prefs = None
     m = re.search(r"kVerifyPrefs\[\]\s*=\s*\{(.*?)\};", d, re.S)
     if m:
         prefs = re.findall(r"SSL_SIGN_\w+", m.group(1))
     excludes = sorted(set(re.findall(r'command\.append\("?:!(\w+)"?\)', d)))
-    return prefs, excludes
+    return prefs, excludes, channel_id
 
 
 def ordered_extensions(rev):
@@ -422,12 +427,13 @@ def extract(major):
         raise RuntimeError(f"M{major}({rev[:10]}) 找不到 kSignSignatureAlgorithms，"
                            "表可能又搬家了——不要当成空列表用")
     curves, key_shares = chromium_curves(tag)
-    verify_prefs, cipher_excludes = chromium_sig_and_cipher(tag)
+    verify_prefs, cipher_excludes, channel_id = chromium_sig_and_cipher(tag)
     # Chrome 自 110 起随机置换扩展顺序，届时顺序不再是指纹特征
     ext_order = ordered_extensions(rev) if major < 110 else []
     return {
         "verify_prefs": verify_prefs,
         "cipher_excludes": cipher_excludes,
+        "channel_id": channel_id,
         "ext_order": ext_order,
         "tag": tag,
         "boringssl": rev,

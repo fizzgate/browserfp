@@ -152,7 +152,7 @@ KEYS_BY_BRAND = {
     # 89 起 0xfe09…），而这些扩展是否真发根本没有依据。要用它必须先按实采
     # 学到的发送集合过滤，那已经依赖 golden 而不是纯源码推导了。
     "chrome": ("curves", "key_share_groups", "verify_sigalgs", "verify_prefs",
-               "cipher_excludes"),
+               "cipher_excludes", "channel_id"),
 }
 KEYS = KEYS_BY_BRAND["firefox"]
 
