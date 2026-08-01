@@ -194,8 +194,17 @@ def ja4(ch: dict) -> str:
     return f"{ja4_a}_{ja4_b}_{ja4_c}"
 
 
-def fingerprint(record: bytes) -> dict:
+def fingerprint(record: bytes, drop_sni: bool = False) -> dict:
     """一步到位：raw record → 可直接落 golden 的比对结构。
+
+    drop_sni=True 时把带 SNI 的握手归一化成无 SNI 形态。**与库里的 golden 比对
+    前必须这么做**：库里的 profile 全部采自无 SNI 场景（ja4 首段 t13i），而真机
+    经代理采到的是真实形态（t13d），直接比会得出"库里没有这个指纹"的错误结论。
+    实测 Firefox 149：
+        真机          t13d1717h2_5b57614c22b0_3cbfd9057e0d
+        real:firefox  t13i1716h2_5b57614c22b0_3cbfd9057e0d
+    后两段本来就一致——ja4 的扩展哈希在计算时就排除了 server_name 与 ALPN，
+    差异只在首段的 SNI 标志与扩展计数。
 
     raw_extensions / raw_ciphers / extension_bodies 三个字段带 GREASE 且保序，
     比对时用不到（比对用剔除 GREASE 的版本），但**重建 ClientHello 时必需**：
@@ -203,6 +212,12 @@ def fingerprint(record: bytes) -> dict:
     golden 只能验证、不能当 profile 用。
     """
     ch = parse_client_hello(record)
+    if drop_sni:
+        ch["sni"] = None
+        ch["extensions"] = [e for e in ch["extensions"] if e != 0x0000]
+        ch["raw_extensions"] = [e for e in ch["raw_extensions"] if e != 0x0000]
+        ch["extension_bodies"] = {k: v for k, v in ch["extension_bodies"].items()
+                                  if k != 0x0000}
     ja3_str, ja3_hash = ja3(ch)
     return {
         "ja4": ja4(ch),
