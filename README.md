@@ -117,9 +117,16 @@ ClientHello 逐字节相同 —— 那比不伪装还容易被判。Lua 侧走 `
 cloudflare.com 有默认证书、没 SNI 照样通过，只有 example.com 会回
 `handshake_failure(40)` —— **只测一个站点就会误以为没问题**。
 
-验证两层：`spec/test_build_parity.py` 做重建闭环（C 构造 80 条 → Python 解析 →
-与 golden 逐字段比），以及真实握手（chrome 151 / firefox 153 / safari-mobile 27
-× cloudflare / example / github，9/9 收到 ServerHello）。
+验证两层，缺一不可：
+
+| 门禁 | 验什么 | 为什么不够 |
+|---|---|---|
+| `test_build_parity` | C 构造 80 条 → Python 解析 → 与 golden 逐字段比 | 这是**自洽性**：字段全对，但 record 长度回填错一位、扩展块少两字节，解析器能忍、服务器不会忍 |
+| `test_build_live` | 字节真发出去，看回 ServerHello 还是 Alert | 这是**可用性**，当前 12/12（4 个 profile × 3 站点）|
+
+`test_build_live` 必须打多站点：SNI 插入那个缺陷曾差点被掩盖 —— cloudflare.com
+有默认证书、缺 SNI 照样回 ServerHello，只有严格校验 SNI 的站点才回
+`handshake_failure(40)`。**只测一个站点得出的绿是假绿**。
 
 ## 一条命令看全部状态
 
