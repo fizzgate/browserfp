@@ -30,6 +30,30 @@ MIN_SAFE_RATIO = 0.80          # exact + same-seg 占浏览器请求的比例下
 DERIVED = ("tor", "android", "ios", "ipad", "mobile", "private", "okhttp")
 
 
+def mobile_equivalence_evidence(reg):
+    """找出同时含移动端与桌面别名的 profile —— 移动端映射规则的证据基础。
+
+    规则是"移动端 UA 可以命中带移动端别名的 profile"，依据是注册表按指纹去重后
+    这类条目里两边并存，说明该指纹**同时**被移动端与桌面观测到。实测有 6 条，
+    其中 Safari 占 4 条（iOS ≡ macOS，覆盖 153/155/180/26）。
+
+    这是推断而非实测每个版本，所以要盯住证据本身：哪天这类条目消失了，说明
+    "移动端与桌面可能同指纹"不再有观测支持，规则必须重新评估而不是继续用。
+    """
+    out = []
+    for rec in reg.values():
+        if rec.get("mode") != "initial":
+            continue
+        names = [rec["id"]] + rec.get("aliases", [])
+        short = [n.split(":", 1)[1].lower() for n in names]
+        mob = [n for n in short if MOBILE_ALIAS.search(n)]
+        desk = [n for n in short
+                if not any(t in n for t in DERIVED) and not MOBILE_ALIAS.search(n)]
+        if mob and desk:
+            out.append((rec["id"], mob[:2], desk[:2]))
+    return out
+
+
 def main():
     if not os.path.exists(FIXTURES):
         print("缺真实 UA 测试集，跳过", file=sys.stderr)
@@ -78,7 +102,16 @@ def main():
             print(f"  {k:12s} {stats[k]:>6}  {stats[k]*100/total:5.1f}%")
     print(f"\n可安全伪装(exact+same-seg): {ratio*100:.1f}%  阈值 {MIN_SAFE_RATIO*100:.0f}%")
 
-    ok = ratio >= MIN_SAFE_RATIO and not violations
+    # 移动端映射规则的证据。定 3 是下限：当前 6 条，掉到 3 条以下说明观测基础
+    # 明显削弱，该重新评估这条规则而不是接着用。
+    evidence = mobile_equivalence_evidence(reg)
+    ev_ok = len(evidence) >= 3
+    print(f"\n移动端↔桌面同指纹证据 {len(evidence)} 条"
+          f"（规则依据，下限 3）{'' if ev_ok else '  ✗ 不足'}")
+    for pid, mob, desk in evidence[:6]:
+        print(f"    {pid:24s} 移动端{mob} ≡ 桌面{desk}")
+
+    ok = ratio >= MIN_SAFE_RATIO and not violations and ev_ok
     for kind, ua, pid in violations[:6]:
         print(f"  ✗ {kind}: {ua} → {pid}")
     if not violations:

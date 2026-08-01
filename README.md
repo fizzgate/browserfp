@@ -247,6 +247,24 @@ unparsed     8.5%     ← 非浏览器 UA（扫描器等）
 的别名里同时含桌面与 `safari_ios_15_5`，说明这两者指纹本就相同。判据因此不是
 "移动端一律拒绝"，而是"命中的 profile 必须带移动端别名"。
 
+这条规则的证据基础是注册表里 6 条同时含两侧别名的 profile（Safari 占 4 条，
+iOS ≡ macOS 覆盖 153/155/180/26）。`test_ua_mapping` 断言该数不少于 3 —— 推断
+类规则不配门禁的话，前提悄悄消失了也没人知道。
+
+**移动端数据密度远不如桌面**，这是当前最大的实际缺口：
+
+| 品牌 | 已有版本 | 生产需要但缺 |
+|---|---|---|
+| `safari-mobile` | 15, 16, 17, 18, 26 | —（已全覆盖）|
+| `chrome-mobile` | 99, 131 | 101, 121, 125, 126, 134 |
+| `firefox-mobile` | 135 | 115, 134, 140 |
+| `edge-mobile` | — | 120 |
+
+源码推导那套方法对移动端用不上：Android Chrome 走 Chromium 的 `IS_ANDROID`
+分支、Android Firefox 是 GeckoView、iOS Safari 闭源，三者的配置点都与桌面不同。
+四个开源库里的 android 变体（okhttp4_android_*、nike_android_mobile 等）绝大多数
+是 **App 的 OkHttp 栈**而非浏览器，不能拿来服务浏览器 UA。
+
 fallback 一度是 7.4%，靠三件事降到 0.3%：
 
 1. **源码段表**（下节）—— 从产生 ClientHello 的源码推导版本区间，回答了抓包答
