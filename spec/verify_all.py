@@ -30,7 +30,7 @@ PY = os.path.join(ROOT, ".venv", "bin", "python")
 # 联网 / 需要容器的门禁单列，默认不跑。test_openresty 要拉镜像、编译、起容器，
 # 耗时以分钟计，不适合每次改动都跑；但它是唯一验证"生产形态"的一环。
 NETWORK_GATES = {"test_live_handshake", "test_cf_discrimination", "test_openresty",
-                 "test_build_live"}
+                 "test_build_live", "test_version_ceiling"}
 
 
 # 各门禁真正的结论行长什么样 —— 取末行常常抓到的是附注而非结论。实测
@@ -131,7 +131,8 @@ def main(argv):
         for mod, label, tmo in (
                 ("spec.test_live_handshake", "对真实站点逐 profile 握手", 1800),
                 ("spec.test_build_live", "C 构造的伪装握手", 900),
-                ("spec.test_openresty", "真实 OpenResty worker", 1800)):
+                ("spec.test_openresty", "真实 OpenResty worker", 1800),
+                ("spec.test_version_ceiling", "扫描上限 vs 上游最新版", 300)):
             ok, tail = _run(mod, timeout=tmo)
             print(f"  {'✅' if ok else '❌'} {label}：{tail}")
             if not ok:
