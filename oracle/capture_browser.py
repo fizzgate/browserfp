@@ -37,7 +37,7 @@ def browser_version(path):
         return f"(unknown: {e})"
 
 
-def capture(browser="chrome", sni="claude.ai", timeout=30):
+def capture(browser="chrome", sni="example.com", timeout=30):
     """启一次浏览器打观测点，返回 (version, fingerprint)。
 
     --host-resolver-rules 把 SNI 域名映射到本地：SNI 必须是真域名，否则 JA4 的
@@ -48,7 +48,7 @@ def capture(browser="chrome", sni="claude.ai", timeout=30):
         raise FileNotFoundError(f"{browser} not found at {path}")
 
     version = browser_version(path)
-    profile = tempfile.mkdtemp(prefix=f"fizztls-{browser}-")
+    profile = tempfile.mkdtemp(prefix=f"tlsfp-{browser}-")
     proc = None
     try:
         with ClientHelloSniffer() as sniffer:

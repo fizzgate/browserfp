@@ -24,7 +24,7 @@ from oracle.clienthello import fingerprint                    # noqa: E402
 from oracle.sniffer import ClientHelloSniffer                 # noqa: E402
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-PROBE = os.path.join(HERE, "goutls", "fizztls-utls")
+PROBE = os.path.join(HERE, "goutls", "tlsfp-utls")
 OUT = os.path.join(HERE, "..", "spec", "golden", "utls_nosni.json")
 
 
@@ -35,7 +35,7 @@ def list_profiles():
 
 def main(argv):
     if not os.path.exists(PROBE):
-        print(f"缺 {PROBE}；先在 oracle/goutls 下 go build -o fizztls-utls .",
+        print(f"缺 {PROBE}；先在 oracle/goutls 下 go build -o tlsfp-utls .",
               file=sys.stderr)
         return 2
 

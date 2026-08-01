@@ -31,7 +31,7 @@ OUT = os.path.join(HERE, "..", "spec", "golden", "quic_real_browsers.json")
 
 
 def capture(binary, port, timeout=40):
-    profile = tempfile.mkdtemp(prefix="fizztls-quic-")
+    profile = tempfile.mkdtemp(prefix="tlsfp-quic-")
     proc = subprocess.Popen(
         [binary, "--headless=new", f"--user-data-dir={profile}",
          "--no-first-run", "--disable-gpu", "--enable-quic",

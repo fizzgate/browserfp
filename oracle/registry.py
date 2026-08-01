@@ -71,6 +71,12 @@ def build():
         for name, entry in tls_data.items():
             # real_browsers.json 多包一层 {version, engine, fingerprint}
             fp = entry.get("fingerprint", entry)
+            # QUIC 形态的 JA4 首字符按规范是 q（t=TCP / q=QUIC）。
+            # fingerprint() 是传输层无关的通用函数，恒产出 t 开头，故在此规范化——
+            # 否则查表时 q 开头的实测值永远命中不了库里 t 开头的记录。
+            if mode == "quic" and isinstance(fp.get("ja4"), str) \
+                    and fp["ja4"].startswith("t"):
+                fp = dict(fp, ja4="q" + fp["ja4"][1:])
             version = entry.get("version")
             k = _key(fp)
             # default_config：该形态是否为浏览器**默认配置**下发出的。

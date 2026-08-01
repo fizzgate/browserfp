@@ -45,7 +45,7 @@ def _free_udp_port():
 
 
 def capture_browser(binary, pin):
-    profile = tempfile.mkdtemp(prefix="fizztls-h3-")
+    profile = tempfile.mkdtemp(prefix="tlsfp-h3-")
     port = _free_udp_port()
 
     def launch(p):

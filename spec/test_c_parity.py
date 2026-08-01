@@ -1,0 +1,68 @@
+"""C 实现与 Python 实现的差分门禁 —— C 版的唯一验收标准。
+
+Python 侧的 clienthello.py 是权威：它的行为已被真机数据与 RFC 官方向量反复校准
+（GREASE 剔除、JA4 各段的排序与占位、SNI/ALPN 排除规则）。C 版不做"照规范重写"
+的独立实现，而是要求**在全部 golden 样本上与 Python 输出逐字符一致**。
+
+样本来源：注册表里每条 profile 都能用 chbuild 重建出 ClientHello 字节，直接拿
+这些字节喂给两边，比 JA4 字符串。
+
+跑：python -m spec.test_c_parity
+"""
+
+import json
+import os
+import subprocess
+import sys
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from oracle.chbuild import build_client_hello                 # noqa: E402
+from oracle.clienthello import fingerprint                    # noqa: E402
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+ROOT = os.path.dirname(HERE)
+CLI = os.path.join(ROOT, "csrc", "ja4cli")
+REGISTRY = os.path.join(HERE, "profiles.json")
+
+
+def main():
+    if not os.path.exists(CLI):
+        print(f"缺 {CLI}；先在 csrc 下编译：\n"
+              f"  cc -O2 -I$(brew --prefix openssl@3)/include -o ja4cli "
+              f"tlsfp.c ja4cli.c -L$(brew --prefix openssl@3)/lib -lcrypto",
+              file=sys.stderr)
+        return 2
+
+    with open(REGISTRY) as f:
+        registry = json.load(f)
+
+    records, expected, names = [], [], []
+    for rec in registry:
+        try:
+            raw = build_client_hello(rec["tls"], sni=None)
+        except Exception:
+            continue
+        records.append(raw.hex())
+        expected.append(fingerprint(raw)["ja4"])
+        names.append(rec["id"])
+
+    out = subprocess.run([CLI], input="\n".join(records), capture_output=True,
+                         text=True, timeout=60)
+    got = [l for l in out.stdout.splitlines() if l.strip()]
+
+    if len(got) != len(expected):
+        print(f"输出条数不符：C {len(got)} vs Python {len(expected)}",
+              file=sys.stderr)
+        return 1
+
+    bad = [(n, e, g) for n, e, g in zip(names, expected, got) if e != g]
+    print(f"差分比对 {len(expected)} 个 profile："
+          f"{len(expected) - len(bad)} 一致，{len(bad)} 不符")
+    for n, e, g in bad[:10]:
+        print(f"  ✗ {n}\n      Python {e}\n      C      {g}")
+    return 1 if bad else 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

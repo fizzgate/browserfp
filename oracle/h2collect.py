@@ -93,10 +93,10 @@ def make_firefox_profile(cert_path=None):
     # 自签证书既当信任锚又当服务器证书，会回 SSLV3_ALERT_BAD_CERTIFICATE。
     if cert_path is None:
         cert_path = CA_CERT
-    profile = tempfile.mkdtemp(prefix="fizztls-ffprof-")
+    profile = tempfile.mkdtemp(prefix="tlsfp-ffprof-")
     subprocess.run([cu, "-N", "-d", f"sql:{profile}", "--empty-password"],
                    check=True, capture_output=True)
-    subprocess.run([cu, "-A", "-n", "fizztls-observer", "-t", "C,,",
+    subprocess.run([cu, "-A", "-n", "tlsfp-observer", "-t", "C,,",
                     "-i", cert_path, "-d", f"sql:{profile}"],
                    check=True, capture_output=True)
     return profile
@@ -133,7 +133,7 @@ def collect_real(with_safari=False):
         if engine != "chromium":
             print(f"  {name:20s} 跳过（未支持的引擎 {engine}）")
             continue
-        profile = tempfile.mkdtemp(prefix=f"fizztls-h2-{name}-")
+        profile = tempfile.mkdtemp(prefix=f"tlsfp-h2-{name}-")
         with H2Probe() as probe:
             p = subprocess.Popen(
                 [binary, "--headless=new", f"--user-data-dir={profile}",
@@ -159,7 +159,7 @@ def collect_real(with_safari=False):
     return out, failures
 
 
-SAFARI_CA_LABEL = "fizztls-observer-CA"
+SAFARI_CA_LABEL = "tlsfp-observer-CA"
 LOGIN_KEYCHAIN = os.path.expanduser("~/Library/Keychains/login.keychain-db")
 
 

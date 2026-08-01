@@ -4,3 +4,8 @@ oracle/gotls/fizztls-probe
 oracle/gotls/hrrserver/hrrserver
 oracle/goutls/fizztls-utls
 oracle/gosurf/fizztls-surf
+csrc/*.o
+csrc/*.so
+csrc/ja4cli
+csrc/lookup_test
+csrc/profiles.inc

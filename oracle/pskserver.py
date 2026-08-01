@@ -58,7 +58,7 @@ def serve(port, certfile, keyfile, alpn=("http/1.1",)):
                     # 会话恢复形态，得诱导它**新建一条 TCP 连接**。同一 origin
                     # 上浏览器会复用连接，所以这里 Connection: close 断开，
                     # 再靠页面里的子资源触发第二次连接——那一次才带 PSK。
-                    body = (b"<html><body>fizztls"
+                    body = (b"<html><body>probe"
                             b"<img src='/probe2.png'></body></html>")
                     tls.sendall(b"HTTP/1.1 200 OK\r\nContent-Type: text/html\r\n"
                                 b"Content-Length: " + str(len(body)).encode() +

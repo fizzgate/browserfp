@@ -5,9 +5,9 @@
 我们处理不了的密钥交换组。本测试是端到端的可用性门禁。
 
 **必须打多个站点**。曾经只打 cloudflare.com，34 条全绿，却掩盖了"根本没发
-SNI"这个致命缺陷——cloudflare.com 有默认证书所以不介意，claude.ai 是多租户
+SNI"这个致命缺陷——cloudflare.com 有默认证书所以不介意，多租户站点 是多租户
 站点直接 handshake_failure。单站点门禁给出的绿是假绿。选站原则：
-  · 至少一个多租户/严格 SNI 的站点（claude.ai —— 也是本项目真实目标）
+  · 至少一个多租户/严格 SNI 的站点（多租户站点 —— 也是本项目真实目标）
   · 至少一个宽松站点作对照，好把"站点特有策略"与"我们的实现缺陷"分开
 
 这会对外发真实请求（profile 数 × 站点数），别在 CI 里高频跑。
@@ -29,7 +29,7 @@ from oracle.tls13 import TLS13Client, TLSError                # noqa: E402
 HERE = os.path.dirname(os.path.abspath(__file__))
 REGISTRY = os.path.join(HERE, "profiles.json")
 
-DEFAULT_HOSTS = ["cloudflare.com", "claude.ai"]
+DEFAULT_HOSTS = ["cloudflare.com", "example.com"]
 
 
 def try_profile(rec, host, timeout=15):
@@ -46,7 +46,7 @@ def try_profile(rec, host, timeout=15):
             return True, f"TLS1.3 {group} (无 h2 profile)"
         h2 = H2Client(conn, rec["h2"]).connect()
         sid = h2.request("GET", "/", host,
-                         headers=[("user-agent", "fizztls-ref"), ("accept", "*/*")])
+                         headers=[("user-agent", "tlsfp-ref"), ("accept", "*/*")])
         headers, _ = h2.read_response(sid)
         return True, f"TLS1.3 {group} h2 {dict(headers).get(':status')}"
     finally:

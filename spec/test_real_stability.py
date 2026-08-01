@@ -41,7 +41,7 @@ def _launch(engine, binary, url):
         profile = make_firefox_profile()
         cmd = [binary, "--headless", "--no-remote", "--profile", profile, url]
     elif engine == "chromium":
-        profile = tempfile.mkdtemp(prefix="fizztls-stab-")
+        profile = tempfile.mkdtemp(prefix="tlsfp-stab-")
         cmd = [binary, "--headless=new", f"--user-data-dir={profile}",
                "--no-first-run", "--disable-gpu", url]
     else:

@@ -3,8 +3,7 @@
 **定位**：C 模块的 Python 参考实现。用它验证"从 golden 重建的 ClientHello 能
 真的完成握手并跑 h2"，而不是拿来跑生产——生产走 BoringSSL C 模块。
 
-对外暴露 send/read/settimeout/close 四方法，与 fizz-node-resty 的
-tls13_client.lua、proxy_endpoint.lua:_browser_tls() 同一个契约，将来换引擎
+对外暴露 send/read/settimeout/close 四方法，与宿主 Lua 侧的 TLS 客户端抽象同一个契约，将来换引擎
 下游不用改。
 
 **密钥交换支持**：X25519 与 X25519MLKEM768（0x11ec，后量子混合）。后者靠
@@ -206,7 +205,7 @@ class TLS13Client:
 
         # profile 可能来自 no-SNI 采集（真机浏览器只能这么采，见 browsers.py），
         # 那样 raw_extensions 里没有 0x0000，遍历它永远发不出 SNI —— 打
-        # cloudflare.com 不报错（有默认证书），打 claude.ai 这类多租户站点则
+        # 有默认证书的站点不报错，打多租户站点（按 SNI 分证书）则
         # 直接 handshake_failure(40)。这里按实测规律补：SNI 紧跟开头的 GREASE，
         # 无 GREASE 时排第一（31 个 curl_cffi profile 全部符合，tor145 是唯一
         # 无 GREASE 的，其 SNI 就在第 0 位）。
@@ -228,8 +227,8 @@ class TLS13Client:
             elif ext_id == 0x0029:
                 continue          # pre_shared_key：无票据可用，整个扩展不发
             elif ext_id == 0xFE0D:
-                # GREASE ECH：Chrome 恒发。**不能跳过**——claude.ai 缺了它直接
-                # 回 handshake_failure(40)，而 cloudflare.com 不要求，只打后者
+                # GREASE ECH：Chrome 恒发。**不能跳过**——部分站点缺了它直接
+                # 回 handshake_failure(40)，而另一些站点不要求，只打后者
                 # 会漏掉这个缺陷。也**不能照搬 golden 的 body**：config_id 只有
                 # 1 字节，固定值一旦撞上服务端真实 ECH 配置，它会拿自己的私钥去
                 # 解 payload 并失败，同样是 handshake_failure。必须每次新鲜生成。

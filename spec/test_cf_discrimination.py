@@ -1,6 +1,6 @@
 """对照实验：Cloudflare 到底认不认 TLS/h2 指纹？
 
-**要验的结论**：web_proxy.lua:6-10 记着"CF managed challenge 与 TLS 指纹无关
+**要验的结论**：宿主项目此前记录过"CF managed challenge 与 TLS 指纹无关
 （cf_clearance 只绑 UA + 出口 IP）；Go+utls 四种 ALPN/指纹组合全部 403"，据此
 整条 uTLS 链路被删。C 模块要不要开工取决于它是否成立。
 
@@ -136,7 +136,7 @@ def arm_plain(host, _profile, _reg):
 
 
 def main(argv):
-    host = argv[1] if len(argv) > 1 else "claude.ai"
+    host = argv[1] if len(argv) > 1 else "example.com"
     reg = _registry()
 
     arms = [("plain", arm_plain, "chrome136")]

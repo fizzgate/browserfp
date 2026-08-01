@@ -1,4 +1,4 @@
-# fizztls — 浏览器 TLS/HTTP2 指纹覆盖与验证
+# tlsfp — 浏览器 TLS / HTTP2 / QUIC 指纹覆盖与验证
 
 目标两条：**覆盖市面主流浏览器指纹**，以及**有办法证明覆盖是对的**。
 
@@ -165,7 +165,7 @@ safari172_ios 完全相同。断言必须走 13 个确定性字段的逐项比�
 是同一指纹的四个名字，按名字数会虚高。
 
 **门禁必须打多个站点。** 曾经只打 cloudflare.com，34 条全绿，掩盖了"根本没发
-SNI"——cloudflare.com 有默认证书不介意，claude.ai 多租户直接 handshake_failure。
+SNI"——cloudflare.com 有默认证书不介意，多租户站点直接 handshake_failure。
 单站点的绿是假绿。
 
 **真机 profile 不能用来证明开源表的覆盖率。** 用真机指纹匹配真机必然 0 差异，
@@ -185,7 +185,7 @@ padding 就跟着变——safari184/155/260_ios 在 HRR 后 padding 直接消失
 
 | 现象 | 真因 |
 |---|---|
-| 打 claude.ai 恒 `handshake_failure(40)`，打 cloudflare.com 正常 | profile 来自 no-SNI 采集，`raw_extensions` 无 `0x0000`，**根本没发 SNI**。曾误归因到 ECH |
+| 打多租户站点恒 `handshake_failure(40)`，打默认证书站点正常 | profile 来自 no-SNI 采集，`raw_extensions` 无 `0x0000`，**根本没发 SNI**。曾误归因到 ECH |
 | Chrome 151 自签证书握手直接 EOF | 151 起 `--ignore-certificate-errors` 不够，须加 `--ignore-certificate-errors-spki-list`；Chromium 142 不需要 |
 | Firefox 回 `SSLV3_ALERT_BAD_CERTIFICATE` | 不接受同一张自签证书既当信任锚又当服务器证书，须 CA + leaf 两级 |
 | `--host-resolver-rules` 在 Chrome 151 完全失效 | headless/有头 × 裸规则/显式端口/关 DoH/`--host-rules` 六种组合实测全不生效，只能直连 IP 采集 |
@@ -312,7 +312,7 @@ Windows/Linux 桌面版是否与 macOS 同指纹，目前**没有直接证据**�
   刻意不采）；4 个来自 tls_client 且**本来就不走 h2** —— cloudscraper 与
   mesh_android_2 协商到 http/1.1，mms_ios / mms_ios_2 根本不发 ALPN。原先的 4 个：cloudscraper / mesh_android_2 / mms_ios / mms_ios_2 ——
   **均为非浏览器 app profile，浏览器侧无缺口**（四个真机浏览器全部三层齐全）。
-- **CF 挑战未验证**：claude.ai 根路径本就不设防（三种指纹结果一致、无 `cf-mitigated`），
+- **CF 挑战未验证**：该端点本就不设防（三种指纹结果一致、无 `cf-mitigated`），
   要验 managed challenge 需要一个真正会触发的端点。
 - **TCP 层：解析器已就绪，数据只能在生产入口采**。`oracle/ja4t.py` 可从 SYN 包算出
   JA4T（`window_size_options_MSS_windowscale`），已用构造向量验证（含"非 SYN 包必须
@@ -370,7 +370,7 @@ Windows/Linux 桌面版是否与 macOS 同指纹，目前**没有直接证据**�
   ```
   alt-svc-mapping-for-testing = "127.0.0.1;h3=\":port\""        ❌
   alt-svc-mapping-for-testing = "127.0.0.1:port;h3=\":port\""   ❌
-  域名方式（network.dns.localDomains + fizztls.test）              ❌
+  域名方式（network.dns.localDomains + tlsfp.test）              ❌
   ```
 
   需强调这是**采集侧的限制，不是实现缺失**：`quicprobe`/`h3probe` 处理的是任意
@@ -426,7 +426,7 @@ Safari 那条是唯一有副作用的，默认不跑。观测点必须发**完�
 ```bash
 python3 -m venv .venv && .venv/bin/pip install curl_cffi hpack cryptography
 brew install nss                      # certutil，给 Firefox 注入信任 CA
-cd oracle/gotls && go build -o fizztls-probe .        # 采 tls-client 76 个 profile
+cd oracle/gotls && go build -o tls-probe .        # 采 tls-client 76 个 profile
 go build -o hrrserver/hrrserver ./hrrserver           # HelloRetryRequest 观测服务端
 ```
 

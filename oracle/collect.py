@@ -24,7 +24,7 @@ GOLDEN_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                            "..", "spec", "golden", "curl_cffi.json")
 
 
-def capture_one(target, sniffer, sni="claude.ai"):
+def capture_one(target, sniffer, sni="example.com"):
     """打一次本地观测点，返回该 target 的指纹。
 
     走低层 Curl 而不是 requests.get：curl_cffi 0.13.0 的 requests 层**没有**
@@ -32,7 +32,7 @@ def capture_one(target, sniffer, sni="claude.ai"):
     本地观测点——只有 CURLOPT_RESOLVE 能做到。用 IP 当 host 会让 JA4 的 SNI
     标志位从 d 变成 i，golden 就失真了。
 
-    SNI 固定为 claude.ai：ClientHello 里 SNI 的**长度**会进 record 长度，虽然
+    SNI 固定为一个域名：ClientHello 里 SNI 的**长度**会进 record 长度，虽然
     不进 JA4，但逐字节比对时会差——采 golden 和验证必须用同一个 SNI。
     """
     from curl_cffi import Curl, CurlOpt
@@ -64,7 +64,7 @@ def main(argv):
     no_sni = "--no-sni" in argv
     if no_sni:
         argv.remove("--no-sni")
-    sni = None if no_sni else "claude.ai"
+    sni = None if no_sni else "example.com"
     out_path = GOLDEN_PATH.replace("curl_cffi.json",
                                    "curl_cffi_nosni.json" if no_sni else "curl_cffi.json")
 
