@@ -284,6 +284,16 @@ class UAMapper:
                 if mm and brand:
                     self.by_brand.setdefault(brand, {}).setdefault(
                         int(mm.group(1)), (rec, key))
+                    # 该条目若**同时**带移动端别名，说明这一份指纹在两个平台都
+                    # 被观测到，桌面 versions 里的版本号也该注册给移动端。
+                    # 不这么做会出现"同一条记录、同一份指纹，两侧覆盖范围不同"
+                    # —— 实测 real:safari 是本机 Safari 27 的实采、iOS 别名只到
+                    # 26，于是桌面有 27 而 safari-mobile 缺 27。
+                    if not brand.endswith("-mobile") and any(
+                            MOBILE_ALIAS.search(a.split(":", 1)[1])
+                            for a in [rec["id"]] + rec.get("aliases", [])):
+                        self.by_brand.setdefault(brand + "-mobile", {}).setdefault(
+                            int(mm.group(1)), (rec, key))
 
     def lookup(self, ua, strict=True):
         """返回 {profile, confidence, brand, version, note}；无法映射时 profile=None。

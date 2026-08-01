@@ -44,17 +44,19 @@ TARGETS = {
         "Gecko/{v}.0 Firefox/{v}.0", 78, 153),
     "safari": (
         "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 "
-        "(KHTML, like Gecko) Version/{v}.0 Safari/605.1.15", 12, 26),
+        "(KHTML, like Gecko) Version/{v}.0 Safari/605.1.15", 12, 27),
     "safari-mobile": (
         "Mozilla/5.0 (iPhone; CPU iPhone OS {v}_0 like Mac OS X) "
         "AppleWebKit/605.1.15 (KHTML, like Gecko) Version/{v}.0 "
-        "Mobile/15E148 Safari/604.1", 12, 26),
+        "Mobile/15E148 Safari/604.1", 12, 27),
 }
 
 # 从未发布的版本，不计入缺漏。
 #   Chrome 82  —— 2020 年疫情期间从 81 直接跳到 83
 #   Safari 19-25 —— 2025 年 Safari 从 18 直接跳到 26（跟随 OS 版本号），
 #                   中间这些主版本号根本不存在
+# 扫描上界要跟着已发布版本走：本机 Safari 已是 27.0，上界停在 26 就扫不到它，
+# 那个区间出问题也发现不了。
 NEVER_RELEASED = {
     "chrome": {82}, "chrome-mobile": {82},
     "safari": set(range(19, 26)), "safari-mobile": set(range(19, 26)),
