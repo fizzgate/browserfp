@@ -133,12 +133,23 @@ def segment_substitutable(seg, golden):
     # 条数据里有一条不全（实测 tls_client:firefox_135 只有 14 个扩展，而同段的
     # curl_cffi、wreq、utls 都是 16）。
     STRONG = 3        # 覆盖到这么多版本才算强证据
-    strong_ok, strong_bad, weak_bad = [], [], []
+    strong_ok, strong_bad, weak_bad, major = [], [], [], []
     for src, keys in per_src.items():
         n_ver = len({v for vs in keys.values() for v in vs})
         if len(keys) == 1:
             if n_ver >= STRONG:
                 strong_ok.append((src, n_ver))
+            continue
+        # **库内分歧时看分组规模**：一家库在段内分成几组，若最大组覆盖的版本数
+        # 超过其余组之和，那多半是少数几条数据受采集环境影响（Chrome 的 ECH 与
+        # ALPS codepoint 都会被 Finch 运行期覆盖，同版本不同时间抓到的形态可以
+        # 不同），而不是这一段真的横跨了指纹变更点。
+        # 实测 chrome 段 97-118 里 wreq 分成 9/2/2 —— 少数那两组是
+        # 「105 有 ECH、106-114 无、116 又有」这种不成规律的跳跃。
+        # 判据取"最大组 > 其余之和"，1:1 这种（firefox 108-111）不算多数。
+        sizes = sorted((len(vs) for vs in keys.values()), reverse=True)
+        if sizes[0] > sum(sizes[1:]) and sizes[0] >= STRONG:
+            major.append((src, sizes[0], sum(sizes[1:])))
         elif n_ver >= STRONG:
             strong_bad.append((src, len(keys), n_ver))
         else:
@@ -148,6 +159,14 @@ def segment_substitutable(seg, golden):
         return False, ("段划粗了（强证据）："
                        + "、".join(f"{s} 覆盖 {n} 版本却有 {k} 种指纹"
                                    for s, k, n in sorted(strong_bad)))
+    if major and not strong_bad:
+        why = "、".join(f"{s} 内多数组覆盖 {a} 版本（少数 {b} 版本，"
+                       f"疑受 Finch 影响的采集环境差异）"
+                       for s, a, b in sorted(major))
+        if strong_ok:
+            why = "、".join(f"{s} 覆盖 {n} 个版本一致"
+                           for s, n in sorted(strong_ok)) + "；" + why
+        return True, why
     if strong_ok:
         why = "、".join(f"{s} 覆盖 {n} 个版本一致" for s, n in sorted(strong_ok))
         if weak_bad:

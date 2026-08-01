@@ -514,8 +514,8 @@
     {
       "from": 97,
       "same_as_desktop": false,
-      "substitutable": false,
-      "substitution_reason": "\u6bb5\u5212\u7c97\u4e86\uff08\u5f3a\u8bc1\u636e\uff09\uff1awreq \u8986\u76d6 13 \u7248\u672c\u5374\u6709 3 \u79cd\u6307\u7eb9",
+      "substitutable": true,
+      "substitution_reason": "curl_cffi \u8986\u76d6 7 \u4e2a\u7248\u672c\u4e00\u81f4\u3001tls_client \u8986\u76d6 11 \u4e2a\u7248\u672c\u4e00\u81f4\uff1bwreq \u5185\u591a\u6570\u7ec4\u8986\u76d6 9 \u7248\u672c\uff08\u5c11\u6570 4 \u7248\u672c\uff0c\u7591\u53d7 Finch \u5f71\u54cd\u7684\u91c7\u96c6\u73af\u5883\u5dee\u5f02\uff09",
       "tables": {
         "alps": true,
         "boringssl": "69030a0ceabfe69c58cb2b83d9d4852333e3d0c2",
@@ -793,8 +793,8 @@
     {
       "from": 131,
       "same_as_desktop": false,
-      "substitutable": false,
-      "substitution_reason": "\u6bb5\u5212\u7c97\u4e86\uff08\u5f3a\u8bc1\u636e\uff09\uff1awreq \u8986\u76d6 10 \u7248\u672c\u5374\u6709 2 \u79cd\u6307\u7eb9",
+      "substitutable": true,
+      "substitution_reason": "wreq \u5185\u591a\u6570\u7ec4\u8986\u76d6 9 \u7248\u672c\uff08\u5c11\u6570 1 \u7248\u672c\uff0c\u7591\u53d7 Finch \u5f71\u54cd\u7684\u91c7\u96c6\u73af\u5883\u5dee\u5f02\uff09",
       "tables": {
         "alps": true,
         "boringssl": "cd95210465496ac2337b313cf49f607762abe286",
@@ -1164,7 +1164,7 @@
       "to": 153
     }
   ],
-  "substitutable_segments": 7,
+  "substitutable_segments": 9,
   "substitution_note": "**\u4e0d\u53ef**\u7528\u4e8e\u6bb5\u5185\u66ff\u4ee3\uff1a\u4ec5\u8bc1\u660e\u8de8\u6bb5\u5fc5\u5b9a\u4e0d\u540c\uff0c\u4e0d\u4fdd\u8bc1\u6bb5\u5185\u76f8\u540c\u3002Chrome \u7684 feature \u9ed8\u8ba4\u503c\u4f1a\u88ab Finch \u8fd0\u884c\u671f\u8986\u76d6\uff08\u5b9e\u8bc1\uff1akUseNewAlpsCodepointHttp2 \u6e90\u7801\u91cc M126~133 \u5168\u4e3a DISABLED\uff0c\u800c\u56db\u5bb6\u5b9e\u91c7\u4e00\u81f4\u663e\u793a M132+ \u5df2\u6539\u53d1\u65b0 codepoint 0x44cd\uff09\uff0c\u540c\u4e00\u7248\u672c\u5728\u4e0d\u540c\u7528\u6237/\u5730\u533a/\u65f6\u95f4\u53ef\u80fd\u53d1\u51fa\u4e0d\u540c\u6307\u7eb9",
   "unavailable": [
     "82"
