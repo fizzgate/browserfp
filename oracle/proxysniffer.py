@@ -28,6 +28,7 @@ ECH），比对 golden 时若见到 ECH 相关差异，先怀疑这一点。
 """
 
 import os
+import re
 import socket
 import sys
 import threading
@@ -113,12 +114,31 @@ class ProxySniffer:
             except OSError:
                 pass
 
-    def pop(self, timeout=60):
-        """返回 (record, target)；超时抛 TimeoutError。"""
-        if not self._event.wait(timeout):
-            raise TimeoutError(f"no ClientHello within {timeout}s")
-        self._event.clear()
-        return self._records.pop(0), self._hosts.pop(0)
+    def pop(self, timeout=60, want_host=None):
+        """返回 (record, target)；超时抛 TimeoutError。
+
+        **want_host 几乎总是该传**。代理会收到浏览器的**全部**出站连接，不只是
+        我们让它打开的那个页面：遥测、OCSP、位置服务、更新检查都会先到。实测
+        Firefox 149 第一个到达的是 location.services.mozilla.com，而且它协商的
+        是 TLS1.2（采到 t12i1310h2，13 个 cipher），与该浏览器访问网页时的
+        t13d1717h2 完全不是一回事。不过滤就会把这种后台连接的形态当成浏览器
+        指纹落库 —— 这个错误发生过一次，落盘后才从 ja4 的 t12 前缀看出来。
+        """
+        import time as _time
+        deadline = _time.monotonic() + timeout
+        while True:
+            for i, host in enumerate(self._hosts):
+                if want_host is None or host.split(":")[0] == want_host:
+                    self._hosts.pop(i)
+                    return self._records.pop(i), host
+            left = deadline - _time.monotonic()
+            if left <= 0:
+                seen = sorted({h.split(":")[0] for h in self._hosts})
+                raise TimeoutError(
+                    f"no ClientHello for {want_host or 'any host'} within "
+                    f"{timeout}s（期间收到：{seen or '无'}）")
+            self._event.clear()
+            self._event.wait(min(left, 1.0))
 
 
 FIREFOX_PREFS = """user_pref("network.proxy.type", 1);
@@ -167,14 +187,41 @@ def launch_argv(path, port, url):
              url], prof)
 
 
+def save_golden(name, version, engine, fp):
+    """把采到的指纹并入 spec/golden/real_browsers.json。
+
+    **存归一化后的无 SNI 形态**：库里其余 profile 全部采自无 SNI 场景，混入带
+    SNI 的记录会让同一浏览器在注册表里裂成两条互不相认的指纹。
+
+    键名带主版本号（firefox78 而非 firefox），这样多个历史版本能共存——现有的
+    'firefox' 那条是本机最新版，不带版本号，两者互不覆盖。写入走 goldenio 的
+    合并模式：此前采集器覆盖式落盘毁过一次 golden（71 条 h2 记录），那之后所有
+    落盘都必须先读回再更新。
+    """
+    from oracle.goldenio import write_golden
+    path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                        "..", "spec", "golden", "real_browsers.json")
+    total, changed = write_golden(path, {
+        name: {"version": version, "engine": engine, "fingerprint": fp},
+    })
+    return os.path.normpath(path), total, changed
+
+
 def main(argv):
-    """采一次本机 Firefox：python -m oracle.proxysniffer [浏览器路径]"""
+    """采一次浏览器：python -m oracle.proxysniffer [浏览器路径] [--save 名字]"""
     import shutil
     import subprocess
 
     from oracle.clienthello import fingerprint
 
-    path = argv[1] if len(argv) > 1 else \
+    args = [a for a in argv[1:] if not a.startswith("--")]
+    save_as = None
+    if "--save" in argv:
+        i = argv.index("--save")
+        save_as = argv[i + 1] if i + 1 < len(argv) else None
+        if save_as in args:
+            args.remove(save_as)
+    path = args[0] if args else \
         "/Applications/Firefox.app/Contents/MacOS/firefox"
     if not os.path.exists(path):
         print(f"找不到 {path}", file=sys.stderr)
@@ -187,7 +234,7 @@ def main(argv):
         proc = subprocess.Popen(argv, stdout=subprocess.DEVNULL,
                                 stderr=subprocess.DEVNULL)
         try:
-            record, target = sniffer.pop(timeout=90)
+            record, target = sniffer.pop(timeout=90, want_host="example.com")
             fp = fingerprint(record)
             print(f"浏览器 : {ver}")
             print(f"CONNECT: {target}")
@@ -196,6 +243,15 @@ def main(argv):
                   f"{len(fp['extensions_ordered'])}  has_sni: {fp.get('has_sni')}")
             print(f"curves : {[hex(x) for x in fp['curves']]}")
             print(f"sigalgs: {[hex(x) for x in fp['sig_algs']]}")
+
+            if save_as:
+                norm = fingerprint(record, drop_sni=True)
+                engine = "gecko" if is_firefox(path) else "chromium"
+                vnum = re.search(r"(\d[\d.]*)", ver)
+                where, total, changed = save_golden(
+                    save_as, vnum.group(1) if vnum else ver, engine, norm)
+                print(f"\n归一化 : {norm['ja4']}  （去 SNI，与库中 golden 同口径）")
+                print(f"落盘   : {where}  共 {total} 条，本次更新 {changed} 条")
             return 0
         except TimeoutError as e:
             print(f"未采到：{e}", file=sys.stderr)
