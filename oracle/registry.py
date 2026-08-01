@@ -27,11 +27,17 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 G = os.path.join(HERE, "..", "spec", "golden")
 OUT = os.path.join(HERE, "..", "spec", "profiles.json")
 
-# (来源标签, TLS golden, h2 golden, provenance)
+# (来源标签, TLS golden, h2 golden, provenance, mode)
+#
+# mode=resumed 是会话恢复形态（ClientHello 带 pre_shared_key）。它**必须单列**
+# 而不能与首连混为一谈：同一个 profile 的两种形态 JA4 完全不同，用首连的表去
+# 认恢复连接一个都认不出。浏览器打开站点后的后续请求基本都走会话复用，这部分
+# 流量占比很高。
 SOURCES = [
-    ("curl_cffi", "curl_cffi_nosni.json", "h2_curl_cffi.json", "opensource-table"),
-    ("tls_client", "tls_client_nosni.json", "h2_tls_client.json", "opensource-table"),
-    ("real", "real_browsers.json", "h2_real_browsers.json", "real-capture"),
+    ("curl_cffi", "curl_cffi_nosni.json", "h2_curl_cffi.json", "opensource-table", "initial"),
+    ("tls_client", "tls_client_nosni.json", "h2_tls_client.json", "opensource-table", "initial"),
+    ("real", "real_browsers.json", "h2_real_browsers.json", "real-capture", "initial"),
+    ("curl_cffi_psk", "curl_cffi_psk.json", "h2_curl_cffi.json", "opensource-table", "resumed"),
 ]
 
 
@@ -51,7 +57,7 @@ def _key(fp):
 
 def build():
     registry = {}
-    for source, tls_file, h2_file, provenance in SOURCES:
+    for source, tls_file, h2_file, provenance, mode in SOURCES:
         tls_data = _load(tls_file)
         h2_data = _load(h2_file)
         for name, entry in tls_data.items():
@@ -63,6 +69,7 @@ def build():
                 "id": f"{source}:{name}",
                 "aliases": [],
                 "provenance": provenance,
+                "mode": mode,
                 "tls": fp,
                 "h2": None,
                 "versions": [],
@@ -94,9 +101,10 @@ def main():
         json.dump(out, f, indent=2, sort_keys=True)
         f.write("\n")
 
-    by_prov, with_h2 = {}, 0
+    by_prov, by_mode, with_h2 = {}, {}, 0
     for rec in out:
         by_prov[rec["provenance"]] = by_prov.get(rec["provenance"], 0) + 1
+        by_mode[rec["mode"]] = by_mode.get(rec["mode"], 0) + 1
         if rec["h2"]:
             with_h2 += 1
 
@@ -104,6 +112,8 @@ def main():
     print(f"注册表：{len(out)} 个唯一指纹（来自 {total_names} 个 target 名）")
     for prov, n in sorted(by_prov.items()):
         print(f"  {prov:18s} {n}")
+    for mode, n in sorted(by_mode.items()):
+        print(f"  形态 {mode:<13} {n}")
     print(f"  含 h2 层           {with_h2}/{len(out)}")
     print(f"\n→ {os.path.normpath(OUT)}")
 

@@ -9,11 +9,25 @@
 
 | 指标 | 数值 |
 |---|---|
-| 唯一指纹 | **39**（来自 102 个 target 名，按 13 个确定性字段去重） |
-| 来源 | 开源表 35 + 真机采集 4 |
-| 含 h2 层 | 35/39 |
-| 重建门禁 | 39/39 |
+| 唯一指纹 | **52**（来自 133 个 target 名，按 13 个确定性字段去重） |
+| 连接形态 | 首连 39 + 会话恢复 13 |
+| 来源 | 开源表 48 + 真机采集 4 |
+| 含 h2 层 | 48/52 |
+| 重建门禁 | 52/52 |
 | 可用性门禁 | 66/68（34 profile × 2 真实站点） |
+
+### 用途决定了要覆盖什么
+
+本项目服务的是**入站识别**（进来一个指纹，认出它是谁），不是出站伪装。这个区别
+决定了覆盖标准：伪装只需几个能用的指纹，识别却要求覆盖**一切可能进来的形态**，
+漏一个就是"不认识"。
+
+因此有两条与直觉不同的要求：
+
+1. **同一浏览器有两种形态**。首次连接与会话恢复（ClientHello 带 `pre_shared_key`）
+   的指纹**完全不同** —— 实测 31 个 target 的恢复态 JA4 无一与首连相同。浏览器
+   打开站点后的后续请求基本都走会话复用，只有首连表等于认不出大部分真实流量。
+2. **穷举版本不可持续**，改用源码审计（见下）确定"可能出现的全集"。
 
 交付物是 `spec/profiles.json` —— 每条含 `id` / `aliases` / `provenance` / `tls` / `h2`。
 下游引擎读它即可产出正确的 ClientHello，**不需要再去 curl-impersonate 的 C 源码抄表**。
@@ -59,6 +73,7 @@ python -m spec.test_rebuild            # 数据自洽：profile → 字节 → �
 python -m spec.test_live_handshake     # 真实可用：34 profile × 2 站点，真握手 + h2
 python -m spec.test_cf_discrimination  # 指纹是否被区别对待（三臂对照）
 python -m oracle.coverage              # 开源表对真机的覆盖矩阵
+python -m oracle.srcaudit              # 源码审计：还有哪些扩展我们从没见过
 ```
 
 自洽 ≠ 可用：字节拼得出、解析回来一致，不代表服务端会接受。两者必须分开验。
@@ -92,6 +107,7 @@ SNI"——cloudflare.com 有默认证书不介意，claude.ai 多租户直接 ha
 | `--host-resolver-rules` 在 Chrome 151 完全失效 | headless/有头 × 裸规则/显式端口/关 DoH/`--host-rules` 六种组合实测全不生效，只能直连 IP 采集 |
 | h2probe 只能 TLS 1.2 | macOS 系统 Python 3.9 链接 LibreSSL 2.8.3，不支持 TLS 1.3 |
 | ML-KEM `decapsulate` 报 Invalid ciphertext | `encapsulate()` 返回 `(shared_secret, ciphertext)`，不是 `(ct, ss)` |
+| PSK 形态永远采不到 | 观测点跑在 LibreSSL 2.8.3 上（系统 Python 3.9），`HAS_TLSv1_3=False`，发不出 NewSessionTicket。须用 anaconda 的 python（OpenSSL 3.4.1）。gocollect 当初 9 个 `_PSK` profile 全失败就是这个原因，当时误判成"首连无票据、可解释"放过了 |
 | 单独采 Safari 后覆盖矩阵少算 | 直接写 results 清空了其他样本，须读回合并。**同类 bug 出现过两次**（`browsers.py` 与 `h2collect.py`），少算样本不报错，是纯假绿 |
 | Safari 回 `SSLV3_ALERT_CERTIFICATE_UNKNOWN`（CA 已注入钥匙串） | 观测点只发 leaf 没发链。Firefox 能用库里的 CA 补全，Safari 不会，须发 `fullchain.pem` |
 | `security add-trusted-cert` 卡住 | 实测要 8s、偶发更久（曾撞 60s 超时）；且 CA 已在钥匙串时重复添加会触发确认流程。须放宽超时 + 先查再加 |
@@ -106,6 +122,11 @@ SNI"——cloudflare.com 有默认证书不介意，claude.ai 多租户直接 ha
   **均为非浏览器 app profile，浏览器侧无缺口**（四个真机浏览器全部三层齐全）。
 - **CF 挑战未验证**：claude.ai 根路径本就不设防（三种指纹结果一致、无 `cf-mitigated`），
   要验 managed challenge 需要一个真正会触发的端点。
+- **12 个扩展从未观测到**（`srcaudit` 实测）：BoringSSL 声明 31 个，我们见过 19 个。
+  其中 `0x002a early_data`（0-RTT）、`0x002c cookie`（HelloRetryRequest 之后）、
+  `0x0039`/`0xffa5`（QUIC）是真实会遇到的，仍是识别盲区。
+- **真机浏览器的恢复态未采**：PSK 形态目前只有 curl_cffi 的 31 个，四个真机浏览器
+  仍只有首连形态。
 
 ## 真机采集的四条信任路径
 
