@@ -215,6 +215,14 @@ const tlsfp_profile *tlsfp_lookup_ua(const char *brand, uint16_t version,
     return tlsfp_lookup_ua_ex(brand, version, confidence, 0);
 }
 
+/* Chromium 系衍生浏览器：指纹由内核决定，调用方传进来的 version 必须已经是
+   UA 里 Chrome/ 的版本号（oracle/uamap.py 的 parse_ua 就是这么解析的）。
+   自家表查不到时回落到 chrome 表 —— Opera 110 的内核是 Chromium 125，而
+   opera 表里不会有 125 这个号。 */
+static int is_chromium_derived(const char *brand) {
+    return strcmp(brand, "edge") == 0 || strcmp(brand, "opera") == 0;
+}
+
 const tlsfp_profile *tlsfp_lookup_ua_ex(const char *brand, uint16_t version,
                                         int *confidence, int relaxed) {
     if (!brand) return NULL;
@@ -240,6 +248,21 @@ const tlsfp_profile *tlsfp_lookup_ua_ex(const char *brand, uint16_t version,
     if (lo && hi && lo->fp_group == hi->fp_group && (lo->src_mask & hi->src_mask)) {
         if (confidence) *confidence = TLSFP_CONF_SAME_SEG;
         return &tlsfp_profiles[hi->profile];
+    }
+
+    /* 自家表没命中：Chromium 系衍生浏览器回落到 chrome 表再查一次。放在这里
+       而不是入口，是为了让自家实采到的条目优先于内核推断。 */
+    if (is_chromium_derived(brand)) {
+        for (size_t i = 0; i < TLSFP_UA_COUNT; i++) {
+            const tlsfp_ua_entry *e = &tlsfp_ua_table[i];
+            if (strcmp(e->brand, "chrome") != 0) continue;
+            if (e->version == version) {
+                if (confidence)
+                    *confidence = e->from_seg ? TLSFP_CONF_SAME_SEG
+                                              : TLSFP_CONF_EXACT;
+                return &tlsfp_profiles[e->profile];
+            }
+        }
     }
 
     const tlsfp_ua_entry *near = hi ? hi : lo;

@@ -80,13 +80,32 @@ UA_RULES = [
 ]
 
 
+# Chromium 系衍生浏览器：UA 里同时写着自己的版本号与内核的 Chrome 版本号。
+# **内核版本才是决定 TLS 指纹的那个**，所以取 Chrome/ 而不是 OPR//Edg/。
+# 实证（生产 UA）：
+#   Opera 110 的 UA 里是 Chrome/125 —— OPR 版本与内核版本差了 15，按 OPR
+#     版本号去查 chrome 表会张冠李戴
+#   Edge 的 Edg/ 与 Chrome/ 完全一致（150/148/125/126 四种都对得上），所以
+#     此前基于 alias 推断的 Edge↔Chromium 映射在 UA 层面也成立
+CHROMIUM_DERIVED = {"edge", "opera"}
+CHROME_VER = re.compile(r"Chrome/(\d+)")
+
+
 def parse_ua(ua):
-    """返回 (brand, major_version)；识别不了返回 (None, None)。"""
+    """返回 (brand, major_version)；识别不了返回 (None, None)。
+
+    对 Chromium 系衍生浏览器，version 返回的是**内核 Chrome 版本**——指纹由
+    内核决定，用衍生版本号查表会错位。brand 仍保留原样，便于统计与排错。
+    """
     if not ua or not ua.startswith("Mozilla/"):
         return None, None
     for brand, pat in UA_RULES:
         m = pat.search(ua)
         if m:
+            if brand in CHROMIUM_DERIVED:
+                core = CHROME_VER.search(ua)
+                if core:
+                    return brand, int(core.group(1))
             return brand, int(m.group(1))
     return None, None
 
@@ -186,6 +205,18 @@ class UAMapper:
                     "version": None, "note": "非浏览器 UA 或无法解析"}
 
         table = self.by_brand.get(brand)
+        # Chromium 系衍生浏览器：version 已经是内核 Chrome 版本，直接查 chrome
+        # 表最准。仍先看自家表——若某个衍生版本被实采过，那份数据优先于内核推断。
+        if brand in CHROMIUM_DERIVED:
+            own = table or {}
+            if ver not in own:
+                chrome_tbl = self.by_brand.get("chrome") or {}
+                if ver in chrome_tbl:
+                    rec, _ = chrome_tbl[ver]
+                    return {"profile": rec["id"], "confidence": "exact",
+                            "brand": brand, "version": ver,
+                            "note": f"按 UA 内核版本 Chrome/{ver} 取指纹"}
+                table = {**chrome_tbl, **own} if own else chrome_tbl
         if not table:
             return {"profile": None, "confidence": "no-brand", "brand": brand,
                     "version": ver, "note": f"没有 {brand} 的任何 profile"}
