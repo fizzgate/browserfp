@@ -167,6 +167,47 @@ def pref_value(text, name):
     return val
 
 
+# StaticPrefList.yaml 里的值可能是构建时替换标记，必须按 **release 桌面构建**
+# 求值。实测 network.dns.echconfig.enabled 在 Firefox 115-118 是
+# @IS_NIGHTLY_BUILD@（release 即 false），119 起才是 true —— 直接把标记当字符串
+# 用会判成"这些版本都开了 ECH"，与实采相反（tls_client:firefox_117 不发 ECH、
+# firefox_120 发）。
+BUILD_TOKENS = {
+    "@IS_NIGHTLY_BUILD@": False,
+    "@IS_EARLY_BETA_OR_EARLIER@": False,
+    "@IS_ANDROID@": False,
+    "@IS_NOT_ANDROID@": True,
+    "@IS_NOT_NIGHTLY_BUILD@": True,
+    "@IS_NOT_EARLY_BETA_OR_EARLIER@": True,
+}
+
+
+def pref_bool(text, name):
+    """取某个 bool pref 在 release 桌面构建下的值；取不到返回 None。"""
+    raw = pref_value(text, name)
+    if raw is None:
+        return None
+    raw = raw.strip()
+    if raw in BUILD_TOKENS:
+        return BUILD_TOKENS[raw]
+    if raw in ("true", "false"):
+        return raw == "true"
+    return None
+
+
+def sends_ech(version):
+    """是否默认发 encrypted_client_hello(0xfe0d)。
+
+    由 network.dns.echconfig.enabled 决定。与 SCT 那条同理：扩展在 sender 表里
+    恒存在，真发与否看 pref。
+    """
+    try:
+        return pref_bool(fetch(version, "staticprefs"),
+                         "network.dns.echconfig.enabled")
+    except Exception:
+        return None
+
+
 def gecko_groups(version):
     """gecko 硬编码的 group 列表：[含 KEM 的, 不含的]。ClientHello 用前者
     （enable_kyber 默认开、TLS1.3、非 retry），后者是降级路径。"""
@@ -254,9 +295,14 @@ def extract(version):
     if sct is False and emap.get("ssl_signed_cert_timestamp_xtn") in exts:
         exts = [e for e in exts if e != emap["ssl_signed_cert_timestamp_xtn"]]
 
+    ech = sends_ech(version)
+    ECH_EXT = 0xFE0D
+    if ech is False and ECH_EXT in exts:
+        exts = [e for e in exts if e != ECH_EXT]
+
     groups = gecko_groups(version)
     return {"ciphers": ciphers, "sig_algs": sigs, "extensions": exts,
-            "curves": groups[0] if groups else [], "sct": sct}
+            "curves": groups[0] if groups else [], "sct": sct, "ech": ech}
 
 
 def check_prefs(version):

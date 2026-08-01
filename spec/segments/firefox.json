@@ -55,6 +55,103 @@
           "ssl_grp_ffdhe_2048",
           "ssl_grp_ffdhe_3072"
         ],
+        "ech": null,
+        "extensions": [
+          0,
+          23,
+          65281,
+          10,
+          11,
+          35,
+          16,
+          14,
+          5,
+          34,
+          18,
+          51,
+          42,
+          43,
+          13,
+          44,
+          45,
+          65486,
+          49,
+          28,
+          41,
+          65281
+        ],
+        "sct": null,
+        "sig_algs": [
+          1027,
+          1283,
+          1539,
+          515,
+          2052,
+          2053,
+          2054,
+          1025,
+          1281,
+          1537,
+          513,
+          1026,
+          1282,
+          1538,
+          514
+        ]
+      },
+      "to": 82
+    },
+    {
+      "from": 83,
+      "substitutable": false,
+      "substitution_reason": "\u6bb5\u5185\u65e0\u5b9e\u91c7 golden",
+      "tables": {
+        "ciphers": [
+          4865,
+          4867,
+          4866,
+          49195,
+          49199,
+          52393,
+          52392,
+          49196,
+          49200,
+          49162,
+          49161,
+          49171,
+          49187,
+          49191,
+          49172,
+          158,
+          52394,
+          159,
+          51,
+          50,
+          103,
+          57,
+          56,
+          107,
+          22,
+          19,
+          156,
+          157,
+          47,
+          60,
+          53,
+          61,
+          10,
+          5,
+          4
+        ],
+        "curves": [
+          "ssl_grp_ec_curve25519",
+          "ssl_grp_ec_secp256r1",
+          "ssl_grp_ec_secp384r1",
+          "ssl_grp_ec_secp521r1",
+          "ssl_grp_ffdhe_2048",
+          "ssl_grp_ffdhe_3072"
+        ],
+        "ech": false,
         "extensions": [
           0,
           23,
@@ -150,6 +247,7 @@
           "ssl_grp_ffdhe_2048",
           "ssl_grp_ffdhe_3072"
         ],
+        "ech": false,
         "extensions": [
           0,
           23,
@@ -244,6 +342,7 @@
           "ssl_grp_ffdhe_2048",
           "ssl_grp_ffdhe_3072"
         ],
+        "ech": false,
         "extensions": [
           0,
           23,
@@ -337,6 +436,7 @@
           "ssl_grp_ffdhe_2048",
           "ssl_grp_ffdhe_3072"
         ],
+        "ech": false,
         "extensions": [
           0,
           23,
@@ -381,8 +481,8 @@
     },
     {
       "from": 112,
-      "substitutable": false,
-      "substitution_reason": "\u8bc1\u636e\u4e0d\u8db3\uff1atls_client \u8986\u76d6 2 \u7248\u672c\u6709 2 \u79cd\u6307\u7eb9",
+      "substitutable": true,
+      "substitution_reason": "['tls_client', 'wreq'] \u5404\u81ea\u5185\u90e8\u4e00\u81f4\uff08\u5171 1 \u4e2a\u7248\u672c\uff09",
       "tables": {
         "ciphers": [
           4865,
@@ -429,6 +529,102 @@
           "ssl_grp_ffdhe_2048",
           "ssl_grp_ffdhe_3072"
         ],
+        "ech": false,
+        "extensions": [
+          2570,
+          0,
+          23,
+          65281,
+          10,
+          11,
+          35,
+          16,
+          14,
+          5,
+          34,
+          51,
+          42,
+          43,
+          13,
+          44,
+          45,
+          49,
+          28,
+          2570,
+          41
+        ],
+        "sct": false,
+        "sig_algs": [
+          1027,
+          1283,
+          1539,
+          515,
+          2052,
+          2053,
+          2054,
+          1025,
+          1281,
+          1537,
+          513,
+          1026,
+          1282,
+          1538,
+          514
+        ]
+      },
+      "to": 118
+    },
+    {
+      "from": 119,
+      "substitutable": true,
+      "substitution_reason": "['tls_client', 'utls'] \u5404\u81ea\u5185\u90e8\u4e00\u81f4\uff08\u5171 1 \u4e2a\u7248\u672c\uff09",
+      "tables": {
+        "ciphers": [
+          4865,
+          4867,
+          4866,
+          49195,
+          49199,
+          52393,
+          52392,
+          49196,
+          49200,
+          49162,
+          49161,
+          49171,
+          49187,
+          49191,
+          49172,
+          158,
+          52394,
+          159,
+          51,
+          50,
+          103,
+          57,
+          56,
+          107,
+          22,
+          19,
+          156,
+          157,
+          47,
+          60,
+          53,
+          61,
+          10,
+          5,
+          4
+        ],
+        "curves": [
+          "ssl_grp_ec_curve25519",
+          "ssl_grp_ec_secp256r1",
+          "ssl_grp_ec_secp384r1",
+          "ssl_grp_ec_secp521r1",
+          "ssl_grp_ffdhe_2048",
+          "ssl_grp_ffdhe_3072"
+        ],
+        "ech": true,
         "extensions": [
           2570,
           0,
@@ -524,6 +720,7 @@
           "ssl_grp_ffdhe_2048",
           "ssl_grp_ffdhe_3072"
         ],
+        "ech": true,
         "extensions": [
           2570,
           0,
@@ -619,6 +816,7 @@
           "ssl_grp_ffdhe_2048",
           "ssl_grp_ffdhe_3072"
         ],
+        "ech": true,
         "extensions": [
           2570,
           0,
@@ -715,6 +913,7 @@
           "ssl_grp_ffdhe_2048",
           "ssl_grp_ffdhe_3072"
         ],
+        "ech": true,
         "extensions": [
           2570,
           0,
@@ -811,6 +1010,7 @@
           "ssl_grp_ffdhe_2048",
           "ssl_grp_ffdhe_3072"
         ],
+        "ech": true,
         "extensions": [
           2570,
           0,
@@ -858,7 +1058,7 @@
       "to": 152
     }
   ],
-  "substitutable_segments": 6,
+  "substitutable_segments": 8,
   "substitution_note": "\u6bb5\u5185\u53ef\u5b89\u5168\u66ff\u4ee3\uff08\u6e90\u7801\u4e09\u8868 + curves + sct \u5df2\u8986\u76d6\u51b3\u5b9a\u6027\u7ef4\u5ea6\uff09",
   "unavailable": [],
   "usable_for_substitution": true

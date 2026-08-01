@@ -140,7 +140,7 @@ MAX_WORKERS = 5          # 对方是公共服务器，别打太狠
 #              每一版自成一段。它只是"相同则必定同段"的充分条件，不能反过来
 #              当"不同则不同段"用
 KEYS_BY_BRAND = {
-    "firefox": ("ciphers", "sig_algs", "extensions", "curves", "sct"),
+    "firefox": ("ciphers", "sig_algs", "extensions", "curves", "sct", "ech"),
     # 用 verify_* 而非 sign_*：ClientHello 里发的 signature_algorithms 表示
     # "我能验证哪些签名"。verify_prefs 是 Chromium 的硬编码覆盖（有它就压过
     # BoringSSL 默认），cipher_excludes 是 :!3DES 这类排除项。补上这两项之前，
