@@ -29,6 +29,28 @@ typedef struct {
     const uint16_t *sigalgs;   size_t n_sigalgs;
 } tlsfp_profile;
 
+typedef struct {
+    const char *brand;      /* chrome / firefox / safari / edge / opera / tor */
+    uint16_t    version;    /* 主版本号 */
+    uint16_t    profile;    /* 下标，指向 tlsfp_profiles[] */
+    uint16_t    fp_group;   /* 指纹分组号：相同即指纹一致 */
+    uint16_t    src_mask;   /* 来源库位掩码：判同段时要求两端有交集 */
+} tlsfp_ua_entry;
+
+#define TLSFP_CONF_EXACT     0
+#define TLSFP_CONF_SAME_SEG  1
+#define TLSFP_CONF_FALLBACK  2
+
+/* UA → profile。生产在 CDN 之后拿不到 ClientHello，只能按 UA 选指纹伪装。
+ * confidence 输出三档之一，调用方**必须**据此决策：
+ *   0 exact     该主版本有直接对应的 profile
+ *   1 same-seg  同一来源库内相邻版本指纹一致，可安全替代
+ *   2 fallback  跨指纹段取最近 —— 有 split-brain 风险，宜记录并考虑放弃伪装
+ * 未命中返回 NULL。判"同段"要求两端出自同一来源库：实测同一版本在不同库里
+ * 指纹就不同（29 个多库收录版本中 17 个有分歧），跨库比较没有意义。 */
+const tlsfp_profile *tlsfp_lookup_ua(const char *brand, uint16_t version,
+                                     int *confidence);
+
 /* 按 JA4 查内置 profile；未命中返回 NULL（**不做近似匹配** —— 把陌生指纹
  * 归到最近的已知 profile 会让盲区永远不可见）。 */
 const tlsfp_profile *tlsfp_lookup_ja4(const char *ja4);

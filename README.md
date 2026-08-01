@@ -105,6 +105,7 @@ python -m spec.test_lua_parity         # Lua FFI 绑定与 Python/C 一致
 python -m spec.test_ua_mapping         # UA 映射质量（真实生产 UA 分布为测试集）
 python -m spec.test_alias_lookup       # 禁止"只比 id 不查 aliases"的查找
 python -m spec.test_cross_source       # 跨库分歧规模 + same-seg 仅同库成立
+python -m spec.test_c_ua_parity        # C 侧 UA 映射与 Python 一致（真实 UA 输入）
 python -m spec.test_quic               # QUIC：RFC 9001 官方向量 + 真机端到端
 .venv-wreq/bin/python -m spec.test_h3  # HTTP/3：GREASE 剔除 + 跨连接稳定性
 python -m spec.test_cf_discrimination  # 指纹是否被区别对待（三臂对照）
@@ -196,7 +197,16 @@ FFI 绑定层有独立的出错空间（结构体布局、字符串所有权、�
 流量时，是按 UA 挑一个匹配的指纹去伪装——挑错就成了"UA 说是 Chrome 150、TLS 却
 是别的形态"的 split-brain，比不伪装更容易被判。
 
-`oracle/uamap.py` 分三档并**永远显式告知用的是哪一档**：
+三层实现语义一致（由差分门禁保证）：Python `oracle/uamap.py` 是权威，
+C `tlsfp_lookup_ua()` 与 Lua `tlsfp.by_ua()` 供生产使用。
+
+```lua
+local r = tlsfp.by_ua("chrome", 150)
+-- r.id="real:edge"  r.confidence="exact"  r.ja4=...  r.h2=...
+-- confidence 必须检查：fallback 表示跨指纹段取的最近版本，有 split-brain 风险
+```
+
+分三档并**永远显式告知用的是哪一档**：
 
 | 档位 | 含义 |
 |---|---|

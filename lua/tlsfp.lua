@@ -50,6 +50,7 @@ typedef struct {
 } tlsfp_profile;
 
 int  tlsfp_parse_client_hello(const uint8_t *record, size_t len, tlsfp_hello *out);
+const tlsfp_profile *tlsfp_lookup_ua(const char *brand, uint16_t version, int *confidence);
 int  tlsfp_ja4(const tlsfp_hello *h, char transport, char *out, size_t outlen);
 const tlsfp_profile *tlsfp_lookup_ja4(const char *ja4);
 size_t tlsfp_profile_count(void);
@@ -114,6 +115,30 @@ function _M.identify(record, transport)
         ja4  = ja4,
         h2   = p.h2_akamai ~= nil and ffi.string(p.h2_akamai) or nil,
         mode = ffi.string(p.mode),
+    }
+end
+
+local conf_names = { [0] = "exact", [1] = "same-seg", [2] = "fallback" }
+local conf_buf = ffi.new("int[1]")
+
+--- 按 UA 的品牌与主版本选出该用的指纹（生产主入口）。
+-- 网关在 CDN 之后拿不到 ClientHello，只能按 UA 选。**必须检查 confidence**：
+--   exact / same-seg  可安全伪装
+--   fallback          跨指纹段取的最近版本，有 split-brain 风险，
+--                     调用方应记录日志并考虑放弃伪装而非静默使用
+-- @return table{id, ja4, h2, confidence} 或 nil
+function _M.by_ua(brand, version)
+    if not lib then return nil, "libtlsfp.so 未加载" end
+    if type(brand) ~= "string" or type(version) ~= "number" then
+        return nil, "brand/version 类型错误"
+    end
+    local p = lib.tlsfp_lookup_ua(brand, version, conf_buf)
+    if p == nil then return nil, "该品牌/版本无可用 profile" end
+    return {
+        id   = ffi.string(p.id),
+        ja4  = ffi.string(p.ja4),
+        h2   = p.h2_akamai ~= nil and ffi.string(p.h2_akamai) or nil,
+        confidence = conf_names[conf_buf[0]] or "unknown",
     }
 end
 

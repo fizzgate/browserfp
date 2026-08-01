@@ -208,3 +208,33 @@ int tlsfp_ja4(const tlsfp_hello *h, char transport, char *out, size_t outlen) {
              transport, vs, h->has_sni ? 'd' : 'i', nc, ne, alpn, hb, hc);
     return 0;
 }
+
+/* UA → profile。语义与 Python 侧 oracle/uamap.py 完全一致（由差分门禁保证）。 */
+const tlsfp_profile *tlsfp_lookup_ua(const char *brand, uint16_t version,
+                                     int *confidence) {
+    if (!brand) return NULL;
+    const tlsfp_ua_entry *lo = NULL, *hi = NULL;
+
+    for (size_t i = 0; i < TLSFP_UA_COUNT; i++) {
+        const tlsfp_ua_entry *e = &tlsfp_ua_table[i];
+        if (strcmp(e->brand, brand) != 0) continue;
+        if (e->version == version) {
+            if (confidence) *confidence = TLSFP_CONF_EXACT;
+            return &tlsfp_profiles[e->profile];
+        }
+        if (e->version < version && (!lo || e->version > lo->version)) lo = e;
+        if (e->version > version && (!hi || e->version < hi->version)) hi = e;
+    }
+
+    /* same-seg 需两端指纹同组**且**来源库有交集 —— 跨库的"相同"是巧合，
+     * 实测 29 个多库收录的版本里 17 个存在跨库分歧。 */
+    if (lo && hi && lo->fp_group == hi->fp_group && (lo->src_mask & hi->src_mask)) {
+        if (confidence) *confidence = TLSFP_CONF_SAME_SEG;
+        return &tlsfp_profiles[hi->profile];
+    }
+
+    const tlsfp_ua_entry *near = hi ? hi : lo;
+    if (!near) return NULL;
+    if (confidence) *confidence = TLSFP_CONF_FALLBACK;
+    return &tlsfp_profiles[near->profile];
+}
