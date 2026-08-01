@@ -55,8 +55,12 @@ def check_numbers(text):
     立刻证明它是假绿：39 在文中出现多次（39/39、35/39），把"唯一指纹 39"改成
     40 照样全绿。现在锚定到具体那一处表述。
 
-    只查能从数据唯一确定的量，不查"66/68"这类依赖外网的结果——那个每次跑都
-    可能因网络变动，写死会制造假红。
+    只查能从数据唯一确定的量，不查"12/12 收到 ServerHello"这类依赖外网的
+    结果——那个每次跑都可能因网络变动，写死会制造假红。README 里那类数字
+    一律标成"某日实测"，读的人才知道它不是当前值。
+
+    **反过来说，凡是能从数据算出来的都得查**。"重建门禁 77/77" 在库涨到 80
+    条之后仍写着 77，整整烂了一阵没人发现 —— 它不依赖外网，纯粹是没人查。
 
     **覆盖率也要查**。它是 README 里最容易僵尸化的数字：每次改进映射逻辑都会
     变，而改的人未必想起来同步文档。它由固定的 fixtures 与代码唯一确定，不依赖
@@ -85,6 +89,8 @@ def check_numbers(text):
         "target 名数": sum(len(r["aliases"]) for r in registry),
         "含 h2 数": sum(1 for r in registry if r["h2"]),
         "真机采集数": sum(1 for r in registry if r["provenance"] == "real-capture"),
+        # 重建门禁比对的条数 = 参与构造的 profile 数，由数据唯一确定
+        "重建条数": sum(1 for r in registry if r.get("default_config", True)),
     }
     # 每个事实锚定到 README 里唯一的一处表述，改动那处才会被抓到。
     for label, value in cov.items():
@@ -98,6 +104,7 @@ def check_numbers(text):
         "target 名数": r"来自\s*{v}\s*个\s*target\s*名",
         "含 h2 数": r"\|\s*含 h2 层\s*\|\s*{v}/",
         "真机采集数": r"开源表\s*\d+\s*\+\s*真机采集\s*{v}",
+        "重建条数": r"\|\s*重建门禁\s*\|\s*{v}/{v}\s*\|",
     }
     bad = []
     for label, value in facts.items():
