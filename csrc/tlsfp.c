@@ -226,11 +226,15 @@ static int is_chromium_derived(const char *brand) {
 const tlsfp_profile *tlsfp_lookup_ua_ex(const char *brand, uint16_t version,
                                         int *confidence, int relaxed) {
     if (!brand) return NULL;
+    /* 区分"表里没有该品牌"与"有品牌但没有可用版本"：两者都返回 NULL，但
+       confidence 不同，好与 Python 侧的命名对齐（差分门禁逐字符比对）。 */
+    int brand_seen = 0;
     const tlsfp_ua_entry *lo = NULL, *hi = NULL;
 
     for (size_t i = 0; i < TLSFP_UA_COUNT; i++) {
         const tlsfp_ua_entry *e = &tlsfp_ua_table[i];
         if (strcmp(e->brand, brand) != 0) continue;
+        brand_seen = 1;
         if (e->version == version) {
             /* 由源码段表补齐的条目报 same-seg：它是段内替代而非直接采到的，
                调用方有权知道这个区别。 */
@@ -266,7 +270,10 @@ const tlsfp_profile *tlsfp_lookup_ua_ex(const char *brand, uint16_t version,
     }
 
     const tlsfp_ua_entry *near = hi ? hi : lo;
-    if (!near) return NULL;
+    if (!near) {
+        if (confidence) *confidence = brand_seen ? -2 : -1;
+        return NULL;
+    }
     if (confidence) *confidence = TLSFP_CONF_FALLBACK;
     /* 严格模式（默认）：跨指纹段的最近版本**不返回** —— 用它伪装等于制造
      * split-brain。调用方据 confidence 得知存在最近版本，但拿不到 profile。 */

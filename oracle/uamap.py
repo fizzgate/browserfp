@@ -90,6 +90,17 @@ UA_RULES = [
 CHROMIUM_DERIVED = {"edge", "opera"}
 CHROME_VER = re.compile(r"Chrome/(\d+)")
 
+# 移动端与同名桌面版是**两种指纹**，必须分开。品牌名加 -mobile 后缀，这样
+# C 侧只按 brand 字符串匹配就能区分，不必改 API 传平台。
+#
+# 不这么做的后果是实测出来的：生产 569 次移动端请求全部命中了桌面 profile，
+# 其中 287 次命中的 profile 连一个移动端别名都没有 —— UA 说 Android Firefox
+# 115、TLS 却是桌面 Firefox 102 的形态，正是本项目一直在防的 split-brain。
+# 另外 282 次是**对的**：注册表按指纹去重后，curl_cffi:safari155 的别名里同时
+# 含桌面与 safari_ios_15_5，说明这两者指纹本就相同，那种命中有据可依。
+MOBILE_UA = re.compile(r"Android|iPhone|iPad|iPod|; Mobile|Mobile Safari")
+MOBILE_ALIAS = re.compile(r"android|ios|ipad|iphone|mobile", re.I)
+
 
 def parse_ua(ua):
     """返回 (brand, major_version)；识别不了返回 (None, None)。
@@ -99,14 +110,16 @@ def parse_ua(ua):
     """
     if not ua or not ua.startswith("Mozilla/"):
         return None, None
+    mobile = bool(MOBILE_UA.search(ua))
     for brand, pat in UA_RULES:
         m = pat.search(ua)
         if m:
+            ver = int(m.group(1))
             if brand in CHROMIUM_DERIVED:
                 core = CHROME_VER.search(ua)
                 if core:
-                    return brand, int(core.group(1))
-            return brand, int(m.group(1))
+                    ver = int(core.group(1))
+            return (brand + "-mobile" if mobile else brand), ver
     return None, None
 
 
@@ -136,8 +149,29 @@ class UAMapper:
                 # 而 UA 里的版本号是按桌面品牌解析的，混进来会张冠李戴。
                 # tor 尤其危险：Tor Browser 基于 Firefox，名字里的数字曾被
                 # 当成 Firefox 版本，导致 "firefox 126 → tor145"。
-                if any(t in name for t in ("android", "ios", "ipad", "mobile",
-                                           "tor", "private", "okhttp")):
+                # 移动端别名单独建表（品牌名加 -mobile），不能与桌面混为一谈：
+                # 两者指纹不同，而 UA 里的版本号解析方式相同，混进来会张冠李戴。
+                # tor 尤其危险：Tor Browser 基于 Firefox，名字里的数字曾被当成
+                # Firefox 版本，导致 "firefox 126 → tor145"。
+                is_mobile = bool(MOBILE_ALIAS.search(name))
+                if any(t in name for t in ("tor", "private")):
+                    continue
+                if is_mobile:
+                    # 移动端别名有三种命名形态，都要认，否则表会稀疏得没用：
+                    #   safari_ios_15_5    品牌_平台_数字
+                    #   safari172_ios      品牌数字_平台
+                    #   FirefoxAndroid135  品牌平台数字
+                    # 先把平台词剥掉再匹配"品牌+数字"，三种就统一了。
+                    base = MOBILE_ALIAS.sub("", name)
+                    mm = re.match(r"^(chrome|chromium|firefox|safari|edge|opera)"
+                                  r"[-_]*(\d{1,3})", base)
+                    if mm:
+                        b = "chrome" if mm.group(1) == "chromium" else mm.group(1)
+                        v = int(mm.group(2))
+                        if b == "safari" and v >= 100:
+                            v //= 10
+                        self.by_brand.setdefault(b + "-mobile", {}).setdefault(
+                            v, (rec, key))
                     continue
                 m = re.match(r"^(chrome|chromium|firefox|safari|edge|opera)"
                              r"[-_]?(\d{2,3})(?!\d)", name)
@@ -270,7 +304,13 @@ class UAMapper:
         # 判成跨品牌而拒绝——构建版本表时按 aliases、检查时按 id，判据不一致是 bug。
         names = " ".join(a.split(":", 1)[1].lower()
                          for a in [rec["id"]] + rec.get("aliases", []))
-        if brand not in names and not (brand == "chrome" and "chromium" in names):
+        # 用基础品牌名比对：品牌加了 -mobile 后缀后，直接拿它去匹配别名字符串
+        # 永远匹配不上（别名里写的是 chrome99_android 而非 chrome-mobile99），
+        # 结果所有移动端版本都被判成"条目不含该品牌别名"而拒绝，掩盖了真正的
+        # 判定结果。
+        base_brand = brand.replace("-mobile", "")
+        if base_brand not in names and not (base_brand == "chrome"
+                                            and "chromium" in names):
             return {"profile": None, "confidence": "no-version", "brand": brand,
                     "version": ver,
                     "note": f"最近版本 {near} 的条目不含 {brand} 别名，拒绝套用"}

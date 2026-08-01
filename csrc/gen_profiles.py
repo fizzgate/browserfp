@@ -50,8 +50,15 @@ def c_u16_array(name, values):
     return f"static const uint16_t {name}[{len(values)}] = {{{body}}};"
 
 
+MOBILE_ALIAS = re.compile(r"android|ios|ipad|iphone|mobile", re.I)
+
+
 def brand_versions(rec):
     """从 aliases + versions + covers_versions 提取 (brand, version) 对。
+
+    移动端别名归到 "<brand>-mobile" 品牌下，与桌面分开——两者指纹不同，混为
+    一谈就成了 split-brain（实测生产 569 次移动端请求全命中桌面 profile，其中
+    287 次连一个移动端别名都没有）。与 oracle/uamap.py 同一条判据。
 
     必须遍历**全部 aliases**：注册表按指纹去重，id 只是众多别名之一
     （Chrome151 与 Edge151 同指纹被并成一条、id 恰为 real:edge），
@@ -61,9 +68,20 @@ def brand_versions(rec):
     brands = set()
     for alias in [rec["id"]] + rec.get("aliases", []):
         name = alias.split(":", 1)[1].lower()
-        # 移动端/衍生浏览器的指纹与同名桌面版不同，不参与按 UA 的桌面映射
-        if any(t in name for t in ("android", "ios", "ipad", "mobile",
-                                   "private", "okhttp")):
+        if "private" in name:
+            continue
+        if MOBILE_ALIAS.search(name):
+            # 三种命名形态（safari_ios_15_5 / safari172_ios / FirefoxAndroid135）
+            # 先剥平台词再匹配品牌+数字，否则表会稀疏得没用
+            base = MOBILE_ALIAS.sub("", name)
+            mm = re.match(r"^(chrome|chromium|firefox|safari|edge|opera)"
+                          r"[-_]*(\d{1,3})", base)
+            if mm:
+                b = "chrome" if mm.group(1) == "chromium" else mm.group(1)
+                v = int(mm.group(2))
+                if b == "safari" and v >= 100:
+                    v //= 10
+                out.add((b + "-mobile", v))
             continue
         m = re.match(r"^(chrome|chromium|firefox|safari|edge|opera|tor)"
                      r"[-_]?(\d{2,3})(?!\d)", name)
