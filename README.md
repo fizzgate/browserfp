@@ -93,6 +93,12 @@ SNI"——cloudflare.com 有默认证书不介意，claude.ai 多租户直接 ha
 **真机 profile 不能用来证明开源表的覆盖率。** 用真机指纹匹配真机必然 0 差异，
 是循环论证。`provenance` 字段把两类分开，`coverage.py` 判覆盖率时只读开源表。
 
+**padding(0x15) 是长度驱动的噪声，性质同 GREASE。** 它按 ClientHello 总长度动态
+添加（RFC 7685）：HRR 之后 key_share 从 X25519(32B) 换成 P-384(97B)，总长度变了，
+padding 就跟着变——safari184/155/260_ios 在 HRR 后 padding 直接消失，扩展集合因此
+与首连不同。严格匹配会把同一个客户端的两次握手判成两个指纹。实测忽略 padding 只
+让唯一指纹 54→53（仅合并 1 对），代价很小，识别器应容忍它。
+
 **偶发红先量再解释。** 遇到一次 timeout 不要当网络抖动放过——重试 5 次×2 站点
 确认偶发之后，才加重试；且只重试网络类异常，`TLSError` 一律不重试，否则会把
 稳定缺陷洗成偶发绿。
@@ -123,8 +129,12 @@ SNI"——cloudflare.com 有默认证书不介意，claude.ai 多租户直接 ha
 - **CF 挑战未验证**：claude.ai 根路径本就不设防（三种指纹结果一致、无 `cf-mitigated`），
   要验 managed challenge 需要一个真正会触发的端点。
 - **12 个扩展从未观测到**（`srcaudit` 实测）：BoringSSL 声明 31 个，我们见过 19 个。
-  其中 `0x002a early_data`（0-RTT）、`0x002c cookie`（HelloRetryRequest 之后）、
-  `0x0039`/`0xffa5`（QUIC）是真实会遇到的，仍是识别盲区。
+  其中 `0x002a early_data`（0-RTT）、`0x0039`/`0xffa5`（QUIC）是真实会遇到的，仍是
+  识别盲区。`0x002c cookie` 已试图触发：HRR 确实发生了，但 Go 服务端未下发 cookie
+  （该扩展对服务端是可选的），需要一个会发 cookie 的服务端才能采到。
+- **HRR 形态已验证，基本不构成盲区**：Chrome136/131、Firefox135 在 HelloRetryRequest
+  之后重发的 ClientHello 与首连 13 字段差异为 0、JA4 相同，用首连表即可识别。唯一
+  例外是 Safari，差异来自 padding（见上节方法论）。
 - **Safari 没有恢复态，这是 WebKit 的行为而非我们的采集问题**（已查证，见下节）。
 
 ## 一个可用的伪装破绽：Safari 从不发 pre_shared_key

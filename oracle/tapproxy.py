@@ -73,6 +73,7 @@ class TapProxy:
             server = socket.create_connection(self.upstream, timeout=20)
             server.settimeout(20)
             server.sendall(record)
+            # 首个 record 已在上面记过，_pump 只负责后续（HRR 的第二个 CH）
             self._pump(client, server)
         except OSError:
             pass
@@ -84,9 +85,35 @@ class TapProxy:
                 except OSError:
                     pass
 
-    @staticmethod
-    def _pump(a, b):
-        def one(src, dst):
+    def _pump(self, a, b):
+        """双向转发。client→server 方向持续解析 TLS record，把后续出现的
+        ClientHello 也记下来。
+
+        **不能只记第一个 record**：HelloRetryRequest 是在**同一条 TCP 连接内**
+        完成的——服务端回 HRR 后，客户端在同一连接上重发第二个 ClientHello
+        （带服务端要求的 key_share，可能还有 cookie）。只记首个 record 会把
+        HRR 形态整个漏掉，且表现为"只捕获到 1 个 ClientHello"，很容易被误读成
+        HRR 没被触发。
+        """
+        def upstream(src, dst):
+            buf = b""
+            try:
+                while True:
+                    data = src.recv(65536)
+                    if not data:
+                        break
+                    dst.sendall(data)
+                    buf += data
+                    buf = self._scan_records(buf)
+            except OSError:
+                pass
+            finally:
+                try:
+                    dst.shutdown(socket.SHUT_WR)
+                except OSError:
+                    pass
+
+        def downstream(src, dst):
             try:
                 while True:
                     data = src.recv(65536)
@@ -101,10 +128,30 @@ class TapProxy:
                 except OSError:
                     pass
 
-        t = threading.Thread(target=one, args=(b, a), daemon=True)
+        t = threading.Thread(target=downstream, args=(b, a), daemon=True)
         t.start()
-        one(a, b)
+        upstream(a, b)
         t.join(timeout=5)
+
+    def _scan_records(self, buf):
+        """从缓冲里切出完整 TLS record，遇到 ClientHello 就记录；返回剩余字节。
+
+        握手一旦进入加密阶段（type 0x17），后续 record 无法解析，直接丢弃缓冲
+        以免无限增长。
+        """
+        while len(buf) >= 5:
+            ctype = buf[0]
+            length = struct.unpack_from(">H", buf, 3)[0]
+            if len(buf) < 5 + length:
+                return buf
+            record, buf = buf[:5 + length], buf[5 + length:]
+            if ctype == 0x17:
+                return b""
+            if ctype == 0x16 and length >= 4 and record[5] == 0x01:
+                with self._cv:
+                    self.records.append(record)
+                    self._cv.notify_all()
+        return buf
 
     @staticmethod
     def _recv_exact(sock, n):
