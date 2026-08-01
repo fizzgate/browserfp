@@ -177,7 +177,8 @@ Safari 那条是唯一有副作用的，默认不跑。观测点必须发**完�
 ```bash
 python3 -m venv .venv && .venv/bin/pip install curl_cffi hpack cryptography
 brew install nss                      # certutil，给 Firefox 注入信任 CA
-cd oracle/gotls && go build -o fizztls-probe .
+cd oracle/gotls && go build -o fizztls-probe .        # 采 tls-client 76 个 profile
+go build -o hrrserver/hrrserver ./hrrserver           # HelloRetryRequest 观测服务端
 ```
 
 注意本机 `http_proxy` 指向 reclaude（见仓库根 CLAUDE.md），所有采集命令须
