@@ -27,6 +27,19 @@ typedef struct {
     const uint16_t *exts;      size_t n_exts;
     const uint16_t *curves;    size_t n_curves;
     const uint16_t *sigalgs;   size_t n_sigalgs;
+
+    /* 重建 ClientHello 用的原始形态。比对字段剔了 GREASE、也没有每个扩展的
+       具体内容，拿它拼出来的握手与真实浏览器不是一回事，所以另存一份：
+         rawciph / rawext  保序且含 GREASE
+         extblob           所有扩展体平铺，按 rawext 顺序
+         extoff / extlen   每个扩展体在 extblob 里的偏移与长度 */
+    const uint16_t *rawciph;   size_t n_rawciph;
+    const uint16_t *rawext;    size_t n_rawext;
+    const uint8_t  *extblob;
+    const uint16_t *extoff;
+    const uint16_t *extlen;
+    uint16_t client_version;
+    uint16_t session_id_len;
 } tlsfp_profile;
 
 typedef struct {
@@ -68,6 +81,24 @@ const tlsfp_profile *tlsfp_lookup_ua_ex(const char *brand, uint16_t version,
  * 归到最近的已知 profile 会让盲区永远不可见）。 */
 const tlsfp_profile *tlsfp_lookup_ja4(const char *ja4);
 size_t tlsfp_profile_count(void);
+/* 按下标取 profile —— 供差分测试遍历全库，生产用 lookup_* 系列 */
+const tlsfp_profile *tlsfp_profile_at(size_t idx);
+
+/* 按 profile 组装一条完整的 TLS record（含 5 字节头），供 cosocket 直接发出。
+ *
+ * **这是伪装链的最后一环**：查表拿到 profile 之后，得把它变成真正的字节。
+ * random 与 session_id 每次连接都必须重新生成 —— 照抄 golden 里那份会让所有
+ * 连接的 ClientHello 逐字节相同，比不伪装还容易被判。
+ *
+ * sni 为 NULL 时保留 golden 里的 server_name 扩展体（多用于自测）；给了域名
+ * 则重写该扩展 —— 真实请求必须带正确的 SNI，否则多租户站点直接
+ * handshake_failure。
+ *
+ * 返回写入的字节数；out 空间不足或 profile 缺重建字段时返回 -1。
+ * 与库里其他函数一样是**内存进内存出、非阻塞**的，可直接在 nginx worker 里调。 */
+int tlsfp_build_client_hello(const tlsfp_profile *p, const char *sni,
+                             const uint8_t *random32, const uint8_t *session_id,
+                             uint8_t *out, size_t outlen);
 
 #define TLSFP_MAX_ITEMS 64
 #define TLSFP_JA4_LEN   40

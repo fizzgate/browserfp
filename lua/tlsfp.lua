@@ -52,6 +52,10 @@ typedef struct {
 int  tlsfp_parse_client_hello(const uint8_t *record, size_t len, tlsfp_hello *out);
 const tlsfp_profile *tlsfp_lookup_ua(const char *brand, uint16_t version, int *confidence);
 int  tlsfp_ja4(const tlsfp_hello *h, char transport, char *out, size_t outlen);
+int  tlsfp_build_client_hello(const tlsfp_profile *p, const char *sni,
+                              const uint8_t *random32, const uint8_t *session_id,
+                              uint8_t *out, size_t outlen);
+const tlsfp_profile *tlsfp_profile_at(size_t idx);
 const tlsfp_profile *tlsfp_lookup_ja4(const char *ja4);
 size_t tlsfp_profile_count(void);
 ]]
@@ -151,6 +155,52 @@ function _M.by_ua(brand, version)
         h2   = p.h2_akamai ~= nil and ffi.string(p.h2_akamai) or nil,
         confidence = conf,
     }
+end
+
+-- 复用缓冲区，避免每请求分配（nginx worker 里这条很重要）
+local ch_buf   = ffi.new("uint8_t[16384]")
+local rnd_buf  = ffi.new("uint8_t[32]")
+local sid_buf  = ffi.new("uint8_t[32]")
+
+--- 按 UA 选出指纹并组装 ClientHello 字节，供 cosocket 直接发出。
+-- **伪装链的最后一环**：查表只拿到 profile，得把它变成真正的字节。
+--
+-- random 与 session_id 每次调用都重新生成 —— 照抄 golden 里那份会让所有连接的
+-- ClientHello 逐字节相同，比不伪装还容易被判。这里用 resty.random 取强随机；
+-- 不在 OpenResty 环境时退回 math.random（仅供离线自测，**不要用于生产**）。
+--
+-- @param brand    品牌，移动端传 "<brand>-mobile"
+-- @param version  主版本；Chromium 系衍生浏览器传 UA 里 Chrome/ 的版本号
+-- @param sni      目标域名，必须给 —— 少了它多租户站点直接 handshake_failure
+-- @return record 字符串, profile 信息表；失败返回 nil, err
+function _M.client_hello(brand, version, sni)
+    if not lib then return nil, "libtlsfp.so 未加载" end
+    if type(sni) ~= "string" or sni == "" then
+        return nil, "必须提供 sni：多租户站点缺 SNI 会直接 handshake_failure"
+    end
+    local prof, err, conf = _M.by_ua(brand, version)
+    if not prof then return nil, err or "无可用 profile" end
+
+    local strong = nil
+    local ok_rand, rnd = pcall(require, "resty.random")
+    if ok_rand and rnd and rnd.bytes then strong = rnd.bytes(64, true) end
+    if strong and #strong >= 64 then
+        ffi.copy(rnd_buf, strong, 32)
+        ffi.copy(sid_buf, strong:sub(33, 64), 32)
+    else
+        -- 离线自测退路：math.random 不是密码学随机，生产必须走 resty.random
+        for i = 0, 31 do
+            rnd_buf[i] = math.random(0, 255)
+            sid_buf[i] = math.random(0, 255)
+        end
+    end
+
+    local p = lib.tlsfp_lookup_ua(brand, version, conf_buf)
+    if p == nil then return nil, "profile 已失效" end
+    local n = lib.tlsfp_build_client_hello(p, sni, rnd_buf, sid_buf,
+                                           ch_buf, ffi.sizeof(ch_buf))
+    if n < 0 then return nil, "组装失败（缓冲区不足或 profile 缺重建字段）" end
+    return ffi.string(ch_buf, n), prof
 end
 
 function _M.profile_count()

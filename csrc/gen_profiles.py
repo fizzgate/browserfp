@@ -243,6 +243,32 @@ def main():
                 ua_rows.append((brand, ver, i, fp_group[i], src_mask[i], 1))
     ua_rows.sort()
 
+    # 重建 ClientHello 所需的原始字节：raw_* 保序且含 GREASE，extension_bodies
+    # 是每个扩展的原始体。**比对用的字段不够重建** —— 比对剔了 GREASE、丢了
+    # 每个扩展的具体内容，拿它拼出来的握手与真实浏览器不是一回事。
+    # 全库 bodies 合计约 62KB，编进只读段完全可接受。
+    for i, rec in enumerate(profiles):
+        tls = rec["tls"]
+        raw_ext = tls.get("raw_extensions") or []
+        out.append(c_u16_array(f"p{i}_rawciph", tls.get("raw_ciphers") or []))
+        out.append(c_u16_array(f"p{i}_rawext", raw_ext))
+        bodies = tls.get("extension_bodies") or {}
+        # 扩展体按 raw_extensions 的顺序平铺，另存每段的偏移与长度
+        blob, offs, lens = [], [], []
+        for e in raw_ext:
+            hexs = bodies.get(str(e)) or bodies.get(e) or ""
+            b = bytes.fromhex(hexs) if hexs else b""
+            offs.append(len(blob))
+            lens.append(len(b))
+            blob.extend(b)
+        if blob:
+            body = ", ".join(f"0x{b:02x}" for b in blob)
+            out.append(f"static const uint8_t p{i}_extblob[{len(blob)}] = {{{body}}};")
+        else:
+            out.append(f"static const uint8_t p{i}_extblob[1] = {{0}};")
+        out.append(c_u16_array(f"p{i}_extoff", offs))
+        out.append(c_u16_array(f"p{i}_extlen", lens))
+
     for i, rec in enumerate(profiles):
         tls = rec["tls"]
         out.append(c_u16_array(f"p{i}_ciphers", tls.get("ciphers") or []))
@@ -261,7 +287,12 @@ def main():
             f'p{i}_ciphers, {len(tls.get("ciphers") or [])}, '
             f'p{i}_exts, {len(tls.get("extensions_ordered") or [])}, '
             f'p{i}_curves, {len(tls.get("curves") or [])}, '
-            f'p{i}_sigalgs, {len(tls.get("sig_algs") or [])}}},')
+            f'p{i}_sigalgs, {len(tls.get("sig_algs") or [])}, '
+            f'p{i}_rawciph, {len(tls.get("raw_ciphers") or [])}, '
+            f'p{i}_rawext, {len(tls.get("raw_extensions") or [])}, '
+            f'p{i}_extblob, p{i}_extoff, p{i}_extlen, '
+            f'{tls.get("client_version") or 0x0303}, '
+            f'{tls.get("session_id_len") or 32}}},')
     out.append("};")
     out.append(f"#define TLSFP_PROFILE_COUNT {len(profiles)}")
     out.append("")

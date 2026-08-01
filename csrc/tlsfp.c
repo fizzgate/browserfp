@@ -279,3 +279,101 @@ const tlsfp_profile *tlsfp_lookup_ua_ex(const char *brand, uint16_t version,
      * split-brain。调用方据 confidence 得知存在最近版本，但拿不到 profile。 */
     return relaxed ? &tlsfp_profiles[near->profile] : NULL;
 }
+
+
+const tlsfp_profile *tlsfp_profile_at(size_t idx) {
+    return idx < TLSFP_PROFILE_COUNT ? &tlsfp_profiles[idx] : NULL;
+}
+
+/* ---- ClientHello 组装 ---------------------------------------------------- */
+
+static size_t put_u16(uint8_t *p, uint16_t v) {
+    p[0] = (uint8_t)(v >> 8); p[1] = (uint8_t)v; return 2;
+}
+
+int tlsfp_build_client_hello(const tlsfp_profile *p, const char *sni,
+                             const uint8_t *random32, const uint8_t *session_id,
+                             uint8_t *out, size_t outlen) {
+    if (!p || !out || !p->rawciph || !p->rawext) return -1;
+    if (!random32 || (p->session_id_len && !session_id)) return -1;
+
+    /* 先拼扩展块，因为握手体长度要回填 */
+    uint8_t ext[8192];
+    size_t e = 0;
+
+    /* **库里的 golden 绝大多数采自无 SNI 场景**（81 条里只有 2 条带
+       server_name），所以不能只做"替换"——那样 sni 参数会被静默忽略，构造出
+       的握手压根没有 SNI，多租户站点直接 handshake_failure。需要在正确位置
+       **插入**：真实浏览器把 server_name 排在首个 GREASE 之后、其余扩展之前。 */
+    int sni_done = 0;
+    for (size_t i = 0; i < p->n_rawext; i++) {
+        if (p->rawext[i] == 0x0000) { sni_done = 1; break; }
+    }
+    size_t sni_at = 0;
+    if (!sni_done && sni) {
+        /* 首个 GREASE 之后；没有 GREASE 就放最前 */
+        if (p->n_rawext && tlsfp_is_grease(p->rawext[0])) sni_at = 1;
+    }
+
+    for (size_t i = 0; i < p->n_rawext; i++) {
+        if (!sni_done && sni && i == sni_at) {
+            size_t n = strlen(sni);
+            if (n > 4096 || e + 9 + n > sizeof(ext)) return -1;
+            e += put_u16(ext + e, 0x0000);
+            e += put_u16(ext + e, (uint16_t)(n + 5));
+            e += put_u16(ext + e, (uint16_t)(n + 3));
+            ext[e++] = 0x00;
+            e += put_u16(ext + e, (uint16_t)n);
+            memcpy(ext + e, sni, n); e += n;
+            sni_done = 1;
+        }
+        uint16_t id = p->rawext[i];
+        const uint8_t *body = p->extblob + p->extoff[i];
+        uint16_t blen = p->extlen[i];
+
+        if (id == 0x0000 && sni) {
+            /* 重写 SNI：真实请求必须带正确域名，否则多租户站点直接拒绝。
+               结构 = list_len(2) + type(1) + name_len(2) + name */
+            size_t n = strlen(sni);
+            if (n > 4096 || e + 9 + n > sizeof(ext)) return -1;
+            e += put_u16(ext + e, id);
+            e += put_u16(ext + e, (uint16_t)(n + 5));
+            e += put_u16(ext + e, (uint16_t)(n + 3));
+            ext[e++] = 0x00;
+            e += put_u16(ext + e, (uint16_t)n);
+            memcpy(ext + e, sni, n); e += n;
+            continue;
+        }
+        if (e + 4 + blen > sizeof(ext)) return -1;
+        e += put_u16(ext + e, id);
+        e += put_u16(ext + e, blen);
+        if (blen) { memcpy(ext + e, body, blen); e += blen; }
+    }
+
+    size_t body_len = 2 + 32 + 1 + p->session_id_len
+                    + 2 + p->n_rawciph * 2 + 2 + 2 + e;
+    size_t total = 5 + 4 + body_len;
+    if (total > outlen) return -1;
+
+    size_t o = 0;
+    out[o++] = 0x16;                              /* handshake */
+    o += put_u16(out + o, 0x0301);                /* record 版本恒 TLS1.0 */
+    o += put_u16(out + o, (uint16_t)(4 + body_len));
+    out[o++] = 0x01;                              /* client_hello */
+    out[o++] = (uint8_t)(body_len >> 16);
+    o += put_u16(out + o, (uint16_t)body_len);
+    o += put_u16(out + o, p->client_version);
+    memcpy(out + o, random32, 32); o += 32;
+    out[o++] = (uint8_t)p->session_id_len;
+    if (p->session_id_len) {
+        memcpy(out + o, session_id, p->session_id_len);
+        o += p->session_id_len;
+    }
+    o += put_u16(out + o, (uint16_t)(p->n_rawciph * 2));
+    for (size_t i = 0; i < p->n_rawciph; i++) o += put_u16(out + o, p->rawciph[i]);
+    out[o++] = 0x01;                              /* compression 长度 */
+    out[o++] = 0x00;                              /* null */
+    o += put_u16(out + o, (uint16_t)e);
+    memcpy(out + o, ext, e); o += e;
+    return (int)o;
+}
