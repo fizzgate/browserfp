@@ -1,0 +1,3062 @@
+{
+  "chrome_103": {
+    "akamai_fingerprint": "1:65536,3:1000,4:6291456,6:262144|15663105|0|m,a,s,p",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "accept-encoding",
+      "user-agent"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":authority",
+      ":scheme",
+      ":path"
+    ],
+    "settings": [
+      [
+        1,
+        65536
+      ],
+      [
+        3,
+        1000
+      ],
+      [
+        4,
+        6291456
+      ],
+      [
+        6,
+        262144
+      ]
+    ],
+    "window_update": 15663105
+  },
+  "chrome_104": {
+    "akamai_fingerprint": "1:65536,3:1000,4:6291456,6:262144|15663105|0|m,a,s,p",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "accept-encoding",
+      "user-agent"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":authority",
+      ":scheme",
+      ":path"
+    ],
+    "settings": [
+      [
+        1,
+        65536
+      ],
+      [
+        3,
+        1000
+      ],
+      [
+        4,
+        6291456
+      ],
+      [
+        6,
+        262144
+      ]
+    ],
+    "window_update": 15663105
+  },
+  "chrome_105": {
+    "akamai_fingerprint": "1:65536,3:1000,4:6291456,6:262144|15663105|0|m,a,s,p",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "accept-encoding",
+      "user-agent"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":authority",
+      ":scheme",
+      ":path"
+    ],
+    "settings": [
+      [
+        1,
+        65536
+      ],
+      [
+        3,
+        1000
+      ],
+      [
+        4,
+        6291456
+      ],
+      [
+        6,
+        262144
+      ]
+    ],
+    "window_update": 15663105
+  },
+  "chrome_106": {
+    "akamai_fingerprint": "1:65536,2:0,3:1000,4:6291456,6:262144|15663105|0|m,a,s,p",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "accept-encoding",
+      "user-agent"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":authority",
+      ":scheme",
+      ":path"
+    ],
+    "settings": [
+      [
+        1,
+        65536
+      ],
+      [
+        2,
+        0
+      ],
+      [
+        3,
+        1000
+      ],
+      [
+        4,
+        6291456
+      ],
+      [
+        6,
+        262144
+      ]
+    ],
+    "window_update": 15663105
+  },
+  "chrome_107": {
+    "akamai_fingerprint": "1:65536,2:0,3:1000,4:6291456,6:262144|15663105|0|m,a,s,p",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "accept-encoding",
+      "user-agent"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":authority",
+      ":scheme",
+      ":path"
+    ],
+    "settings": [
+      [
+        1,
+        65536
+      ],
+      [
+        2,
+        0
+      ],
+      [
+        3,
+        1000
+      ],
+      [
+        4,
+        6291456
+      ],
+      [
+        6,
+        262144
+      ]
+    ],
+    "window_update": 15663105
+  },
+  "chrome_108": {
+    "akamai_fingerprint": "1:65536,2:0,3:1000,4:6291456,6:262144|15663105|0|m,a,s,p",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "accept-encoding",
+      "user-agent"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":authority",
+      ":scheme",
+      ":path"
+    ],
+    "settings": [
+      [
+        1,
+        65536
+      ],
+      [
+        2,
+        0
+      ],
+      [
+        3,
+        1000
+      ],
+      [
+        4,
+        6291456
+      ],
+      [
+        6,
+        262144
+      ]
+    ],
+    "window_update": 15663105
+  },
+  "chrome_109": {
+    "akamai_fingerprint": "1:65536,2:0,3:1000,4:6291456,6:262144|15663105|0|m,a,s,p",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "accept-encoding",
+      "user-agent"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":authority",
+      ":scheme",
+      ":path"
+    ],
+    "settings": [
+      [
+        1,
+        65536
+      ],
+      [
+        2,
+        0
+      ],
+      [
+        3,
+        1000
+      ],
+      [
+        4,
+        6291456
+      ],
+      [
+        6,
+        262144
+      ]
+    ],
+    "window_update": 15663105
+  },
+  "chrome_110": {
+    "akamai_fingerprint": "1:65536,2:0,3:1000,4:6291456,6:262144|15663105|0|m,a,s,p",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "accept-encoding",
+      "user-agent"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":authority",
+      ":scheme",
+      ":path"
+    ],
+    "settings": [
+      [
+        1,
+        65536
+      ],
+      [
+        2,
+        0
+      ],
+      [
+        3,
+        1000
+      ],
+      [
+        4,
+        6291456
+      ],
+      [
+        6,
+        262144
+      ]
+    ],
+    "window_update": 15663105
+  },
+  "chrome_111": {
+    "akamai_fingerprint": "1:65536,2:0,3:1000,4:6291456,6:262144|15663105|0|m,a,s,p",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "accept-encoding",
+      "user-agent"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":authority",
+      ":scheme",
+      ":path"
+    ],
+    "settings": [
+      [
+        1,
+        65536
+      ],
+      [
+        2,
+        0
+      ],
+      [
+        3,
+        1000
+      ],
+      [
+        4,
+        6291456
+      ],
+      [
+        6,
+        262144
+      ]
+    ],
+    "window_update": 15663105
+  },
+  "chrome_112": {
+    "akamai_fingerprint": "1:65536,2:0,3:1000,4:6291456,6:262144|15663105|0|m,a,s,p",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "accept-encoding",
+      "user-agent"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":authority",
+      ":scheme",
+      ":path"
+    ],
+    "settings": [
+      [
+        1,
+        65536
+      ],
+      [
+        2,
+        0
+      ],
+      [
+        3,
+        1000
+      ],
+      [
+        4,
+        6291456
+      ],
+      [
+        6,
+        262144
+      ]
+    ],
+    "window_update": 15663105
+  },
+  "chrome_116_PSK": {
+    "akamai_fingerprint": "1:65536,2:0,3:1000,4:6291456,6:262144|15663105|0|m,a,s,p",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "accept-encoding",
+      "user-agent"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":authority",
+      ":scheme",
+      ":path"
+    ],
+    "settings": [
+      [
+        1,
+        65536
+      ],
+      [
+        2,
+        0
+      ],
+      [
+        3,
+        1000
+      ],
+      [
+        4,
+        6291456
+      ],
+      [
+        6,
+        262144
+      ]
+    ],
+    "window_update": 15663105
+  },
+  "chrome_116_PSK_PQ": {
+    "akamai_fingerprint": "1:65536,2:0,3:1000,4:6291456,6:262144|15663105|0|m,a,s,p",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "accept-encoding",
+      "user-agent"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":authority",
+      ":scheme",
+      ":path"
+    ],
+    "settings": [
+      [
+        1,
+        65536
+      ],
+      [
+        2,
+        0
+      ],
+      [
+        3,
+        1000
+      ],
+      [
+        4,
+        6291456
+      ],
+      [
+        6,
+        262144
+      ]
+    ],
+    "window_update": 15663105
+  },
+  "chrome_117": {
+    "akamai_fingerprint": "1:65536,2:0,4:6291456,6:262144|15663105|0|m,a,s,p",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "accept-encoding",
+      "user-agent"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":authority",
+      ":scheme",
+      ":path"
+    ],
+    "settings": [
+      [
+        1,
+        65536
+      ],
+      [
+        2,
+        0
+      ],
+      [
+        4,
+        6291456
+      ],
+      [
+        6,
+        262144
+      ]
+    ],
+    "window_update": 15663105
+  },
+  "chrome_120": {
+    "akamai_fingerprint": "1:65536,2:0,4:6291456,6:262144|15663105|0|m,a,s,p",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "accept-encoding",
+      "user-agent"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":authority",
+      ":scheme",
+      ":path"
+    ],
+    "settings": [
+      [
+        1,
+        65536
+      ],
+      [
+        2,
+        0
+      ],
+      [
+        4,
+        6291456
+      ],
+      [
+        6,
+        262144
+      ]
+    ],
+    "window_update": 15663105
+  },
+  "chrome_124": {
+    "akamai_fingerprint": "1:65536,2:0,4:6291456,6:262144|15663105|0|m,a,s,p",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "accept-encoding",
+      "user-agent"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":authority",
+      ":scheme",
+      ":path"
+    ],
+    "settings": [
+      [
+        1,
+        65536
+      ],
+      [
+        2,
+        0
+      ],
+      [
+        4,
+        6291456
+      ],
+      [
+        6,
+        262144
+      ]
+    ],
+    "window_update": 15663105
+  },
+  "chrome_130_PSK": {
+    "akamai_fingerprint": "1:65536,2:0,4:6291456,6:262144|15663105|0|m,a,s,p",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "accept-encoding",
+      "user-agent"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":authority",
+      ":scheme",
+      ":path"
+    ],
+    "settings": [
+      [
+        1,
+        65536
+      ],
+      [
+        2,
+        0
+      ],
+      [
+        4,
+        6291456
+      ],
+      [
+        6,
+        262144
+      ]
+    ],
+    "window_update": 15663105
+  },
+  "chrome_131": {
+    "akamai_fingerprint": "1:65536,2:0,4:6291456,6:262144|15663105|0|m,a,s,p",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "accept-encoding",
+      "user-agent"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":authority",
+      ":scheme",
+      ":path"
+    ],
+    "settings": [
+      [
+        1,
+        65536
+      ],
+      [
+        2,
+        0
+      ],
+      [
+        4,
+        6291456
+      ],
+      [
+        6,
+        262144
+      ]
+    ],
+    "window_update": 15663105
+  },
+  "chrome_131_PSK": {
+    "akamai_fingerprint": "1:65536,2:0,4:6291456,6:262144|15663105|0|m,a,s,p",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "accept-encoding",
+      "user-agent"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":authority",
+      ":scheme",
+      ":path"
+    ],
+    "settings": [
+      [
+        1,
+        65536
+      ],
+      [
+        2,
+        0
+      ],
+      [
+        4,
+        6291456
+      ],
+      [
+        6,
+        262144
+      ]
+    ],
+    "window_update": 15663105
+  },
+  "chrome_133": {
+    "akamai_fingerprint": "1:65536,2:0,4:6291456,6:262144|15663105|0|m,a,s,p",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "accept-encoding",
+      "user-agent"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":authority",
+      ":scheme",
+      ":path"
+    ],
+    "settings": [
+      [
+        1,
+        65536
+      ],
+      [
+        2,
+        0
+      ],
+      [
+        4,
+        6291456
+      ],
+      [
+        6,
+        262144
+      ]
+    ],
+    "window_update": 15663105
+  },
+  "chrome_133_PSK": {
+    "akamai_fingerprint": "1:65536,2:0,4:6291456,6:262144|15663105|0|m,a,s,p",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "accept-encoding",
+      "user-agent"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":authority",
+      ":scheme",
+      ":path"
+    ],
+    "settings": [
+      [
+        1,
+        65536
+      ],
+      [
+        2,
+        0
+      ],
+      [
+        4,
+        6291456
+      ],
+      [
+        6,
+        262144
+      ]
+    ],
+    "window_update": 15663105
+  },
+  "chrome_144": {
+    "akamai_fingerprint": "1:65536,2:0,4:6291456,6:262144|15663105|0|m,a,s,p",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "accept-encoding",
+      "user-agent"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":authority",
+      ":scheme",
+      ":path"
+    ],
+    "settings": [
+      [
+        1,
+        65536
+      ],
+      [
+        2,
+        0
+      ],
+      [
+        4,
+        6291456
+      ],
+      [
+        6,
+        262144
+      ]
+    ],
+    "window_update": 15663105
+  },
+  "chrome_144_PSK": {
+    "akamai_fingerprint": "1:65536,2:0,4:6291456,6:262144|15663105|0|m,a,s,p",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "accept-encoding",
+      "user-agent"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":authority",
+      ":scheme",
+      ":path"
+    ],
+    "settings": [
+      [
+        1,
+        65536
+      ],
+      [
+        2,
+        0
+      ],
+      [
+        4,
+        6291456
+      ],
+      [
+        6,
+        262144
+      ]
+    ],
+    "window_update": 15663105
+  },
+  "chrome_146": {
+    "akamai_fingerprint": "1:65536,2:0,4:6291456,6:262144|15663105|0|m,a,s,p",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "accept-encoding",
+      "user-agent"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":authority",
+      ":scheme",
+      ":path"
+    ],
+    "settings": [
+      [
+        1,
+        65536
+      ],
+      [
+        2,
+        0
+      ],
+      [
+        4,
+        6291456
+      ],
+      [
+        6,
+        262144
+      ]
+    ],
+    "window_update": 15663105
+  },
+  "chrome_146_PSK": {
+    "akamai_fingerprint": "1:65536,2:0,4:6291456,6:262144|15663105|0|m,a,s,p",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "accept-encoding",
+      "user-agent"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":authority",
+      ":scheme",
+      ":path"
+    ],
+    "settings": [
+      [
+        1,
+        65536
+      ],
+      [
+        2,
+        0
+      ],
+      [
+        4,
+        6291456
+      ],
+      [
+        6,
+        262144
+      ]
+    ],
+    "window_update": 15663105
+  },
+  "confirmed_android": {
+    "akamai_fingerprint": "4:16777216|16711681|0|m,p,a,s",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "accept-encoding",
+      "user-agent"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":path",
+      ":authority",
+      ":scheme"
+    ],
+    "settings": [
+      [
+        4,
+        16777216
+      ]
+    ],
+    "window_update": 16711681
+  },
+  "confirmed_ios": {
+    "akamai_fingerprint": "1:4096,2:1,3:100,4:2097152,5:16384,6:4294967295|15663105|0|m,s,p,a",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "accept-encoding",
+      "user-agent"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":scheme",
+      ":path",
+      ":authority"
+    ],
+    "settings": [
+      [
+        1,
+        4096
+      ],
+      [
+        2,
+        1
+      ],
+      [
+        3,
+        100
+      ],
+      [
+        4,
+        2097152
+      ],
+      [
+        5,
+        16384
+      ],
+      [
+        6,
+        4294967295
+      ]
+    ],
+    "window_update": 15663105
+  },
+  "firefox_102": {
+    "akamai_fingerprint": "1:65536,4:131072,5:16384|12517377|3:0:0:201|5:0:0:101|7:0:0:1|9:0:7:1|11:0:3:1|13:0:0:241|m,p,a,s",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "PRIORITY",
+      "PRIORITY",
+      "PRIORITY",
+      "PRIORITY",
+      "PRIORITY",
+      "PRIORITY",
+      "HEADERS"
+    ],
+    "header_order": [
+      "accept-encoding",
+      "user-agent"
+    ],
+    "priorities": [
+      [
+        3,
+        0,
+        0,
+        201
+      ],
+      [
+        5,
+        0,
+        0,
+        101
+      ],
+      [
+        7,
+        0,
+        0,
+        1
+      ],
+      [
+        9,
+        7,
+        0,
+        1
+      ],
+      [
+        11,
+        3,
+        0,
+        1
+      ],
+      [
+        13,
+        0,
+        0,
+        241
+      ]
+    ],
+    "pseudo_header_order": [
+      ":method",
+      ":path",
+      ":authority",
+      ":scheme"
+    ],
+    "settings": [
+      [
+        1,
+        65536
+      ],
+      [
+        4,
+        131072
+      ],
+      [
+        5,
+        16384
+      ]
+    ],
+    "window_update": 12517377
+  },
+  "firefox_104": {
+    "akamai_fingerprint": "1:65536,4:131072,5:16384|12517377|3:0:0:201|5:0:0:101|7:0:0:1|9:0:7:1|11:0:3:1|13:0:0:241|m,p,a,s",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "PRIORITY",
+      "PRIORITY",
+      "PRIORITY",
+      "PRIORITY",
+      "PRIORITY",
+      "PRIORITY",
+      "HEADERS"
+    ],
+    "header_order": [
+      "accept-encoding",
+      "user-agent"
+    ],
+    "priorities": [
+      [
+        3,
+        0,
+        0,
+        201
+      ],
+      [
+        5,
+        0,
+        0,
+        101
+      ],
+      [
+        7,
+        0,
+        0,
+        1
+      ],
+      [
+        9,
+        7,
+        0,
+        1
+      ],
+      [
+        11,
+        3,
+        0,
+        1
+      ],
+      [
+        13,
+        0,
+        0,
+        241
+      ]
+    ],
+    "pseudo_header_order": [
+      ":method",
+      ":path",
+      ":authority",
+      ":scheme"
+    ],
+    "settings": [
+      [
+        1,
+        65536
+      ],
+      [
+        4,
+        131072
+      ],
+      [
+        5,
+        16384
+      ]
+    ],
+    "window_update": 12517377
+  },
+  "firefox_105": {
+    "akamai_fingerprint": "1:65536,4:131072,5:16384|12517377|3:0:0:201|5:0:0:101|7:0:0:1|9:0:7:1|11:0:3:1|13:0:0:241|m,p,a,s",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "PRIORITY",
+      "PRIORITY",
+      "PRIORITY",
+      "PRIORITY",
+      "PRIORITY",
+      "PRIORITY",
+      "HEADERS"
+    ],
+    "header_order": [
+      "accept-encoding",
+      "user-agent"
+    ],
+    "priorities": [
+      [
+        3,
+        0,
+        0,
+        201
+      ],
+      [
+        5,
+        0,
+        0,
+        101
+      ],
+      [
+        7,
+        0,
+        0,
+        1
+      ],
+      [
+        9,
+        7,
+        0,
+        1
+      ],
+      [
+        11,
+        3,
+        0,
+        1
+      ],
+      [
+        13,
+        0,
+        0,
+        241
+      ]
+    ],
+    "pseudo_header_order": [
+      ":method",
+      ":path",
+      ":authority",
+      ":scheme"
+    ],
+    "settings": [
+      [
+        1,
+        65536
+      ],
+      [
+        4,
+        131072
+      ],
+      [
+        5,
+        16384
+      ]
+    ],
+    "window_update": 12517377
+  },
+  "firefox_106": {
+    "akamai_fingerprint": "1:65536,4:131072,5:16384|12517377|3:0:0:201|5:0:0:101|7:0:0:1|9:0:7:1|11:0:3:1|13:0:0:241|m,p,a,s",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "PRIORITY",
+      "PRIORITY",
+      "PRIORITY",
+      "PRIORITY",
+      "PRIORITY",
+      "PRIORITY",
+      "HEADERS"
+    ],
+    "header_order": [
+      "accept-encoding",
+      "user-agent"
+    ],
+    "priorities": [
+      [
+        3,
+        0,
+        0,
+        201
+      ],
+      [
+        5,
+        0,
+        0,
+        101
+      ],
+      [
+        7,
+        0,
+        0,
+        1
+      ],
+      [
+        9,
+        7,
+        0,
+        1
+      ],
+      [
+        11,
+        3,
+        0,
+        1
+      ],
+      [
+        13,
+        0,
+        0,
+        241
+      ]
+    ],
+    "pseudo_header_order": [
+      ":method",
+      ":path",
+      ":authority",
+      ":scheme"
+    ],
+    "settings": [
+      [
+        1,
+        65536
+      ],
+      [
+        4,
+        131072
+      ],
+      [
+        5,
+        16384
+      ]
+    ],
+    "window_update": 12517377
+  },
+  "firefox_108": {
+    "akamai_fingerprint": "1:65536,4:131072,5:16384|12517377|3:0:0:201|5:0:0:101|7:0:0:1|9:0:7:1|11:0:3:1|13:0:0:241|m,p,a,s",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "PRIORITY",
+      "PRIORITY",
+      "PRIORITY",
+      "PRIORITY",
+      "PRIORITY",
+      "PRIORITY",
+      "HEADERS"
+    ],
+    "header_order": [
+      "accept-encoding",
+      "user-agent"
+    ],
+    "priorities": [
+      [
+        3,
+        0,
+        0,
+        201
+      ],
+      [
+        5,
+        0,
+        0,
+        101
+      ],
+      [
+        7,
+        0,
+        0,
+        1
+      ],
+      [
+        9,
+        7,
+        0,
+        1
+      ],
+      [
+        11,
+        3,
+        0,
+        1
+      ],
+      [
+        13,
+        0,
+        0,
+        241
+      ]
+    ],
+    "pseudo_header_order": [
+      ":method",
+      ":path",
+      ":authority",
+      ":scheme"
+    ],
+    "settings": [
+      [
+        1,
+        65536
+      ],
+      [
+        4,
+        131072
+      ],
+      [
+        5,
+        16384
+      ]
+    ],
+    "window_update": 12517377
+  },
+  "firefox_110": {
+    "akamai_fingerprint": "1:65536,4:131072,5:16384|12517377|3:0:0:201|5:0:0:101|7:0:0:1|9:0:7:1|11:0:3:1|13:0:0:241|m,p,a,s",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "PRIORITY",
+      "PRIORITY",
+      "PRIORITY",
+      "PRIORITY",
+      "PRIORITY",
+      "PRIORITY",
+      "HEADERS"
+    ],
+    "header_order": [
+      "accept-encoding",
+      "user-agent"
+    ],
+    "priorities": [
+      [
+        3,
+        0,
+        0,
+        201
+      ],
+      [
+        5,
+        0,
+        0,
+        101
+      ],
+      [
+        7,
+        0,
+        0,
+        1
+      ],
+      [
+        9,
+        7,
+        0,
+        1
+      ],
+      [
+        11,
+        3,
+        0,
+        1
+      ],
+      [
+        13,
+        0,
+        0,
+        241
+      ]
+    ],
+    "pseudo_header_order": [
+      ":method",
+      ":path",
+      ":authority",
+      ":scheme"
+    ],
+    "settings": [
+      [
+        1,
+        65536
+      ],
+      [
+        4,
+        131072
+      ],
+      [
+        5,
+        16384
+      ]
+    ],
+    "window_update": 12517377
+  },
+  "firefox_117": {
+    "akamai_fingerprint": "1:65536,4:131072,5:16384|12517377|3:0:0:201|5:0:0:101|7:0:0:1|9:0:7:1|11:0:3:1|13:0:0:241|m,p,a,s",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "PRIORITY",
+      "PRIORITY",
+      "PRIORITY",
+      "PRIORITY",
+      "PRIORITY",
+      "PRIORITY",
+      "HEADERS"
+    ],
+    "header_order": [
+      "accept-encoding",
+      "user-agent"
+    ],
+    "priorities": [
+      [
+        3,
+        0,
+        0,
+        201
+      ],
+      [
+        5,
+        0,
+        0,
+        101
+      ],
+      [
+        7,
+        0,
+        0,
+        1
+      ],
+      [
+        9,
+        7,
+        0,
+        1
+      ],
+      [
+        11,
+        3,
+        0,
+        1
+      ],
+      [
+        13,
+        0,
+        0,
+        241
+      ]
+    ],
+    "pseudo_header_order": [
+      ":method",
+      ":path",
+      ":authority",
+      ":scheme"
+    ],
+    "settings": [
+      [
+        1,
+        65536
+      ],
+      [
+        4,
+        131072
+      ],
+      [
+        5,
+        16384
+      ]
+    ],
+    "window_update": 12517377
+  },
+  "firefox_120": {
+    "akamai_fingerprint": "1:65536,4:131072,5:16384|12517377|3:0:0:201|5:0:0:101|7:0:0:1|9:0:7:1|11:0:3:1|13:0:0:241|m,p,a,s",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "PRIORITY",
+      "PRIORITY",
+      "PRIORITY",
+      "PRIORITY",
+      "PRIORITY",
+      "PRIORITY",
+      "HEADERS"
+    ],
+    "header_order": [
+      "accept-encoding",
+      "user-agent"
+    ],
+    "priorities": [
+      [
+        3,
+        0,
+        0,
+        201
+      ],
+      [
+        5,
+        0,
+        0,
+        101
+      ],
+      [
+        7,
+        0,
+        0,
+        1
+      ],
+      [
+        9,
+        7,
+        0,
+        1
+      ],
+      [
+        11,
+        3,
+        0,
+        1
+      ],
+      [
+        13,
+        0,
+        0,
+        241
+      ]
+    ],
+    "pseudo_header_order": [
+      ":method",
+      ":path",
+      ":authority",
+      ":scheme"
+    ],
+    "settings": [
+      [
+        1,
+        65536
+      ],
+      [
+        4,
+        131072
+      ],
+      [
+        5,
+        16384
+      ]
+    ],
+    "window_update": 12517377
+  },
+  "firefox_123": {
+    "akamai_fingerprint": "1:65536,4:131072,5:16384|12517377|3:0:0:201|5:0:0:101|7:0:0:1|9:0:7:1|11:0:3:1|13:0:0:241|m,p,a,s",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "PRIORITY",
+      "PRIORITY",
+      "PRIORITY",
+      "PRIORITY",
+      "PRIORITY",
+      "PRIORITY",
+      "HEADERS"
+    ],
+    "header_order": [
+      "accept-encoding",
+      "user-agent"
+    ],
+    "priorities": [
+      [
+        3,
+        0,
+        0,
+        201
+      ],
+      [
+        5,
+        0,
+        0,
+        101
+      ],
+      [
+        7,
+        0,
+        0,
+        1
+      ],
+      [
+        9,
+        7,
+        0,
+        1
+      ],
+      [
+        11,
+        3,
+        0,
+        1
+      ],
+      [
+        13,
+        0,
+        0,
+        241
+      ]
+    ],
+    "pseudo_header_order": [
+      ":method",
+      ":path",
+      ":authority",
+      ":scheme"
+    ],
+    "settings": [
+      [
+        1,
+        65536
+      ],
+      [
+        4,
+        131072
+      ],
+      [
+        5,
+        16384
+      ]
+    ],
+    "window_update": 12517377
+  },
+  "firefox_132": {
+    "akamai_fingerprint": "1:65536,2:0,4:131072,5:16384,9:1|12517377|0|m,p,a,s",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "accept-encoding",
+      "user-agent"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":path",
+      ":authority",
+      ":scheme"
+    ],
+    "settings": [
+      [
+        1,
+        65536
+      ],
+      [
+        2,
+        0
+      ],
+      [
+        4,
+        131072
+      ],
+      [
+        5,
+        16384
+      ],
+      [
+        9,
+        1
+      ]
+    ],
+    "window_update": 12517377
+  },
+  "firefox_133": {
+    "akamai_fingerprint": "1:65536,2:0,4:131072,5:16384|12517377|0|m,p,a,s",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "accept-encoding",
+      "user-agent"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":path",
+      ":authority",
+      ":scheme"
+    ],
+    "settings": [
+      [
+        1,
+        65536
+      ],
+      [
+        2,
+        0
+      ],
+      [
+        4,
+        131072
+      ],
+      [
+        5,
+        16384
+      ]
+    ],
+    "window_update": 12517377
+  },
+  "firefox_135": {
+    "akamai_fingerprint": "1:65536,2:0,4:131072,5:16384|12517377|0|m,p,a,s",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "accept-encoding",
+      "user-agent"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":path",
+      ":authority",
+      ":scheme"
+    ],
+    "settings": [
+      [
+        1,
+        65536
+      ],
+      [
+        2,
+        0
+      ],
+      [
+        4,
+        131072
+      ],
+      [
+        5,
+        16384
+      ]
+    ],
+    "window_update": 12517377
+  },
+  "firefox_146_PSK": {
+    "akamai_fingerprint": "1:65536,2:0,4:131072,5:16384|12517377|0|m,p,a,s",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "accept-encoding",
+      "user-agent"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":path",
+      ":authority",
+      ":scheme"
+    ],
+    "settings": [
+      [
+        1,
+        65536
+      ],
+      [
+        2,
+        0
+      ],
+      [
+        4,
+        131072
+      ],
+      [
+        5,
+        16384
+      ]
+    ],
+    "window_update": 12517377
+  },
+  "firefox_147": {
+    "akamai_fingerprint": "1:65536,2:0,4:131072,5:16384|12517377|0|m,p,a,s",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "accept-encoding",
+      "user-agent"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":path",
+      ":authority",
+      ":scheme"
+    ],
+    "settings": [
+      [
+        1,
+        65536
+      ],
+      [
+        2,
+        0
+      ],
+      [
+        4,
+        131072
+      ],
+      [
+        5,
+        16384
+      ]
+    ],
+    "window_update": 12517377
+  },
+  "firefox_147_PSK": {
+    "akamai_fingerprint": "1:65536,2:0,4:131072,5:16384|12517377|0|m,p,a,s",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "accept-encoding",
+      "user-agent"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":path",
+      ":authority",
+      ":scheme"
+    ],
+    "settings": [
+      [
+        1,
+        65536
+      ],
+      [
+        2,
+        0
+      ],
+      [
+        4,
+        131072
+      ],
+      [
+        5,
+        16384
+      ]
+    ],
+    "window_update": 12517377
+  },
+  "mesh_android": {
+    "akamai_fingerprint": "1:65536,3:1000,4:6291456,6:262144|15663105|0|m,a,s,p",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "accept-encoding",
+      "user-agent"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":authority",
+      ":scheme",
+      ":path"
+    ],
+    "settings": [
+      [
+        1,
+        65536
+      ],
+      [
+        3,
+        1000
+      ],
+      [
+        4,
+        6291456
+      ],
+      [
+        6,
+        262144
+      ]
+    ],
+    "window_update": 15663105
+  },
+  "mesh_android_1": {
+    "akamai_fingerprint": "1:65536,3:1000,4:6291456,6:262144|15663105|0|m,a,s,p",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "accept-encoding",
+      "user-agent"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":authority",
+      ":scheme",
+      ":path"
+    ],
+    "settings": [
+      [
+        1,
+        65536
+      ],
+      [
+        3,
+        1000
+      ],
+      [
+        4,
+        6291456
+      ],
+      [
+        6,
+        262144
+      ]
+    ],
+    "window_update": 15663105
+  },
+  "mesh_ios": {
+    "akamai_fingerprint": "1:4096,2:1,3:100,4:2097152,5:16384,6:4294967295|15663105|0|m,s,p,a",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "accept-encoding",
+      "user-agent"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":scheme",
+      ":path",
+      ":authority"
+    ],
+    "settings": [
+      [
+        1,
+        4096
+      ],
+      [
+        2,
+        1
+      ],
+      [
+        3,
+        100
+      ],
+      [
+        4,
+        2097152
+      ],
+      [
+        5,
+        16384
+      ],
+      [
+        6,
+        4294967295
+      ]
+    ],
+    "window_update": 15663105
+  },
+  "mesh_ios_1": {
+    "akamai_fingerprint": "1:4096,2:1,3:100,4:2097152,5:16384,6:4294967295|15663105|0|m,s,p,a",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "accept-encoding",
+      "user-agent"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":scheme",
+      ":path",
+      ":authority"
+    ],
+    "settings": [
+      [
+        1,
+        4096
+      ],
+      [
+        2,
+        1
+      ],
+      [
+        3,
+        100
+      ],
+      [
+        4,
+        2097152
+      ],
+      [
+        5,
+        16384
+      ],
+      [
+        6,
+        4294967295
+      ]
+    ],
+    "window_update": 15663105
+  },
+  "mesh_ios_2": {
+    "akamai_fingerprint": "1:4096,3:100,4:2097152|15663105|0|m,a,s,p",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "accept-encoding",
+      "user-agent"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":authority",
+      ":scheme",
+      ":path"
+    ],
+    "settings": [
+      [
+        1,
+        4096
+      ],
+      [
+        3,
+        100
+      ],
+      [
+        4,
+        2097152
+      ]
+    ],
+    "window_update": 15663105
+  },
+  "mms_ios_3": {
+    "akamai_fingerprint": "1:4096,2:1,3:100,4:2097152,5:16384,6:4294967295|15663105|0|m,s,p,a",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "accept-encoding",
+      "user-agent"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":scheme",
+      ":path",
+      ":authority"
+    ],
+    "settings": [
+      [
+        1,
+        4096
+      ],
+      [
+        2,
+        1
+      ],
+      [
+        3,
+        100
+      ],
+      [
+        4,
+        2097152
+      ],
+      [
+        5,
+        16384
+      ],
+      [
+        6,
+        4294967295
+      ]
+    ],
+    "window_update": 15663105
+  },
+  "nike_android_mobile": {
+    "akamai_fingerprint": "1:4096,3:4294967295,4:16777216,5:16384,6:4294967295|15663105|0|m,p,a,s",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "accept-encoding",
+      "user-agent"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":path",
+      ":authority",
+      ":scheme"
+    ],
+    "settings": [
+      [
+        1,
+        4096
+      ],
+      [
+        3,
+        4294967295
+      ],
+      [
+        4,
+        16777216
+      ],
+      [
+        5,
+        16384
+      ],
+      [
+        6,
+        4294967295
+      ]
+    ],
+    "window_update": 15663105
+  },
+  "nike_ios_mobile": {
+    "akamai_fingerprint": "1:4096,3:100,4:2097152,5:16384,6:4294967295|15663105|0|m,s,p,a",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "accept-encoding",
+      "user-agent"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":scheme",
+      ":path",
+      ":authority"
+    ],
+    "settings": [
+      [
+        1,
+        4096
+      ],
+      [
+        3,
+        100
+      ],
+      [
+        4,
+        2097152
+      ],
+      [
+        5,
+        16384
+      ],
+      [
+        6,
+        4294967295
+      ]
+    ],
+    "window_update": 15663105
+  },
+  "okhttp4_android_10": {
+    "akamai_fingerprint": "4:16777216|16711681|0|m,p,a,s",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "accept-encoding",
+      "user-agent"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":path",
+      ":authority",
+      ":scheme"
+    ],
+    "settings": [
+      [
+        4,
+        16777216
+      ]
+    ],
+    "window_update": 16711681
+  },
+  "okhttp4_android_11": {
+    "akamai_fingerprint": "4:16777216|16711681|0|m,p,a,s",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "accept-encoding",
+      "user-agent"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":path",
+      ":authority",
+      ":scheme"
+    ],
+    "settings": [
+      [
+        4,
+        16777216
+      ]
+    ],
+    "window_update": 16711681
+  },
+  "okhttp4_android_12": {
+    "akamai_fingerprint": "4:16777216|16711681|0|m,p,a,s",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "accept-encoding",
+      "user-agent"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":path",
+      ":authority",
+      ":scheme"
+    ],
+    "settings": [
+      [
+        4,
+        16777216
+      ]
+    ],
+    "window_update": 16711681
+  },
+  "okhttp4_android_13": {
+    "akamai_fingerprint": "4:16777216|16711681|0|m,p,a,s",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "accept-encoding",
+      "user-agent"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":path",
+      ":authority",
+      ":scheme"
+    ],
+    "settings": [
+      [
+        4,
+        16777216
+      ]
+    ],
+    "window_update": 16711681
+  },
+  "okhttp4_android_7": {
+    "akamai_fingerprint": "4:16777216|16711681|0|m,p,a,s",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "accept-encoding",
+      "user-agent"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":path",
+      ":authority",
+      ":scheme"
+    ],
+    "settings": [
+      [
+        4,
+        16777216
+      ]
+    ],
+    "window_update": 16711681
+  },
+  "okhttp4_android_8": {
+    "akamai_fingerprint": "4:16777216|16711681|0|m,p,a,s",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "accept-encoding",
+      "user-agent"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":path",
+      ":authority",
+      ":scheme"
+    ],
+    "settings": [
+      [
+        4,
+        16777216
+      ]
+    ],
+    "window_update": 16711681
+  },
+  "okhttp4_android_9": {
+    "akamai_fingerprint": "4:16777216|16711681|0|m,p,a,s",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "accept-encoding",
+      "user-agent"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":path",
+      ":authority",
+      ":scheme"
+    ],
+    "settings": [
+      [
+        4,
+        16777216
+      ]
+    ],
+    "window_update": 16711681
+  },
+  "opera_89": {
+    "akamai_fingerprint": "1:65536,3:1000,4:6291456,6:262144|15663105|0|m,a,s,p",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "accept-encoding",
+      "user-agent"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":authority",
+      ":scheme",
+      ":path"
+    ],
+    "settings": [
+      [
+        1,
+        65536
+      ],
+      [
+        3,
+        1000
+      ],
+      [
+        4,
+        6291456
+      ],
+      [
+        6,
+        262144
+      ]
+    ],
+    "window_update": 15663105
+  },
+  "opera_90": {
+    "akamai_fingerprint": "1:65536,3:1000,4:6291456,6:262144|15663105|0|m,a,s,p",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "accept-encoding",
+      "user-agent"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":authority",
+      ":scheme",
+      ":path"
+    ],
+    "settings": [
+      [
+        1,
+        65536
+      ],
+      [
+        3,
+        1000
+      ],
+      [
+        4,
+        6291456
+      ],
+      [
+        6,
+        262144
+      ]
+    ],
+    "window_update": 15663105
+  },
+  "opera_91": {
+    "akamai_fingerprint": "1:65536,3:1000,4:6291456,6:262144|15663105|0|m,a,s,p",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "accept-encoding",
+      "user-agent"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":authority",
+      ":scheme",
+      ":path"
+    ],
+    "settings": [
+      [
+        1,
+        65536
+      ],
+      [
+        3,
+        1000
+      ],
+      [
+        4,
+        6291456
+      ],
+      [
+        6,
+        262144
+      ]
+    ],
+    "window_update": 15663105
+  },
+  "safari_15_6_1": {
+    "akamai_fingerprint": "4:4194304,3:100|10485760|0|m,s,p,a",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "accept-encoding",
+      "user-agent"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":scheme",
+      ":path",
+      ":authority"
+    ],
+    "settings": [
+      [
+        4,
+        4194304
+      ],
+      [
+        3,
+        100
+      ]
+    ],
+    "window_update": 10485760
+  },
+  "safari_16_0": {
+    "akamai_fingerprint": "4:4194304,3:100|10485760|0|m,s,p,a",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "accept-encoding",
+      "user-agent"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":scheme",
+      ":path",
+      ":authority"
+    ],
+    "settings": [
+      [
+        4,
+        4194304
+      ],
+      [
+        3,
+        100
+      ]
+    ],
+    "window_update": 10485760
+  },
+  "safari_ios_15_5": {
+    "akamai_fingerprint": "4:2097152,3:100|10485760|0|m,s,p,a",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "accept-encoding",
+      "user-agent"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":scheme",
+      ":path",
+      ":authority"
+    ],
+    "settings": [
+      [
+        4,
+        2097152
+      ],
+      [
+        3,
+        100
+      ]
+    ],
+    "window_update": 10485760
+  },
+  "safari_ios_15_6": {
+    "akamai_fingerprint": "4:2097152,3:100|10485760|0|m,s,p,a",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "accept-encoding",
+      "user-agent"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":scheme",
+      ":path",
+      ":authority"
+    ],
+    "settings": [
+      [
+        4,
+        2097152
+      ],
+      [
+        3,
+        100
+      ]
+    ],
+    "window_update": 10485760
+  },
+  "safari_ios_16_0": {
+    "akamai_fingerprint": "4:2097152,3:100|10485760|0|m,s,p,a",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "accept-encoding",
+      "user-agent"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":scheme",
+      ":path",
+      ":authority"
+    ],
+    "settings": [
+      [
+        4,
+        2097152
+      ],
+      [
+        3,
+        100
+      ]
+    ],
+    "window_update": 10485760
+  },
+  "safari_ios_17_0": {
+    "akamai_fingerprint": "2:0,4:2097152,3:100|10485760|0|m,s,p,a",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "accept-encoding",
+      "user-agent"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":scheme",
+      ":path",
+      ":authority"
+    ],
+    "settings": [
+      [
+        2,
+        0
+      ],
+      [
+        4,
+        2097152
+      ],
+      [
+        3,
+        100
+      ]
+    ],
+    "window_update": 10485760
+  },
+  "safari_ios_18_0": {
+    "akamai_fingerprint": "2:0,3:100,4:2097152,8:1,9:1|10420225|0|m,s,a,p",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "accept-encoding",
+      "user-agent"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":scheme",
+      ":authority",
+      ":path"
+    ],
+    "settings": [
+      [
+        2,
+        0
+      ],
+      [
+        3,
+        100
+      ],
+      [
+        4,
+        2097152
+      ],
+      [
+        8,
+        1
+      ],
+      [
+        9,
+        1
+      ]
+    ],
+    "window_update": 10420225
+  },
+  "safari_ios_18_5": {
+    "akamai_fingerprint": "2:0,3:100,4:2097152,9:1|10420225|0|m,s,a,p",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "accept-encoding",
+      "user-agent"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":scheme",
+      ":authority",
+      ":path"
+    ],
+    "settings": [
+      [
+        2,
+        0
+      ],
+      [
+        3,
+        100
+      ],
+      [
+        4,
+        2097152
+      ],
+      [
+        9,
+        1
+      ]
+    ],
+    "window_update": 10420225
+  },
+  "safari_ios_26_0": {
+    "akamai_fingerprint": "2:0,3:100,4:2097152,9:1|10420225|0|m,s,a,p",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "accept-encoding",
+      "user-agent"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":scheme",
+      ":authority",
+      ":path"
+    ],
+    "settings": [
+      [
+        2,
+        0
+      ],
+      [
+        3,
+        100
+      ],
+      [
+        4,
+        2097152
+      ],
+      [
+        9,
+        1
+      ]
+    ],
+    "window_update": 10420225
+  },
+  "safari_ipad_15_6": {
+    "akamai_fingerprint": "4:2097152,3:100|10485760|0|m,s,p,a",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "accept-encoding",
+      "user-agent"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":scheme",
+      ":path",
+      ":authority"
+    ],
+    "settings": [
+      [
+        4,
+        2097152
+      ],
+      [
+        3,
+        100
+      ]
+    ],
+    "window_update": 10485760
+  },
+  "zalando_android_mobile": {
+    "akamai_fingerprint": "1:4096,3:4294967295,4:16777216,5:16384,6:4294967295|15663105|0|m,p,a,s",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "accept-encoding",
+      "user-agent"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":path",
+      ":authority",
+      ":scheme"
+    ],
+    "settings": [
+      [
+        1,
+        4096
+      ],
+      [
+        3,
+        4294967295
+      ],
+      [
+        4,
+        16777216
+      ],
+      [
+        5,
+        16384
+      ],
+      [
+        6,
+        4294967295
+      ]
+    ],
+    "window_update": 15663105
+  },
+  "zalando_ios_mobile": {
+    "akamai_fingerprint": "1:4096,3:100,4:2097152,5:16384,6:4294967295|15663105|0|m,p,a,s",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "accept-encoding",
+      "user-agent"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":path",
+      ":authority",
+      ":scheme"
+    ],
+    "settings": [
+      [
+        1,
+        4096
+      ],
+      [
+        3,
+        100
+      ],
+      [
+        4,
+        2097152
+      ],
+      [
+        5,
+        16384
+      ],
+      [
+        6,
+        4294967295
+      ]
+    ],
+    "window_update": 15663105
+  }
+}

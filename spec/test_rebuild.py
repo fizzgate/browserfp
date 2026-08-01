@@ -36,15 +36,23 @@ def check(name, profile):
     return diffs
 
 
+REGISTRY = os.path.join(HERE, "profiles.json")
+
+
 def main():
-    cases = []
-    with open(GOLDEN) as f:
-        for t, p in json.load(f).items():
-            cases.append((f"curl_cffi:{t}", p))
-    if os.path.exists(REAL):
-        with open(REAL) as f:
-            for n, e in json.load(f).items():
-                cases.append((f"real:{n}", e["fingerprint"]))
+    # 优先验注册表——它才是交付给 C 模块的东西；单个 golden 文件只是它的原料。
+    if os.path.exists(REGISTRY):
+        with open(REGISTRY) as f:
+            cases = [(rec["id"], rec["tls"]) for rec in json.load(f)]
+    else:
+        cases = []
+        with open(GOLDEN) as f:
+            for t, p in json.load(f).items():
+                cases.append((f"curl_cffi:{t}", p))
+        if os.path.exists(REAL):
+            with open(REAL) as f:
+                for n, e in json.load(f).items():
+                    cases.append((f"real:{n}", e["fingerprint"]))
 
     failed = []
     for name, profile in cases:

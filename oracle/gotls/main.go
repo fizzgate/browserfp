@@ -19,6 +19,7 @@ import (
 
 	tls "github.com/bogdanfinn/utls"
 
+	tlsclient "github.com/bogdanfinn/tls-client"
 	"github.com/bogdanfinn/tls-client/profiles"
 )
 
@@ -29,6 +30,7 @@ func main() {
 		selected = flag.String("profiles", "", "逗号分隔的 profile 名；空=全部")
 		sni      = flag.String("sni", "", "SNI；空=不发 SNI（与真机浏览器采集条件一致）")
 		timeout  = flag.Duration("timeout", 8*time.Second, "单次连接超时")
+		h2       = flag.Bool("h2", false, "走完整 HTTP 栈以采 h2 层指纹")
 	)
 	flag.Parse()
 
@@ -56,6 +58,17 @@ func main() {
 		profile, ok := profiles.MappedTLSClients[name]
 		if !ok {
 			fmt.Printf("%s\tERR\tunknown profile\n", name)
+			continue
+		}
+		if *h2 {
+			// L2：走 tls-client 的 HTTP 栈，它会按 profile 发 h2 SETTINGS /
+			// WINDOW_UPDATE / 伪头顺序 —— 那些字段只有走完整 HTTP 栈才发得出来，
+			// 裸 UClient 握手拿不到。
+			if err := probeHTTP(*addr, *sni, name, *timeout); err != nil {
+				fmt.Printf("%s\tSENT\t%v\n", name, err)
+				continue
+			}
+			fmt.Printf("%s\tSENT\tok\n", name)
 			continue
 		}
 		if err := probe(*addr, *sni, profile, *timeout); err != nil {
@@ -92,4 +105,35 @@ func probe(addr, sni string, profile profiles.ClientProfile, timeout time.Durati
 	conn := tls.UClient(raw, cfg, profile.GetClientHelloId(), false, false, false)
 	defer conn.Close()
 	return conn.Handshake()
+}
+
+
+// probeHTTP 用 tls-client 的 HTTP 栈发一次请求，好让它按 profile 发出
+// h2 SETTINGS / WINDOW_UPDATE / PRIORITY / 伪头顺序。观测点收到第一个
+// HEADERS 帧就断，所以这里的 error 是预期的。
+func probeHTTP(addr, sni, profileName string, timeout time.Duration) error {
+	host := sni
+	if host == "" {
+		host = strings.Split(addr, ":")[0]
+	}
+	port := addr[strings.LastIndex(addr, ":")+1:]
+
+	opts := []tlsclient.HttpClientOption{
+		tlsclient.WithTimeoutSeconds(int(timeout.Seconds())),
+		tlsclient.WithClientProfile(profiles.MappedTLSClients[profileName]),
+		tlsclient.WithInsecureSkipVerify(),
+		tlsclient.WithNotFollowRedirects(),
+	}
+	client, err := tlsclient.NewHttpClient(tlsclient.NewNoopLogger(), opts...)
+	if err != nil {
+		return fmt.Errorf("client: %w", err)
+	}
+	defer client.CloseIdleConnections()
+
+	resp, err := client.Get(fmt.Sprintf("https://%s:%s/", host, port))
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	return nil
 }
