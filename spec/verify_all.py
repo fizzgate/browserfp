@@ -112,18 +112,17 @@ def main(argv):
         print("\n" + "=" * 62)
         print("第 3 层：端到端与生产形态")
         print("=" * 62)
-        ok, tail = _run("spec.test_live_handshake", timeout=1800)
-        print(f"  {'✅' if ok else '❌'} 对真实站点逐 profile 握手：{tail}")
-        if not ok:
-            bad += 1
-        ok2, tail2 = _run("spec.test_build_live", timeout=900)
-        print(f"  {'✅' if ok2 else '❌'} C 构造的伪装握手：{tail2}")
-        if not ok2:
-            bad += 1
-        ok3, tail3 = _run("spec.test_openresty", timeout=1800)
-        print(f"  {'✅' if ok3 else '❌'} 真实 OpenResty worker：{tail3}")
-        if not ok3:
-            bad += 1
+        # 结果必须并进 failed —— 只往 bad 计数会让返回码对、结尾却打印
+        # "所有已跑的验证均通过"。撞过一次：第 3 层红着，总览是绿的。
+        for mod, label, tmo in (
+                ("spec.test_live_handshake", "对真实站点逐 profile 握手", 1800),
+                ("spec.test_build_live", "C 构造的伪装握手", 900),
+                ("spec.test_openresty", "真实 OpenResty worker", 1800)):
+            ok, tail = _run(mod, timeout=tmo)
+            print(f"  {'✅' if ok else '❌'} {label}：{tail}")
+            if not ok:
+                bad += 1
+                failed.append((mod.split(".")[-1], tail))
     else:
         print("\n（未跑端到端验证；加 --live 才跑，它对外发真实请求）")
 
