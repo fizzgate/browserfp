@@ -10,7 +10,12 @@ luajit，它们能验 FFI 绑定的语义，但验不到两件只有真 OpenRest
      周期都与命令行跑脚本不同。
 
 做法：用 gcc 容器编译出 Linux 版 .so，挂进 openresty 容器，起一个把
-`tlsfp.by_ua()` 暴露成 HTTP 接口的 worker，然后逐版本与 Python 比对。
+`tlsfp.by_ua()` 与 `tlsfp.client_hello()` 暴露成 HTTP 接口的 worker，逐版本与
+Python 比对。
+
+**两个入口都要验**：by_ua 只走查表，client_hello 还要走 resty.random 与 FFI 的
+输出缓冲 —— 后者才是 cosocket 实际要调的那个，而它在裸 luajit 上会退回
+math.random，那条强随机路径只有真 worker 里才走得到。
 
 **需要 docker**，没有就跳过（非失败）—— 这条门禁的前提是能起容器，而不是所有
 环境都有。
@@ -46,14 +51,35 @@ http {
     lua_package_path "/app/lua/?.lua;;";
     server {
         listen 8080;
+
         location /by_ua {
             content_by_lua_block {
                 local tlsfp = require "tlsfp"
                 tlsfp.load("/app/csrc/libtlsfp.so")
                 local a = ngx.req.get_uri_args()
                 local r, err, conf = tlsfp.by_ua(a.brand, tonumber(a.version))
-                if r then ngx.say(r.id .. "\\t" .. r.confidence)
-                else ngx.say("-\\t" .. tostring(conf)) end
+                if r then
+                    ngx.say(r.id .. "\\t" .. r.confidence)
+                else
+                    ngx.say("-\\t" .. tostring(conf))
+                end
+            }
+        }
+
+        location /client_hello {
+            content_by_lua_block {
+                local tlsfp = require "tlsfp"
+                tlsfp.load("/app/csrc/libtlsfp.so")
+                local a = ngx.req.get_uri_args()
+                local rec, prof = tlsfp.client_hello(a.brand, tonumber(a.version), a.sni)
+                if not rec then
+                    ngx.say("ERR\\t" .. tostring(prof))
+                else
+                    local hex = rec:gsub(".", function(c)
+                        return string.format("%02x", string.byte(c))
+                    end)
+                    ngx.say(prof.id .. "\\t" .. #rec .. "\\t" .. hex)
+                end
             }
         }
     }
@@ -81,6 +107,49 @@ def _build_linux_so(workdir):
          "make libtlsfp.so >/dev/null 2>&1 && file libtlsfp.so"],
         capture_output=True, text=True, timeout=600)
     return "ELF" in out.stdout, out.stdout.strip()[:80]
+
+
+def _check_client_hello(opener, mapper):
+    """在真 worker 里调 client_hello，解析回来与 golden 逐字段比。"""
+    import json as _json
+    from oracle.clienthello import fingerprint
+    from oracle.coverage import FIELDS, SET_FIELDS
+
+    with open(os.path.join(HERE, "profiles.json")) as f:
+        by_id = {r["id"]: r for r in _json.load(f)}
+
+    def norm(t, fl):
+        v = t.get(fl)
+        return sorted(v) if fl in SET_FIELDS and v else v
+
+    bad = []
+    for brand, ver in (("chrome", 151), ("firefox", 153),
+                       ("safari-mobile", 27), ("chrome-mobile", 134)):
+        url = (f"http://127.0.0.1:{PORT}/client_hello?brand={brand}"
+               f"&version={ver}&sni=example.com")
+        try:
+            line = opener.open(url, timeout=20).read().decode().strip()
+        except Exception as e:
+            bad.append(f"{brand} {ver}: 请求失败 {type(e).__name__}")
+            continue
+        parts = line.split("\t")
+        if len(parts) != 3 or parts[0] == "ERR":
+            bad.append(f"{brand} {ver}: worker 返回 {line[:60]}")
+            continue
+        pid, _n, hexs = parts
+        rec = by_id.get(pid)
+        if not rec:
+            bad.append(f"{brand} {ver}: profile {pid} 不在注册表")
+            continue
+        try:
+            fp = fingerprint(bytes.fromhex(hexs), drop_sni=True)
+        except Exception as e:
+            bad.append(f"{brand} {ver}: 构造的字节解析失败 {type(e).__name__}")
+            continue
+        diff = [fl for fl in FIELDS if norm(fp, fl) != norm(rec["tls"], fl)]
+        if diff:
+            bad.append(f"{brand} {ver}: 与 {pid} 差 {diff[:3]}")
+    return bad
 
 
 def main():
@@ -129,12 +198,21 @@ def main():
             if tuple(got) != (pid, conf_want):
                 bad.append((brand, v, (pid, conf_want), tuple(got)))
 
-        print(f"  真实 OpenResty worker 差分 {len(cases)} 条："
+        print(f"  by_ua 差分 {len(cases)} 条："
               f"{len(cases) - len(bad)} 一致，{len(bad)} 不符")
         for b, v, e, g in bad[:8]:
             print(f"    ✗ {b} {v}  Python={e}  OpenResty={g}")
-        print(f"\n{'C 模块在生产形态下与 Python 一致' if not bad else '存在分歧'}")
-        return 1 if bad else 0
+
+        # client_hello：在真 worker 里构造字节，解析回来与 golden 逐字段比。
+        # 这条路径 by_ua 覆盖不到 —— 它还要走 resty.random 与 FFI 的输出缓冲。
+        ch_bad = _check_client_hello(opener, mapper)
+        print(f"  client_hello 构造 {4 - len(ch_bad)}/4 组合与 golden 一致")
+        for b in ch_bad:
+            print(f"    ✗ {b}")
+
+        failed = bad or ch_bad
+        print(f"\n{'C 模块在生产形态下与 Python 一致' if not failed else '存在分歧'}")
+        return 1 if failed else 0
     finally:
         subprocess.run(["docker", "rm", "-f", CONTAINER],
                        capture_output=True, timeout=60)
