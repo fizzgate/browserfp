@@ -45,6 +45,7 @@ SOURCES = [
     # Chrome 151 的 QUIC 版 10 个扩展、TCP 版 15 个，且含 quic_transport_parameters。
     # 用首连表去认 QUIC 连接一个都认不出，故必须单列。
     ("real_quic", "quic_real_browsers.json", None, "real-capture", "quic"),
+    ("linux", "linux_browsers.json", None, "real-capture", "initial"),
 ]
 
 

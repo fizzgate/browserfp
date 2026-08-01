@@ -33,6 +33,15 @@ IMAGES = {
     "21hsmw/flaresolverr:nodriver": ("/usr/bin/chromium", "chromium-linux"),
 }
 
+# 同一个二进制在不同 feature flag 下会发出**不同指纹**，故按变体分别采。
+# 实测 Chromium 133：默认走 ALPS 旧 codepoint(0x4469)，开启该 feature 后变
+# 0x44cd —— 与平台无关，纯粹是 feature 开关。Chrome 的 feature 由 Finch 实验
+# 系统下发，同版本在不同用户/地区/时间可能不同，所以"版本→唯一指纹"不成立。
+VARIANTS = {
+    "": [],
+    "-alps-new": ["--enable-features=UseNewAlpsCodepointHttp2"],
+}
+
 
 def browser_version(image, binary):
     out = subprocess.run(
@@ -42,12 +51,12 @@ def browser_version(image, binary):
         out.stdout or out.stderr) else "?"
 
 
-def capture(image, binary, sniffer, timeout=60):
+def capture(image, binary, sniffer, extra=(), timeout=60):
     proc = subprocess.Popen(
         ["docker", "run", "--rm", "--entrypoint", binary, image,
          "--headless=new", "--no-sandbox", "--disable-gpu",
          "--user-data-dir=/tmp/fizztls-profile", "--no-first-run",
-         "--ignore-certificate-errors",
+         "--ignore-certificate-errors", *extra,
          f"https://host.docker.internal:{sniffer.port}/"],
         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     try:
@@ -69,12 +78,17 @@ def main(argv):
     for image, (binary, label) in IMAGES.items():
         try:
             version = browser_version(image, binary)
-            # 绑 0.0.0.0：容器要连进来
-            with ClientHelloSniffer(host="0.0.0.0") as sniffer:
-                fp = capture(image, binary, sniffer)
-            out[label] = {"version": version, "image": image,
-                          "platform": "linux", "fingerprint": fp}
-            print(f"  {label:16s} {version:46s} ja4={fp['ja4']}")
+            for suffix, extra in VARIANTS.items():
+                # 绑 0.0.0.0：容器要连进来
+                with ClientHelloSniffer(host="0.0.0.0") as sniffer:
+                    fp = capture(image, binary, sniffer, extra)
+                key = label + suffix
+                out[key] = {"version": version, "image": image,
+                            "platform": "linux", "flags": list(extra),
+                            "fingerprint": fp}
+                ex = set(fp["extensions_ordered"])
+                alps = "0x4469旧" if 0x4469 in ex else ("0x44cd新" if 0x44cd in ex else "-")
+                print(f"  {key:24s} {version[:34]:36s} ALPS={alps} ja4={fp['ja4']}")
         except Exception as e:
             failed.append((label, repr(e)))
             print(f"  {label:16s} FAILED {e!r}", file=sys.stderr)
