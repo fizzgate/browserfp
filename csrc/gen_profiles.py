@@ -125,6 +125,25 @@ def main():
             ua_rows.append((brand, ver, i, fp_group[i], src_mask[i], 0))
             direct.setdefault((brand, ver), i)
 
+    # Edge 与 Chromium 版本号对齐（Edge 126 就是 Chromium 126），所以一条同时
+    # 服务 chrome 与 edge 的 profile，它覆盖的 chrome 版本也适用于 edge。
+    # Opera 不能这么做——版本号不对齐（Opera 110 约等于 Chromium 124）。
+    # 与 oracle/uamap.py 同一条判据、同样的先到先得语义，两边不一致会被
+    # test_c_ua_parity 抓到。
+    for i, rec in enumerate(profiles):
+        if rec.get("mode") != "initial":
+            continue
+        names = [rec["id"]] + rec.get("aliases", [])
+        has_chrome = any(re.match(r"^\w+:(?:chrome|chromium)", n.lower())
+                         for n in names)
+        has_edge = any(re.match(r"^\w+:edge", n.lower()) for n in names)
+        if not (has_chrome and has_edge):
+            continue
+        for (b, v), idx in list(direct.items()):
+            if b == "chrome" and idx == i and ("edge", v) not in direct:
+                direct[("edge", v)] = i
+                ua_rows.append(("edge", v, i, fp_group[i], src_mask[i], 0))
+
     # 按源码段表补齐：段内没有直接 profile 的版本，用同段最近者。第 6 列标 1
     # 表示"来自段表"，C 侧据此报 same-seg 而不是 exact——这个区分必须保留，
     # 调用方有权知道用的是直接采到的还是段内替代的。

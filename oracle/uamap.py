@@ -142,6 +142,24 @@ class UAMapper:
                 for b in brands:
                     self.by_brand.setdefault(b, {}).setdefault(cv, (rec, key))
 
+            # **Edge 与 Chromium 版本号对齐**（Edge 126 就是 Chromium 126），
+            # 所以一条同时服务 chrome 与 edge 的 profile，它覆盖的 chrome 版本
+            # 也适用于 edge。实证：注册表里有 6 条这样的 profile，跨 chrome
+            # 83-149、跨多个来源库，其中 real:chromium 一条就同时是
+            # chrome 132-149 与 edge 135-148。
+            #
+            # **Opera 不能这么做**：它的版本号与 Chromium 不对齐（Opera 110
+            # 约等于 Chromium 124），curl_cffi:chrome131 一条就覆盖了
+            # opera 116-131。按版本号套会张冠李戴。
+            names = [rec["id"]] + rec.get("aliases", [])
+            has_chrome = any(re.match(r"^\w+:(?:chrome|chromium)", n.lower())
+                             for n in names)
+            has_edge = any(re.match(r"^\w+:edge", n.lower()) for n in names)
+            if has_chrome and has_edge:
+                for v in list(self.by_brand.get("chrome", {})):
+                    if self.by_brand["chrome"][v][0] is rec:
+                        self.by_brand.setdefault("edge", {}).setdefault(v, (rec, key))
+
             # 真机条目的版本号在 versions 里，alias 里没有
             for vs in (rec.get("versions") or []):
                 mm = re.match(r"^(?:\D*?)(\d+)", str(vs))

@@ -85,10 +85,28 @@ def main(argv):
     # 纯 TLS 1.2 的 profile（无 supported_versions 扩展，JA4 首段 t12）超出
     # 参考实现范围——它只做 TLS 1.3。把这些算作失败会让口径失真。
     tls12 = [r for r in registry if not r["tls"].get("supported_versions")]
-    tls13 = [r for r in registry if r["tls"].get("supported_versions")]
+    rest = [r for r in registry if r["tls"].get("supported_versions")]
 
-    print(f"注册表 {len(registry)} 条：TLS1.3 {len(tls13)} 条 × {len(hosts)} 站点"
-          f"；纯 TLS1.2 {len(tls12)} 条跳过\n")
+    # QUIC 形态不能拿去做 TCP 握手：它的 ClientHello 走 QUIC 传输参数那一套，
+    # 送进 TCP 只会换回一个 alert（实测 real_quic:edge 报 content type 21）。
+    # 这是形态不匹配，不是 profile 有问题。
+    quic = [r for r in rest if "quic" in (r.get("mode") or "").lower()
+            or "quic" in r["id"].lower()]
+    rest = [r for r in rest if r not in quic]
+
+    # 参考实现只做 X25519 与 X25519MLKEM768（见 oracle/tls13.py 顶部）。含
+    # Kyber768Draft00(0x6399) 而不含 MLKEM 的 profile，服务器会选 0x6399，
+    # 我们算不出共享密钥。这是**参考实现能力不足**，与"该 profile 不可用"
+    # 是两回事，混报会让口径失真——但也不能静默跳过，否则这一类会无声增长。
+    KYBER, MLKEM = 0x6399, 0x11EC
+    unsupported_kx = [r for r in rest
+                      if KYBER in (r["tls"].get("curves") or [])
+                      and MLKEM not in (r["tls"].get("curves") or [])]
+    tls13 = [r for r in rest if r not in unsupported_kx]
+
+    print(f"注册表 {len(registry)} 条：实测 {len(tls13)} 条 × {len(hosts)} 站点"
+          f"；跳过 纯TLS1.2 {len(tls12)} / QUIC形态 {len(quic)} / "
+          f"参考实现缺密钥交换 {len(unsupported_kx)}\n")
 
     failures = []
     for rec in tls13:
@@ -110,6 +128,15 @@ def main(argv):
         print("\n失败：")
         for pid, host, detail in failures:
             print(f"  {pid:32s} @{host:18s} {detail}")
+    if quic:
+        print(f"\n跳过的 QUIC 形态（{len(quic)}，TCP 测试不适用）："
+              + " ".join(r["id"] for r in quic))
+    if unsupported_kx:
+        print(f"\n跳过：参考实现未实现其密钥交换（{len(unsupported_kx)}）—— "
+              "含 Kyber768Draft00(0x6399) 而无 MLKEM，参考实现只做 X25519 与 "
+              "X25519MLKEM768。**这是我们的能力缺口，不是 profile 不可用**：")
+        for r in unsupported_kx:
+            print(f"  {r['id']}")
     if tls12:
         print(f"\n跳过的纯 TLS1.2 profile（{len(tls12)}）："
               + " ".join(r["id"] for r in tls12))

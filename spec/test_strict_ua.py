@@ -6,7 +6,10 @@
 
 所以三档里只有前两档可用：
     exact     该主版本有直接对应的 profile
-    same-seg  两端指纹相同**且**出自同一来源库 —— 段内可安全替代
+    same-seg  段内可安全替代，两种证据都算：
+                a) 两端指纹相同**且**出自同一来源库
+                b) 源码段表证明同段（spec/segments/*.json，只收标了
+                   usable_for_substitution 的品牌）
     fallback  只有跨段的最近版本 —— 必须返回 None/NULL
 
 **同时验负向证据**：判成 fallback 的版本，其上下两端必须**确实**指纹不同。
@@ -19,6 +22,7 @@
 
 import json
 import os
+import re
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -93,6 +97,33 @@ def check_gaps_are_real(mapper, rows):
     return bad, evidence, checked
 
 
+def check_edge_evidence():
+    """Edge↔Chromium 跨品牌映射依赖实证，实证消失了规则就该失效。
+
+    uamap 把"一条 profile 覆盖的 chrome 版本也适用于 edge"当作规则，依据是
+    Edge 与 Chromium 版本号对齐。这是**推断**，支撑它的是注册表里同时被两家
+    别名引用的 profile —— 只要这类 profile 还在，说明确实观测到同版本同指纹。
+    若哪天降到很少，规则就失去依据，必须重新评估而不是继续用。
+
+    Opera 刻意不在此列：它版本号与 Chromium 不对齐（curl_cffi:chrome131 一条
+    就覆盖 opera 116-131），套版本号会张冠李戴。
+    """
+    with open(os.path.join(HERE, "profiles.json")) as f:
+        registry = json.load(f)
+    pairs = []
+    for rec in registry:
+        if rec.get("mode") != "initial":
+            continue
+        names = [rec["id"]] + rec.get("aliases", [])
+        ch = {int(m.group(1)) for n in names
+              if (m := re.match(r"^\w+:(?:[Cc]hrome|[Cc]hromium)[-_]?(\d+)$", n))}
+        eg = {int(m.group(1)) for n in names
+              if (m := re.match(r"^\w+:[Ee]dge[-_]?(\d+)$", n))}
+        if ch and eg:
+            pairs.append((rec["id"], sorted(ch), sorted(eg)))
+    return pairs
+
+
 def main():
     if not os.path.exists(FIXTURES):
         print("缺 spec/fixtures/prod_user_agents.json", file=sys.stderr)
@@ -122,6 +153,17 @@ def main():
     print(f"拒绝有据         {'OK' if not misjudged else '失败'}")
     for b in misjudged:
         print(f"  ✗ {b}")
+
+    # Edge 跨品牌映射的实证。定 3 是下限而非目标：当前有 6 条，掉到 3 条以下
+    # 说明观测基础明显削弱，该重新评估这条规则。
+    edge_pairs = check_edge_evidence()
+    edge_ok = len(edge_pairs) >= 3
+    print(f"Edge 映射有实证   {'OK' if edge_ok else '失败'}"
+          f"（{len(edge_pairs)} 条 profile 同时被 chrome 与 edge 别名引用）")
+    for pid, ch, eg in edge_pairs:
+        print(f"    {pid:26s} chrome={ch[:4]}{'…' if len(ch) > 4 else ''}  edge={eg}")
+    if not edge_ok:
+        leaked.append("Edge↔Chromium 跨品牌映射失去实证支撑，应停用该规则")
 
     print("\n每个缺口的两端差异（这是必须实采的依据）：")
     for e in sorted(evidence):
