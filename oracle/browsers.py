@@ -141,10 +141,22 @@ def main(argv):
     out = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                        "..", "spec", "golden", "real_browsers.json")
     os.makedirs(os.path.dirname(out), exist_ok=True)
+
+    # 合并而非覆盖：只采一个浏览器（如 safari，它必须显式指定）时若直接写
+    # results，会把其余浏览器的样本静默清空，coverage 随之少算覆盖面。
+    merged = {}
+    if os.path.exists(out):
+        try:
+            with open(out) as f:
+                merged = json.load(f)
+        except (OSError, ValueError):
+            merged = {}
+    merged.update(results)
+
     with open(out, "w") as f:
-        json.dump(results, f, indent=2, sort_keys=True)
+        json.dump(merged, f, indent=2, sort_keys=True)
         f.write("\n")
-    print(f"\n落盘 {len(results)} 份 → {os.path.normpath(out)}")
+    print(f"\n本次采集 {len(results)} 份，累计 {len(merged)} 份 → {os.path.normpath(out)}")
     if failures:
         for n, e in failures:
             print(f"  FAILED {n}: {e}", file=sys.stderr)
