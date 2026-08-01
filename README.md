@@ -188,6 +188,13 @@ key_share 那条是有价值的阴性结果：它证明现有 13 字段判据**�
   废弃草案，cryptography 未实现。刻意不加豁免表，让它每次都报出来。
 - **5 个纯 TLS1.2 profile 未覆盖**：cloudscraper / confirmed_android / mesh_android_2 /
   okhttp4_android_7 / okhttp4_android_8。参考实现只做 TLS 1.3。
+- **wreq 的 h2 采不到**：wreq 坚持校验服务端证书，`verify=False` /
+  `danger_accept_invalid_certs` / `cert_store=CertStore.from_pem_stack(ca)` 均无效
+  （前者疑似被静默忽略）。L1 不受影响是因为 sniffer 不完成握手。`wreqh2collect.py`
+  逻辑已就绪，待找到正确的信任配置。
+- **utls 那批刻意不采 h2**：utls 是纯 TLS 库，profile 里没有 h2 定义。套一个 Go 的
+  http2 客户端能采到 SETTINGS，但那是 `golang.org/x/net/http2` 的默认值——**是 Go 的
+  指纹不是浏览器的**，入库会污染数据且事后极难发现（它看起来完全合理）。
 - **24 个缺 h2 层**（wreq 与 utls 两源只采了 TLS 层，未采 h2）。原先的 4 个：cloudscraper / mesh_android_2 / mms_ios / mms_ios_2 ——
   **均为非浏览器 app profile，浏览器侧无缺口**（四个真机浏览器全部三层齐全）。
 - **CF 挑战未验证**：claude.ai 根路径本就不设防（三种指纹结果一致、无 `cf-mitigated`），
