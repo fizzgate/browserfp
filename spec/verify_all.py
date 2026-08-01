@@ -6,7 +6,8 @@
 分三层报告，越往下越接近真实网络：
   1. 静态门禁    —— 数据自洽、三方语义一致、文档不僵尸（不联网，快）
   2. 覆盖度      —— 生产 UA 口径与全版本口径分别缺多少（不联网）
-  3. 端到端      —— 每个 profile 能不能真跟服务器握手（联网，慢，默认跳过）
+  3. 端到端与生产形态 —— 每个 profile 能不能真跟服务器握手，以及 C 模块在真实
+     OpenResty worker 里的行为是否与 Python 一致（联网/需容器，慢，默认跳过）
 
 **默认不跑第 3 层**：它对外发真实请求（profile 数 × 站点数），不该在每次改动
 后无脑跑。加 --live 才跑。
@@ -25,8 +26,9 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 PY = os.path.join(ROOT, ".venv", "bin", "python")
 
-# 联网的门禁单列，默认不跑
-NETWORK_GATES = {"test_live_handshake", "test_cf_discrimination"}
+# 联网 / 需要容器的门禁单列，默认不跑。test_openresty 要拉镜像、编译、起容器，
+# 耗时以分钟计，不适合每次改动都跑；但它是唯一验证"生产形态"的一环。
+NETWORK_GATES = {"test_live_handshake", "test_cf_discrimination", "test_openresty"}
 
 
 # 各门禁真正的结论行长什么样 —— 取末行常常抓到的是附注而非结论。实测
@@ -107,11 +109,15 @@ def main(argv):
 
     if live:
         print("\n" + "=" * 62)
-        print("第 3 层：端到端（对真实站点逐 profile 握手）")
+        print("第 3 层：端到端与生产形态")
         print("=" * 62)
         ok, tail = _run("spec.test_live_handshake", timeout=1800)
-        print(f"  {'✅' if ok else '❌'} {tail}")
+        print(f"  {'✅' if ok else '❌'} 对真实站点逐 profile 握手：{tail}")
         if not ok:
+            bad += 1
+        ok2, tail2 = _run("spec.test_openresty", timeout=1800)
+        print(f"  {'✅' if ok2 else '❌'} 真实 OpenResty worker：{tail2}")
+        if not ok2:
             bad += 1
     else:
         print("\n（未跑端到端验证；加 --live 才跑，它对外发真实请求）")
