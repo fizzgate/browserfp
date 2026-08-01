@@ -8,7 +8,10 @@ LDFLAGS ?= -L$(OPENSSL_PREFIX)/lib -lcrypto
 # tlsfp.c 的行为，门禁却报旧行为，既能假绿也能假红。
 all: ja4cli uacli lookup_test libtlsfp.so
 
-profiles.inc: ../spec/profiles.json gen_profiles.py
+# **依赖必须列全**：profiles.inc 还取决于段表产物，段表变了却不重建，C 侧就会
+# 拿着旧表跑，而 make 不会报错 —— 差分门禁曾因此在还原变异后仍报 8 处不符，
+# 实际源码早已恢复，只是 inc 没跟着重建。
+profiles.inc: ../spec/profiles.json gen_profiles.py $(wildcard ../spec/segments/*.json)
 	python3 gen_profiles.py > $@
 
 tlsfp.o: tlsfp.c tlsfp.h profiles.inc
