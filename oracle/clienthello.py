@@ -195,13 +195,23 @@ def ja4(ch: dict) -> str:
 
 
 def fingerprint(record: bytes) -> dict:
-    """一步到位：raw record → 可直接落 golden 的比对结构。"""
+    """一步到位：raw record → 可直接落 golden 的比对结构。
+
+    raw_extensions / raw_ciphers / extension_bodies 三个字段带 GREASE 且保序，
+    比对时用不到（比对用剔除 GREASE 的版本），但**重建 ClientHello 时必需**：
+    GREASE 插在哪个位置、每个扩展的 body 长什么样，只有原始形态才有。少了它们
+    golden 只能验证、不能当 profile 用。
+    """
     ch = parse_client_hello(record)
     ja3_str, ja3_hash = ja3(ch)
     return {
         "ja4": ja4(ch),
         "ja3": ja3_str,
         "ja3_hash": ja3_hash,
+        "raw_ciphers": ch["raw_ciphers"],
+        "raw_extensions": ch["raw_extensions"],
+        "extension_bodies": ch["extension_bodies"],
+        "compression": ch["compression"],
         "client_version": ch["client_version"],
         "ciphers": ch["ciphers"],
         "extensions_ordered": ch["extensions"],
