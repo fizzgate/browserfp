@@ -313,7 +313,7 @@ unparsed     7.8%     ← 非浏览器 UA（扫描器、UC 浏览器、残缺 UA
 
 ### h2 层：伪装是分层的，覆盖率也得分层算
 
-TLS 层覆盖 99.5%，**h2 层只有 67.7%**（650 个组合里 210 个没有 h2 数据）。
+TLS 层覆盖 99.5%，**h2 层 79.1%**（650 个组合里 136 个没有 h2 数据）。
 把两层合成一个数字会把后者藏起来，而"TLS 像 Chrome、h2 不像任何浏览器"恰恰是
 最容易被判的组合 —— 它显示出一个现实中不存在的形态，比不伪装更可疑。
 
@@ -348,9 +348,67 @@ priorities 只有 Firefox 系会发，全库仅 4 条，数字小但不能为 0 
 构造器里 PRIORITY 那段（含 RFC 7540 §6.3 的权重减一）根本没被执行过，它的
 正确性就只是一句没验过的声明。三个变异测试各自产生不同的红，证明门禁有效。
 
-h2 缺口几乎全部来自**只建模 TLS 的来源库**（utls 全系没有 h2 数据，而 chrome
-70-98 大量落在那些条目上）。补法只有两条：真机采集，或读 Chromium 的 h2 源码。
-**不能借隔壁 profile 的 h2 顶上** —— 那是把两个浏览器的两层拼在一起。
+#### h2 必须按版本独立解析，不能搭 TLS 去重的车
+
+最早 h2 是挂在 profile 上的，而 profile 按 **TLS 指纹**去重。两个版本 TLS 相同
+而 h2 不同是常态 —— Chrome 的 h2 参数改在 `net/http/http_network_session.cc`，
+与 BoringSSL 那边的 ClientHello 各改各的。实测后果：
+
+```
+curl_cffi:chrome100 这一条记录的 36 个别名带着三种不同的 h2，只存下一种
+全库 8/81 条 profile 有这个问题，53 个别名拿到的不是自己那份
+UA 口径下 chrome 106-117 共 9 个版本拿到的 h2，没有任何一个库把它归给这些版本
+```
+
+现在 h2 由 `spec/h2table.json` 按 (品牌, 版本) 解析，判据优先级：
+
+1. **该版本自己的库条目**，多库须一致
+2. **源码推导**（`oracle/chromiumh2.py`，见下）
+3. **跨平台/跨品牌归一**，每条都有实证且每次建表都重验前提
+
+归一规则与其实证：
+
+| 规则 | 实证 |
+|---|---|
+| Chromium 系（chrome/edge/opera，含 -mobile）用桌面 Chrome 的推导 | curl_cffi 的 `chrome99_android ≡ chrome99`、`chrome131_android ≡ chrome131` |
+| `safari-mobile` 取同版本桌面 | wreq 的 `SafariIos26 ≡ Safari26`、`SafariIPad18 ≡ Safari18` |
+| **firefox-mobile 没有这条规则** | wreq 的 `FirefoxAndroid135` 与 `Firefox135` 实测不同（HEADER_TABLE_SIZE 4096 vs 65536、INITIAL_WINDOW_SIZE 32768 vs 131072） |
+
+最后一行是重点：**一条规则在 Chromium 上成立不代表在 Gecko 上也成立**。前提重验
+里因此还放了一条反向断言 —— firefox 两端必须仍然不同，哪天一样了，说明数据或
+解析变了，那条判断要重新审而不是继续躺着。
+
+#### 从 Chromium 源码推 h2
+
+判据链比 TLS 那边还直接：
+
+```
+net/http/http_network_session.cc  AddDefaultHttp2Settings()   决定发哪些键
+net/http/http_network_session.h   kSpdyMaxHeaderTableSize = 64*1024      → 1:65536
+                                  kSpdyMaxHeaderListSize  = 256*1024     → 6:262144
+                                  kSpdyMaxConcurrentPushedStreams = 1000 → 3:1000
+net/http/http_network_session.cc  kSpdyStreamMaxRecvWindowSize = 6*1024*1024 → 4:6291456
+                                  kSpdySessionMaxRecvWindowSize = 15*1024*1024
+WINDOW_UPDATE = 15728640 - 65535 = 15663105
+```
+
+**键集随版本变，这正是源码强于猜测的地方**：
+
+```
+M100     {1,3,4,6}      推送还在，发 MAX_CONCURRENT_STREAMS，不发 ENABLE_PUSH
+M106-116 {1,2,3,4,6}    推送移除，显式发 ENABLE_PUSH=0，仍发 MAX_CONCURRENT_STREAMS
+M117+    {1,2,4,6}      不再发 MAX_CONCURRENT_STREAMS
+```
+
+**顺序不是我们定的**：`spdy::SettingsMap` 是 `std::map`，迭代按键号升序 ——
+不能按源码里的书写顺序发（M120 源码里 `ENABLE_PUSH` 写在最前，线上却排第二）。
+
+按 Safari coreTLS 那次立下的规矩先验证再使用：`test_chromium_h2` 拿各库对每个
+版本自报的 h2 当基准，**44/44 逐字节吻合**。
+
+剩余缺口集中在 Gecko（firefox 50/76、firefox-mobile 75/76）与 Safari（6/9、5/9）。
+Gecko 的 h2 参数在 `netwerk/protocol/http/` 与 `StaticPrefList.yaml` 里，路子和
+`nsssrc.py` 一样，还没做；Safari 闭源，只能靠库与实采。
 
 ### 扫描范围本身也会过期
 

@@ -71,15 +71,14 @@ http {
                 local tlsfp = require "tlsfp"
                 tlsfp.load("/app/csrc/libtlsfp.so")
                 local a = ngx.req.get_uri_args()
-                local rec, prof = tlsfp.h2_preface(a.brand, tonumber(a.version))
+                local rec, pseudo = tlsfp.h2_preface(a.brand, tonumber(a.version))
                 if not rec then
-                    ngx.say("ERR\\t" .. tostring(prof))
+                    ngx.say("ERR\\t" .. tostring(pseudo))
                 else
                     local hex = rec:gsub(".", function(c)
                         return string.format("%02x", string.byte(c))
                     end)
-                    ngx.say(prof.id .. "\\t" .. tostring(prof.h2_pseudo)
-                            .. "\\t" .. hex)
+                    ngx.say(tostring(pseudo) .. "\\t" .. hex)
                 end
             }
         }
@@ -115,8 +114,12 @@ def _build_linux_so(workdir):
     for sub in ("csrc", "lua"):
         shutil.copytree(os.path.join(ROOT, sub), os.path.join(workdir, sub))
     os.makedirs(os.path.join(workdir, "spec"), exist_ok=True)
-    shutil.copy(os.path.join(HERE, "profiles.json"),
-                os.path.join(workdir, "spec", "profiles.json"))
+    # gen_profiles.py 需要的全部数据源都要带进去。漏一个的表现是
+    # "Linux 版 .so 编译失败" 且没有更多信息 —— 加 h2table.json 那次就是
+    # 这么撞上的。
+    for name in ("profiles.json", "h2table.json"):
+        shutil.copy(os.path.join(HERE, name),
+                    os.path.join(workdir, "spec", name))
     shutil.copytree(os.path.join(HERE, "segments"),
                     os.path.join(workdir, "spec", "segments"))
     out = subprocess.run(
@@ -180,16 +183,19 @@ def _check_h2(opener):
     import json as _json
     from spec.test_h2_build import parse_preface
 
-    with open(os.path.join(HERE, "profiles.json")) as f:
-        by_id = {r["id"]: r for r in _json.load(f)}
+    with open(os.path.join(HERE, "h2table.json")) as f:
+        table = _json.load(f)
 
     bad = []
-    # 用例要挑**确实有 h2 数据**的版本。firefox 153 不行：它映射到
-    # real:firefox153，那是本项目自己的实采，当时只抓了 ClientHello 没抓
-    # h2 层 —— 属于真实数据缺口（见 H2_BASELINE），不是构造器的问题。
-    cases = [("chrome", 151, True), ("firefox", 152, True),
-             ("safari-mobile", 27, True),
-             ("chrome", 70, False)]      # 有 profile 但无 h2 数据，必须被拒
+    # 用例从 h2table 现取，不写死版本号：写死的会随数据变动而失效 ——
+    # 上一版挑了 firefox 153，而那个版本恰好没有 h2 数据。
+    cases = []
+    for brand in ("chrome", "chrome-mobile", "edge", "opera-mobile"):
+        rows = sorted(table.get(brand, {}), key=int)
+        if rows:
+            cases.append((brand, int(rows[-1]), True))
+    # 再加一组表里没有的，必须被拒绝
+    cases.append(("safari", 12, False))
     for brand, ver, want_ok in cases:
         url = f"http://127.0.0.1:{PORT}/h2?brand={brand}&version={ver}"
         try:
@@ -202,20 +208,20 @@ def _check_h2(opener):
                 bad.append(f"{brand} {ver}: 无 h2 数据却构造出了开场")
             continue
         parts = line.split("\t")
-        if len(parts) != 3 or parts[0] == "ERR":
+        if len(parts) != 2 or parts[0] == "ERR":
             bad.append(f"{brand} {ver}: worker 返回 {line[:60]}")
             continue
-        pid, pseudo, hexs = parts
-        rec = by_id.get(pid)
-        if not rec or not rec.get("h2"):
-            bad.append(f"{brand} {ver}: profile {pid} 没有 h2 数据")
+        pseudo, hexs = parts
+        rec = table.get(brand, {}).get(str(ver))
+        if not rec:
+            bad.append(f"{brand} {ver}: h2 表里没有这条")
             continue
         try:
             settings, window, prios = parse_preface(bytes.fromhex(hexs))
         except Exception as e:
             bad.append(f"{brand} {ver}: 开场解析失败 {e}")
             continue
-        h2 = rec["h2"]
+        h2 = rec
         if settings != [tuple(x) for x in (h2.get("settings") or [])]:
             bad.append(f"{brand} {ver}: SETTINGS 与 golden 不符")
         if (window or 0) != (h2.get("window_update") or 0):
@@ -287,7 +293,7 @@ def main():
             print(f"    ✗ {b}")
 
         h2_bad, h2_n = _check_h2(opener)
-        print(f"  h2 开场 {h2_n - len(h2_bad)}/{h2_n} 组合与 golden 一致"
+        print(f"  h2 开场 {h2_n - len(h2_bad)}/{h2_n} 组合与 h2 表一致"
               f"（含 1 组「无 h2 数据必须拒绝」）")
         for b in h2_bad:
             print(f"    ✗ {b}")

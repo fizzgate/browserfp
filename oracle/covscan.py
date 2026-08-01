@@ -126,8 +126,13 @@ def scan(brand, mapper):
     return missing, lo, hi
 
 
-def h2scan(brand, mapper, registry=None):
-    """哪些版本能查到 profile、但那条 profile **没有 h2 数据**。
+def h2scan(brand, mapper=None, registry=None):
+    """哪些版本在 h2 表里查不到。
+
+    **判据从 profiles.json 换成了 spec/h2table.json**：h2 原先挂在按 TLS 指纹
+    去重后的 profile 上，两个版本 TLS 相同而 h2 不同时就会发错（实测 chrome
+    106-117 共 9 个版本中招）。现在 h2 按 (品牌,版本) 独立解析，缺口自然也该
+    按那张表算。
 
     伪装是分层的：TLS 对了、h2 发不出匹配的开场，要么退回 HTTP/1.1（现代
     浏览器不这么干，本身就是信号），要么发一组不属于任何浏览器的 SETTINGS
@@ -140,19 +145,13 @@ def h2scan(brand, mapper, registry=None):
     """
     if registry is None:
         with open(os.path.join(os.path.dirname(HERE), "spec",
-                               "profiles.json")) as f:
+                               "h2table.json")) as f:
             registry = json.load(f)
-    byid = {r["id"]: r for r in registry}
-    tpl, lo, hi = TARGETS[brand]
+    rows = registry.get(brand, {})
+    _tpl, lo, hi = TARGETS[brand]
     skip = NEVER_RELEASED.get(brand, set())
-    missing = []
-    for v in range(lo, hi + 1):
-        if v in skip:
-            continue
-        pid = mapper.lookup(tpl.format(v=v))["profile"]
-        if pid and not byid.get(pid, {}).get("h2"):
-            missing.append(v)
-    return missing
+    return [v for v in range(lo, hi + 1)
+            if v not in skip and str(v) not in rows]
 
 
 def main(argv):

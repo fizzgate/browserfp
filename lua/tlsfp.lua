@@ -55,8 +55,17 @@ int  tlsfp_ja4(const tlsfp_hello *h, char transport, char *out, size_t outlen);
 int  tlsfp_build_client_hello(const tlsfp_profile *p, const char *sni,
                               const uint8_t *random32, const uint8_t *session_id,
                               uint8_t *out, size_t outlen);
-int  tlsfp_build_h2_preface(const tlsfp_profile *p, uint8_t *out, size_t outlen);
-const char *tlsfp_h2_pseudo(const tlsfp_profile *p);
+typedef struct {
+    const uint32_t *settings; size_t n_settings;
+    uint32_t        window;
+    const uint32_t *prio;     size_t n_prio;
+    const char     *pseudo;
+    const char     *akamai;
+} tlsfp_h2;
+
+const tlsfp_h2 *tlsfp_lookup_h2(const char *brand, uint16_t version);
+int  tlsfp_build_h2_preface(const tlsfp_h2 *h, uint8_t *out, size_t outlen);
+const char *tlsfp_h2_pseudo(const tlsfp_h2 *h);
 const tlsfp_profile *tlsfp_profile_at(size_t idx);
 const tlsfp_profile *tlsfp_lookup_ja4(const char *ja4);
 size_t tlsfp_profile_count(void);
@@ -208,30 +217,29 @@ end
 
 -- HTTP/2 连接开场：PREFACE + SETTINGS + WINDOW_UPDATE + PRIORITY。
 --
--- **TLS 与 h2 必须取自同一个 profile**。伪装是分层的：ClientHello 伪装成
--- Chrome、h2 的 SETTINGS 却是别的形态，就给出了一个现实中不存在的组合 ——
--- 那比不伪装更容易被判。所以这里和 client_hello 走同一条 by_ua 查表。
+-- **按 (品牌, 版本) 独立查，不从 TLS profile 上读**。注册表按 TLS 指纹去重，
+-- 而 h2 参数与 ClientHello 各改各的：两个版本 TLS 相同、h2 不同是常态，实测
+-- chrome 106-117 共 9 个版本曾因搭车拿到没有任何一个库归给它们的 h2。
+-- 伪装是分层的，TLS 像 Chrome、h2 不像任何浏览器，是现实中不存在的组合。
 --
--- HEADERS 不在返回值里：它的内容依赖具体请求，本库只能给出伪头**顺序**，
--- 由第二个返回值 profile.h2_pseudo 提供（形如 "m,a,s,p"）。
+-- 版本口径与 by_ua 一致：Chromium 系衍生浏览器传**内核** Chrome 版本。
 --
--- @return string 开场字节, table profile   或  nil, err
+-- HEADERS 不在返回值里：内容依赖具体请求，本库只给伪头**顺序**（第二个返回值）。
+--
+-- @return string 开场字节, string 伪头序   或  nil, err
 function _M.h2_preface(brand, version)
     if not lib then return nil, "libtlsfp.so 未加载" end
-    local prof, err = _M.by_ua(brand, version)
-    if not prof then return nil, err or "无可用 profile" end
-
-    local p = lib.tlsfp_lookup_ua(brand, version, conf_buf)
-    if p == nil then return nil, "profile 已失效" end
-    local n = lib.tlsfp_build_h2_preface(p, h2_buf, ffi.sizeof(h2_buf))
-    -- 没有 h2 数据的 profile 返回 -1。**不能退回一组默认 SETTINGS** ——
-    -- 那等于发一个不属于任何浏览器的 h2 指纹。调用方该走 HTTP/1.1，
-    -- 或者换一个有 h2 数据的版本。
-    if n < 0 then return nil, "该 profile 没有 h2 数据，不能构造开场" end
-
-    local ps = lib.tlsfp_h2_pseudo(p)
-    prof.h2_pseudo = ps ~= nil and ffi.string(ps) or nil
-    return ffi.string(h2_buf, n), prof
+    if type(brand) ~= "string" or type(version) ~= "number" then
+        return nil, "brand 必须是字符串、version 必须是数字"
+    end
+    local h = lib.tlsfp_lookup_h2(brand, version)
+    -- 查不到就明确失败。**不能退回一组默认 SETTINGS** —— 那等于发一个不属于
+    -- 任何浏览器的 h2 指纹。调用方该走 HTTP/1.1，或换一个有数据的版本。
+    if h == nil then return nil, "该品牌/版本没有 h2 数据，不能构造开场" end
+    local n = lib.tlsfp_build_h2_preface(h, h2_buf, ffi.sizeof(h2_buf))
+    if n < 0 then return nil, "组装失败（缓冲区不足）" end
+    local ps = lib.tlsfp_h2_pseudo(h)
+    return ffi.string(h2_buf, n), ps ~= nil and ffi.string(ps) or nil
 end
 
 function _M.profile_count()

@@ -41,11 +41,15 @@ BASELINE = {
 # 落在那些条目上。补法只有两条：真机采（oracle/h2probe.py 那套）或读 Chromium
 # 的 h2 源码 —— 不能借隔壁 profile 的 h2 顶上，那是把两个浏览器拼在一起。
 H2_BASELINE = {
-    "chrome": 29, "chrome-mobile": 29,
-    "firefox": 25, "firefox-mobile": 24,
-    "edge": 20, "edge-mobile": 20,
-    "opera": 29, "opera-mobile": 29,
-    "safari": 0, "safari-mobile": 2,
+    # Chromium 全家已 100%（源码推导 + 跨平台归一，见 oracle/h2table.py）
+    "chrome": 0, "chrome-mobile": 0,
+    "edge": 0, "edge-mobile": 0,
+    "opera": 0, "opera-mobile": 0,
+    # 剩余缺口集中在 Gecko 与 Safari：Gecko 的 h2 参数在
+    # netwerk/protocol/http/ 与 StaticPrefList.yaml 里，还没做推导；
+    # Safari 闭源，只能靠库与实采。
+    "firefox": 50, "firefox-mobile": 75,
+    "safari": 6, "safari-mobile": 5,
 }
 
 

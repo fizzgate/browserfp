@@ -18,6 +18,19 @@
  * 若在这里做阻塞 I/O，会冻死整个 nginx worker —— 实测一个 9s 的阻塞调用能让
  * 同 worker 上的并发请求卡住 8.88s。 */
 
+/* HTTP/2 连接开场。**独立于 tlsfp_profile 按 (品牌,版本) 查**，不挂在 TLS
+   profile 上：注册表按 TLS 指纹去重，而 h2 参数改在 Chromium 的
+   net/http/http_network_session.cc，与 BoringSSL 那边各改各的。两个版本 TLS
+   相同、h2 不同是常态 —— 实测 chrome 106-117 共 9 个版本因为搭车拿到的 h2
+   没有任何一个库把它归给这些版本。 */
+typedef struct {
+    const uint32_t *settings; size_t n_settings;   /* 扁平 (id,value) 对 */
+    uint32_t        window;                        /* 0 = 不发 WINDOW_UPDATE */
+    const uint32_t *prio;     size_t n_prio;       /* 扁平四元组 */
+    const char     *pseudo;                        /* 伪头序，如 "m,a,s,p" */
+    const char     *akamai;
+} tlsfp_h2;
+
 typedef struct {
     const char     *id;
     const char     *ja4;
@@ -41,17 +54,6 @@ typedef struct {
     uint16_t client_version;
     uint16_t session_id_len;
 
-    /* HTTP/2 连接级开场。TLS 指纹对了、h2 层不对，照样能被判出来 —— 两层
-       必须来自同一个 profile。这里存的是结构化值而非 akamai 字符串：
-         h2_settings   扁平的 (id, value) 对，长度 = n_h2_settings * 2
-         h2_window     连接级 WINDOW_UPDATE 增量，0 表示不发这一帧
-         h2_prio       扁平的 (stream, dep, exclusive, weight) 四元组
-         h2_pseudo     伪头序，缩写形式如 "m,a,s,p"（HEADERS 由调用方发，
-                       内容依赖具体请求，本库只能给出顺序） */
-    const uint32_t *h2_settings; size_t n_h2_settings;
-    uint32_t        h2_window;
-    const uint32_t *h2_prio;     size_t n_h2_prio;
-    const char     *h2_pseudo;
 } tlsfp_profile;
 
 typedef struct {
@@ -112,13 +114,15 @@ const tlsfp_profile *tlsfp_profile_at(size_t idx);
  * 这一段完全由 profile 决定，与请求无关，所以能一次性构造出来。
  * HEADERS 不在其中 —— 它的内容依赖具体请求，调用方按 h2_pseudo 的顺序自己发。
  * 返回写入字节数；缓冲不够或 profile 无 h2 数据返回 -1。 */
-int tlsfp_build_h2_preface(const tlsfp_profile *p, uint8_t *out, size_t outlen);
+int tlsfp_build_h2_preface(const tlsfp_h2 *h, uint8_t *out, size_t outlen);
+
+/* (品牌, 版本) → h2 记录；没有该版本的 h2 数据时返回 NULL。
+ * 版本口径与 tlsfp_lookup_ua 一致：Chromium 系衍生浏览器传内核 Chrome 版本。 */
+const tlsfp_h2 *tlsfp_lookup_h2(const char *brand, uint16_t version);
 
 /* 伪头序（缩写形式，如 "m,a,s,p"）。做成函数而不是让调用方直接读结构体字段：
- * Lua 侧的 ffi.cdef 里 tlsfp_profile 是截断声明（只到 sigalgs），h2 字段排在
- * 更后面，按偏移读会读到垃圾。补全那份声明要把中间所有字段都写一遍，往后每加
- * 一个字段两处都得同步 —— 用访问器就没有这个耦合。 */
-const char *tlsfp_h2_pseudo(const tlsfp_profile *p);
+ * Lua 侧的 ffi.cdef 里结构体是截断声明，按偏移读后面的字段会读到垃圾。 */
+const char *tlsfp_h2_pseudo(const tlsfp_h2 *h);
 
 int tlsfp_build_client_hello(const tlsfp_profile *p, const char *sni,
                              const uint8_t *random32, const uint8_t *session_id,

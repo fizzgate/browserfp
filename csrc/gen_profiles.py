@@ -43,6 +43,60 @@ def load_segments():
     return out
 
 
+def _h2_tables():
+    """从 spec/h2table.json 生成独立的 h2 记录表与 (品牌,版本) 索引。
+
+    **不从 profiles.json 取**：那里的 h2 挂在按 TLS 指纹去重后的记录上，两个
+    版本 TLS 相同而 h2 不同时就会发错（实测 chrome 106-117 共 9 个版本中招）。
+    h2table.json 是按版本解析的产物，判据见 oracle/h2table.py。
+
+    相同的 h2 记录很多（一整段版本共用一份），所以按 akamai 去重成记录表，
+    索引只存下标 —— 514 条索引实际只对应十几份记录。
+    """
+    path = os.path.join(os.path.dirname(HERE), "spec", "h2table.json")
+    if not os.path.exists(path):
+        raise SystemExit(f"缺 {path}；先跑 python -m oracle.h2table --build")
+    with open(path) as f:
+        table = json.load(f)
+
+    recs, index = {}, []
+    for brand in sorted(table):
+        for ver in sorted(table[brand], key=int):
+            r = table[brand][ver]
+            key = r["akamai_fingerprint"]
+            if key not in recs:
+                recs[key] = (len(recs), r)
+            index.append((brand, int(ver), recs[key][0]))
+
+    lines = []
+    for key, (i, r) in sorted(recs.items(), key=lambda kv: kv[1][0]):
+        st = [x for pair in (r.get("settings") or []) for x in pair]
+        pr = [x for q in (r.get("priorities") or [])
+              for x in (list(q) + [0, 0, 0, 0])[:4]]
+        lines.append(c_u32_array(f"h2r{i}_set", st))
+        lines.append(c_u32_array(f"h2r{i}_prio", pr))
+    lines.append("")
+    lines.append("static const tlsfp_h2 tlsfp_h2_records[] = {")
+    for key, (i, r) in sorted(recs.items(), key=lambda kv: kv[1][0]):
+        pseudo = ",".join(k[1] for k in (r.get("pseudo_header_order") or []))
+        lines.append(
+            f'    {{h2r{i}_set, {len(r.get("settings") or [])}, '
+            f'{r.get("window_update") or 0}, '
+            f'h2r{i}_prio, {len(r.get("priorities") or [])}, '
+            f'"{pseudo}", "{key}"}},')
+    lines.append("};")
+    lines.append(f"#define TLSFP_H2_RECORD_COUNT {len(recs)}")
+    lines.append("")
+    lines.append("typedef struct { const char *brand; uint16_t version;"
+                 " uint16_t rec; } tlsfp_h2_entry;")
+    lines.append("static const tlsfp_h2_entry tlsfp_h2_table[] = {")
+    for brand, ver, ri in index:
+        lines.append(f'    {{"{brand}", {ver}, {ri}}},')
+    lines.append("};")
+    lines.append(f"#define TLSFP_H2_COUNT {len(index)}")
+    return lines
+
+
 def c_u32_array(name, vals):
     """h2 的 SETTINGS 值与 window_update 都可能超过 16 位，必须用 u32。"""
     if not vals:
@@ -292,25 +346,12 @@ def main():
         out.append(c_u16_array(f"p{i}_curves", tls.get("curves") or []))
         out.append(c_u16_array(f"p{i}_sigalgs", tls.get("sig_algs") or []))
 
-        # h2 连接级开场。此前只导出 akamai 指纹**字符串** —— 那是识别用的
-        # 标识符，出站伪装拿它没用：调用方得自己反解析才能知道该发什么
-        # SETTINGS。TLS 层有 build_client_hello，h2 层不该只有一个字符串。
-        h2 = rec.get("h2") or {}
-        st = [x for pair in (h2.get("settings") or []) for x in pair]
-        out.append(c_u32_array(f"p{i}_h2set", st))
-        pr = [x for q in (h2.get("priorities") or [])
-              for x in (q + [0, 0, 0, 0])[:4]]
-        out.append(c_u32_array(f"p{i}_h2prio", pr))
 
     out.append("")
     out.append("static const tlsfp_profile tlsfp_profiles[] = {")
     for i, rec in enumerate(profiles):
         tls = rec["tls"]
-        h2rec = rec.get("h2") or {}
-        h2 = h2rec.get("akamai_fingerprint") or ""
-        # 伪头序按 akamai 的写法缩成首字母（m=method a=authority s=scheme
-        # p=path），与 h2_akamai 字符串末段同一套记法，调用方好对照。
-        pseudo = ",".join(k[1] for k in (h2rec.get("pseudo_header_order") or []))
+        h2 = (rec.get("h2") or {}).get("akamai_fingerprint") or ""
         out.append(
             f'    {{"{rec["id"]}", "{tls.get("ja4","")}", "{h2}", '
             f'"{rec.get("mode","initial")}", '
@@ -322,11 +363,7 @@ def main():
             f'p{i}_rawext, {len(tls.get("raw_extensions") or [])}, '
             f'p{i}_extblob, p{i}_extoff, p{i}_extlen, '
             f'{tls.get("client_version") or 0x0303}, '
-            f'{tls.get("session_id_len") or 32}, '
-            f'p{i}_h2set, {len(h2rec.get("settings") or [])}, '
-            f'{h2rec.get("window_update") or 0}, '
-            f'p{i}_h2prio, {len(h2rec.get("priorities") or [])}, '
-            f'"{pseudo}"}},')
+            f'{tls.get("session_id_len") or 32}}},')
     out.append("};")
     out.append(f"#define TLSFP_PROFILE_COUNT {len(profiles)}")
     out.append("")
@@ -335,6 +372,8 @@ def main():
         out.append(f'    {{"{brand}", {ver}, {idx}, {grp}, {mask}, {from_seg}}},')
     out.append("};")
     out.append(f"#define TLSFP_UA_COUNT {len(ua_rows)}")
+    out.append("")
+    out.extend(_h2_tables())
 
     print("\n".join(out))
     print(f"/* 共 {len(profiles)} 条（注册表 {len(registry)} 条，"
