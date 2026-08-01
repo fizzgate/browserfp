@@ -48,7 +48,7 @@ wreq 补上了前两家最大的缺口：**Edge 在 curl_cffi 与 tls-client 都
 wreq 要求 Python ≥3.11，而主 venv 是系统 Python 3.9（curl_cffi 在其上工作正常，
 不动它），故单独建 `.venv-wreq`（anaconda 3.12）。
 
-**两张开源表合起来也覆盖不了当前浏览器版本**：真机 Chrome 151 的 `sig_algs` 含
+**多张开源表合起来也覆盖不了当前浏览器版本**：真机 Chrome 151 的 `sig_algs` 含
 ML-DSA（`0x0904/0905/0906`），连 `tls_client:chrome_146` 都没有。所以架构必须是
 **开源表打底 + 真机采集补最新**，只靠任何一张表都不够。
 
