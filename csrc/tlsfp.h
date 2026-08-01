@@ -35,6 +35,7 @@ typedef struct {
     uint16_t    profile;    /* 下标，指向 tlsfp_profiles[] */
     uint16_t    fp_group;   /* 指纹分组号：相同即指纹一致 */
     uint16_t    src_mask;   /* 来源库位掩码：判同段时要求两端有交集 */
+    uint16_t    from_seg;   /* 1 = 由源码段表补齐（报 same-seg 而非 exact） */
 } tlsfp_ua_entry;
 
 #define TLSFP_CONF_EXACT     0

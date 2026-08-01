@@ -15,7 +15,11 @@ UA。出站代理浏览器流量时，需要按 UA 挑一个匹配的指纹去�
 映射因此分三档，并且**永远显式告知用的是哪一档**：
 
     exact     该主版本有直接对应的 profile
-    same-seg  落在同一指纹段内的相邻版本（同库两端指纹一致，可安全替代）
+    same-seg  落在同一指纹段内（可安全替代）。两种证据都算：
+                a) 同一来源库内两端指纹一致
+                b) **源码段表**（spec/segments/*.json）证明同段——这条更强，
+                   它读的是产生 ClientHello 的源码本身，不受"两端分属不同
+                   来源库因而不可比"的限制
     fallback  只能跨段取最近 —— **默认不返回 profile**
 
 **默认严格模式**：fallback 档一律返回 profile=None。拿最近版本的指纹去冒充另一个
@@ -39,6 +43,28 @@ from oracle.coverage import FIELDS, SET_FIELDS                # noqa: E402
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 REGISTRY = os.path.join(HERE, "..", "spec", "profiles.json")
+SEGMENTS_DIR = os.path.join(HERE, "..", "spec", "segments")
+
+
+def load_segments():
+    """加载各品牌的源码段表，**只收标了可替代的**。
+
+    chrome.json 的 usable_for_substitution 是 false：Chrome 大量行为由运行期
+    feature flag 决定，静态分析覆盖不到，实测同段内各参考项目仍有多种指纹
+    （段 131-141 里四家独立地都把 131 与 132+ 分开）。拿它做段内替代就会发出
+    错的指纹，正是严格模式要防的事。
+    """
+    out = {}
+    if not os.path.isdir(SEGMENTS_DIR):
+        return out
+    for name in sorted(os.listdir(SEGMENTS_DIR)):
+        if not name.endswith(".json"):
+            continue
+        with open(os.path.join(SEGMENTS_DIR, name)) as f:
+            data = json.load(f)
+        if data.get("usable_for_substitution"):
+            out[data["brand"]] = data["segments"]
+    return out
 
 # 顺序有意义：Edge/Opera 的 UA 里也含 "Chrome/"，必须先匹配更具体的标记。
 UA_RULES = [
@@ -71,6 +97,7 @@ class UAMapper:
     def __init__(self, registry_path=REGISTRY):
         with open(registry_path) as f:
             registry = json.load(f)
+        self.segments = load_segments()
 
         # 只用默认配置的首连形态：需 feature flag 才出现的变体不是正常用户行为，
         # 会话恢复/QUIC 形态由连接阶段决定，不该按 UA 选。
@@ -145,6 +172,22 @@ class UAMapper:
             rec, _ = table[ver]
             return {"profile": rec["id"], "confidence": "exact",
                     "brand": brand, "version": ver, "note": ""}
+
+        # 先问源码段表：它直接读产生 ClientHello 的源码，能回答"这两个版本
+        # 是否同段"，不受两端分属不同来源库的限制（Firefox 126 此前就卡在
+        # 123 与 128 跨库不可比上，只能弃权）。
+        for seg in self.segments.get(brand, []):
+            if not (seg["from"] <= ver <= seg["to"]):
+                continue
+            same = sorted((v for v in table if seg["from"] <= v <= seg["to"]),
+                          key=lambda x: abs(x - ver))
+            if same:
+                rec = table[same[0]][0]
+                return {"profile": rec["id"], "confidence": "same-seg",
+                        "brand": brand, "version": ver,
+                        "note": f"源码段 {seg['from']}-{seg['to']} 内，"
+                                f"与 {same[0]} 同指纹"}
+            break        # 落在段内但该段没有已采 profile，继续走下面的判据
 
         # 找上下最近的两个已知版本。判"落在同一指纹段内"有两个条件，缺一不可：
         #   1. 两端指纹相同

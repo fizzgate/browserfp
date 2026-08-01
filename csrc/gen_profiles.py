@@ -17,6 +17,26 @@ import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 REGISTRY = os.path.join(HERE, "..", "spec", "profiles.json")
+SEGMENTS_DIR = os.path.join(HERE, "..", "spec", "segments")
+
+
+def load_segments():
+    """加载源码段表，只收标了 usable_for_substitution 的品牌。
+
+    与 oracle/uamap.py 用同一份数据、同一条判据——两边算法不一致的话，
+    spec/test_c_ua_parity.py 会立刻抓到，但那时已经浪费一轮排查了。
+    """
+    out = {}
+    if not os.path.isdir(SEGMENTS_DIR):
+        return out
+    for name in sorted(os.listdir(SEGMENTS_DIR)):
+        if not name.endswith(".json"):
+            continue
+        with open(os.path.join(SEGMENTS_DIR, name)) as f:
+            data = json.load(f)
+        if data.get("usable_for_substitution"):
+            out[data["brand"]] = data["segments"]
+    return out
 
 
 def c_u16_array(name, values):
@@ -97,11 +117,29 @@ def main():
         src_mask[i] = m
 
     ua_rows = []
+    direct = {}               # (brand, ver) → profile 下标，供段表补齐时找最近者
     for i, rec in enumerate(profiles):
         if rec.get("mode") != "initial":
             continue          # 会话恢复/QUIC 形态由连接阶段决定，不按 UA 选
         for brand, ver in brand_versions(rec):
-            ua_rows.append((brand, ver, i, fp_group[i], src_mask[i]))
+            ua_rows.append((brand, ver, i, fp_group[i], src_mask[i], 0))
+            direct.setdefault((brand, ver), i)
+
+    # 按源码段表补齐：段内没有直接 profile 的版本，用同段最近者。第 6 列标 1
+    # 表示"来自段表"，C 侧据此报 same-seg 而不是 exact——这个区分必须保留，
+    # 调用方有权知道用的是直接采到的还是段内替代的。
+    for brand, segs in load_segments().items():
+        for seg in segs:
+            have = sorted(v for (b, v) in direct if b == brand
+                          and seg["from"] <= v <= seg["to"])
+            if not have:
+                continue      # 该段没有任何已采 profile，补不了
+            for ver in range(seg["from"], seg["to"] + 1):
+                if (brand, ver) in direct:
+                    continue
+                near = min(have, key=lambda x: abs(x - ver))
+                i = direct[(brand, near)]
+                ua_rows.append((brand, ver, i, fp_group[i], src_mask[i], 1))
     ua_rows.sort()
 
     for i, rec in enumerate(profiles):
@@ -127,8 +165,8 @@ def main():
     out.append(f"#define TLSFP_PROFILE_COUNT {len(profiles)}")
     out.append("")
     out.append("static const tlsfp_ua_entry tlsfp_ua_table[] = {")
-    for brand, ver, idx, grp, mask in ua_rows:
-        out.append(f'    {{"{brand}", {ver}, {idx}, {grp}, {mask}}},')
+    for brand, ver, idx, grp, mask, from_seg in ua_rows:
+        out.append(f'    {{"{brand}", {ver}, {idx}, {grp}, {mask}, {from_seg}}},')
     out.append("};")
     out.append(f"#define TLSFP_UA_COUNT {len(ua_rows)}")
 
