@@ -7,12 +7,14 @@
 tls13_client.lua、proxy_endpoint.lua:_browser_tls() 同一个契约，将来换引擎
 下游不用改。
 
-**已知局限（Python 实现固有，C 模块无此问题）**：
-key_share 只发 X25519。Chrome 131+ 的第一条曲线是 X25519MLKEM768（后量子
-混合，0x11ec），Python 没有现成实现，BoringSSL 有。影响面：supported_groups
-扩展里 0x11ec 仍然照发（所以 JA3/JA4 与扩展列表都正确，上游按这些判别时看
-不出差异），但 key_share 少了 MLKEM 那一条，ClientHello 总长度比真 Chrome
-短约 1.2KB。要逐字节对齐必须上 C 模块。
+**密钥交换支持**：X25519 与 X25519MLKEM768（0x11ec，后量子混合）。后者靠
+cryptography 50 的 MLKEM768PrivateKey——本机这版链接 OpenSSL 4.0.1，原生带
+ML-KEM，不需要 ctypes 绑定，也不需要为此上 BoringSSL。含 0x11ec 的 profile
+（chrome131/133a/136、firefox133/135、safari260）实测均可对真实 CF 完成
+TLS1.3 握手并跑 h2 拿到 200。
+
+**已知局限**：不支持 X25519Kyber768Draft00（0x6399）——那是被 ML-KEM 取代的
+过时草案，cryptography 未实现。仅影响 chrome124 一个 profile。
 """
 
 import hashlib
@@ -23,6 +25,8 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from cryptography.hazmat.primitives.asymmetric.mlkem import (       # noqa: E402
+    MLKEM768PrivateKey)
 from cryptography.hazmat.primitives.asymmetric.x25519 import (      # noqa: E402
     X25519PrivateKey, X25519PublicKey)
 from cryptography.hazmat.primitives.ciphers.aead import (           # noqa: E402
@@ -32,6 +36,15 @@ from oracle.chbuild import _u16, _vec                               # noqa: E402
 from oracle.clienthello import is_grease                            # noqa: E402
 
 X25519_GROUP = 0x001D
+X25519MLKEM768_GROUP = 0x11EC
+
+# X25519MLKEM768 的线上布局（draft-ietf-tls-ecdhe-mlkem）：
+#   client_share = ML-KEM-768 封装密钥(1184) || X25519 公钥(32)      = 1216
+#   server_share = ML-KEM-768 密文(1088)     || X25519 公钥(32)      = 1120
+#   shared       = ML-KEM 共享密钥(32)       || X25519 共享密钥(32)  = 64
+# 1216 这个数与 golden 里 chrome136/firefox135 的 key_share 实测长度吻合，
+# 不是按规范猜的。
+MLKEM_EK_LEN, MLKEM_CT_LEN, X25519_LEN = 1184, 1088, 32
 
 CIPHER_PARAMS = {
     0x1301: ("sha256", AESGCM, 16),      # TLS_AES_128_GCM_SHA256
@@ -110,6 +123,8 @@ class TLS13Client:
         self._plainbuf = b""
         self.negotiated_alpn = None
         self.cipher_suite = None
+        self._negotiated_group = None
+        self._use_mlkem = False
         self._closed = False
 
     # ---- 网络原语 -------------------------------------------------------
@@ -129,10 +144,15 @@ class TLS13Client:
 
     # ---- 握手 -----------------------------------------------------------
     def handshake(self):
-        priv = X25519PrivateKey.generate()
-        pub = priv.public_key().public_bytes_raw()
+        # 按 profile 的首选曲线决定 key_share 形态：含 0x11ec 就发后量子混合，
+        # 否则退到纯 X25519。发什么必须跟 supported_groups 的首项一致，否则
+        # 服务端会发 HelloRetryRequest。
+        self._use_mlkem = X25519MLKEM768_GROUP in (self.profile.get("curves") or [])
+        x_priv = X25519PrivateKey.generate()
+        x_pub = x_priv.public_key().public_bytes_raw()
+        mlkem_priv = MLKEM768PrivateKey.generate() if self._use_mlkem else None
 
-        record = self._build_hello(pub)
+        record = self._build_hello(x_pub, mlkem_priv)
         # transcript 只含 handshake 消息体，不含 record 头
         self.transcript += record[5:]
         self.sock.sendall(record)
@@ -141,7 +161,14 @@ class TLS13Client:
         hashname, aead_cls, key_len = CIPHER_PARAMS[self.cipher_suite]
         hlen = hashlib.new(hashname).digest_size
 
-        shared = priv.exchange(X25519PublicKey.from_public_bytes(server_pub))
+        if self._negotiated_group == X25519MLKEM768_GROUP:
+            if len(server_pub) != MLKEM_CT_LEN + X25519_LEN:
+                raise TLSError(f"bad X25519MLKEM768 server share: {len(server_pub)}")
+            ct, srv_x = server_pub[:MLKEM_CT_LEN], server_pub[MLKEM_CT_LEN:]
+            shared = (mlkem_priv.decapsulate(ct)
+                      + x_priv.exchange(X25519PublicKey.from_public_bytes(srv_x)))
+        else:
+            shared = x_priv.exchange(X25519PublicKey.from_public_bytes(server_pub))
 
         early = hkdf_extract(b"\x00" * hlen, b"\x00" * hlen, hashname)
         derived = derive_secret(early, b"derived", b"", hashname)
@@ -171,7 +198,7 @@ class TLS13Client:
         self._rx = _Keys(s_ap, aead_cls, key_len, hashname)
         return self
 
-    def _build_hello(self, pubkey):
+    def _build_hello(self, x_pub, mlkem_priv=None):
         """按 profile 组装 ClientHello，但用真实 key_share 与真实 SNI 覆写。"""
         p = self.profile
         bodies = {int(k): bytes.fromhex(v)
@@ -186,7 +213,7 @@ class TLS13Client:
                 entry = bytes([0]) + _vec(self.sni.encode(), 2)
                 body = _vec(entry, 2)
             elif ext_id == 0x0033:
-                body = _vec(_u16(X25519_GROUP) + _vec(pubkey, 2), 2)
+                body = _vec(self._key_share_entries(x_pub, mlkem_priv), 2)
             elif ext_id == 0x0029:
                 continue          # pre_shared_key：无票据可用，整个扩展不发
             elif ext_id == 0xFE0D:
@@ -204,6 +231,18 @@ class TLS13Client:
 
         handshake = bytes([0x01]) + _vec(hello, 3)
         return bytes([0x16]) + _u16(0x0301) + _vec(handshake, 2)
+
+    def _key_share_entries(self, x_pub, mlkem_priv):
+        """按 profile 首选曲线产出 key_share 条目。
+
+        只发首选那一条（外加后量子混合时它本身就含 X25519）——真实浏览器也只为
+        前一两条曲线发公钥，不是每条都发；发多了反而与 golden 的 key_share 长度
+        对不上。
+        """
+        if mlkem_priv is not None:
+            share = mlkem_priv.public_key().public_bytes_raw() + x_pub
+            return _u16(X25519MLKEM768_GROUP) + _vec(share, 2)
+        return _u16(X25519_GROUP) + _vec(x_pub, 2)
 
     def _read_server_hello(self):
         ctype, head, body = self._read_record()
@@ -229,9 +268,11 @@ class TLS13Client:
             o += 4 + elen
             if eid == 0x0033:                 # key_share
                 group = struct.unpack_from(">H", ebody, 0)[0]
-                if group != X25519_GROUP:
+                if group not in (X25519_GROUP, X25519MLKEM768_GROUP):
                     raise TLSError(
-                        f"server chose group 0x{group:04x}; 参考实现只支持 X25519")
+                        f"server chose group 0x{group:04x}; "
+                        f"参考实现支持 X25519 / X25519MLKEM768")
+                self._negotiated_group = group
                 klen = struct.unpack_from(">H", ebody, 2)[0]
                 server_pub = ebody[4:4 + klen]
 
