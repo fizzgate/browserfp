@@ -144,14 +144,17 @@ class UAMapper:
             return {"profile": None, "confidence": "no-version", "brand": brand,
                     "version": ver, "note": "该品牌无任何可用版本"}
         rec = table[near][0]
-        # 跨段回退必须**同品牌**。曾出现 "edge 125 → curl_cffi:chrome124"：
-        # Edge 与同代 Chrome 多数时候同指纹，但并非总是（实测 Edge134/146 与
-        # 同代 Chrome 不同），拿 Chrome 的条目冒充 Edge 是无依据的。
-        chosen = rec["id"].split(":", 1)[1].lower()
-        if brand not in chosen and not (brand == "chrome" and "chromium" in chosen):
+        # 跨段回退必须有**同品牌依据**，但判据要看该条目的全部 aliases 而非 id。
+        # 注册表按指纹去重，id 只是众多别名中的一个：curl_cffi:tor145 的 aliases
+        # 里含 wreq:Firefox128（Tor 基于 Firefox ESR，指纹本就相同），
+        # curl_cffi:chrome119 含 wreq:Edge122。只看 id 会把这些**正确**的映射
+        # 判成跨品牌而拒绝——构建版本表时按 aliases、检查时按 id，判据不一致是 bug。
+        names = " ".join(a.split(":", 1)[1].lower()
+                         for a in [rec["id"]] + rec.get("aliases", []))
+        if brand not in names and not (brand == "chrome" and "chromium" in names):
             return {"profile": None, "confidence": "no-version", "brand": brand,
                     "version": ver,
-                    "note": f"最近版本 {near} 属于 {chosen}，非同品牌，拒绝套用"}
+                    "note": f"最近版本 {near} 的条目不含 {brand} 别名，拒绝套用"}
         return {"profile": rec["id"], "confidence": "fallback",
                 "brand": brand, "version": ver,
                 "note": f"跨指纹段取最近版本 {near}，有 split-brain 风险"}

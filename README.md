@@ -102,6 +102,8 @@ python -m spec.test_ja4t               # TCP 层 JA4T 解析器（构造向量�
 python -m spec.test_golden_orphans     # golden 不得有"采了却没人读"的孤儿文件
 python -m spec.test_c_parity           # C 实现与 Python 逐字符一致
 python -m spec.test_lua_parity         # Lua FFI 绑定与 Python/C 一致
+python -m spec.test_ua_mapping         # UA 映射质量（真实生产 UA 分布为测试集）
+python -m spec.test_alias_lookup       # 禁止"只比 id 不查 aliases"的查找
 python -m spec.test_quic               # QUIC：RFC 9001 官方向量 + 真机端到端
 .venv-wreq/bin/python -m spec.test_h3  # HTTP/3：GREASE 剔除 + 跨连接稳定性
 python -m spec.test_cf_discrimination  # 指纹是否被区别对待（三臂对照）
@@ -201,8 +203,11 @@ FFI 绑定层有独立的出错空间（结构体布局、字符串所有权、�
 | `same-seg` | 落在同一指纹段内的相邻版本（段内指纹一致，可安全替代）|
 | `fallback` | 只能跨段取最近 —— 有 split-brain 风险，调用方应记录并考虑放弃伪装 |
 
-跨品牌一律**拒绝套用**而不是勉强返回：曾出现 `firefox 126 → tor145`（Tor 基于
-Firefox，名字里的数字被当成版本号）与 `edge 125 → chrome124`，这种错配比没有指纹更糟。
+跨品牌检查有个反直觉之处：**判据必须看条目的全部 aliases，不能只看 id**。注册表按
+指纹去重，id 只是众多别名之一——`curl_cffi:tor145` 的 aliases 里含 `wreq:Firefox128`
+（Tor 基于 Firefox ESR，指纹本就相同），`curl_cffi:chrome119` 含 `wreq:Edge122`。
+只看 id 会把这些**正确**的映射误判成跨品牌而拒绝。真正要拒绝的是无同品牌依据的
+套用（如把纯 Chrome 条目给 Edge 用）。
 
 ### 真实流量验证
 
@@ -212,10 +217,13 @@ Firefox，名字里的数字被当成版本号）与 `edge 125 → chrome124`，
 ```
 exact       81.0%
 same-seg     3.1%     ← 可安全伪装合计 84.1%
-fallback     4.0%
-no-version   3.4%
+fallback     7.4%     ← 跨指纹段，有风险但有同品牌依据
 unparsed     8.5%     ← 非浏览器 UA（扫描器等）
 ```
+
+剩余 fallback 集中在两个真实缺口：Firefox 124–127 与 Edge 123–126。这两段在**所有
+四个开源库里都没有**，且两端分属不同指纹段（Firefox 123↔128 差 ciphers/扩展/
+psk_modes 三项），不能安全替代。补齐需要下载对应版本的真机浏览器。
 
 顺带厘清了流量构成：**浏览器只占全部请求的 4.9%**（Codex 47%、claude-cli 15.6%、
 OpenAI SDK 12.2%、Go client 10.9%）。只有浏览器流量需要 TLS 指纹伪装，其余不需要
