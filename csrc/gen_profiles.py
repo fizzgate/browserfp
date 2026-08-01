@@ -97,6 +97,32 @@ def _h2_tables():
     return lines
 
 
+def _header_order_table():
+    """品牌 → 请求头相对顺序（逗号分隔）。
+
+    **只从真机实采推**，不碰库里那 240 条 header_order —— 那些是各库自己的
+    发头顺序，互相矛盾（chrome 一项就 398 处），详见 oracle/headerorder.py。
+    按引擎建模：Chromium 系共用一份，Gecko 与 WebKit 各一份。
+    """
+    sys.path.insert(0, os.path.dirname(HERE))
+    from oracle.headerorder import BRAND_ENGINE, order_for
+
+    lines = ["typedef struct { const char *brand; const char *order;"
+             " int attested; } tlsfp_hdr_entry;",
+             "static const tlsfp_hdr_entry tlsfp_hdr_table[] = {"]
+    n = 0
+    for brand in sorted(BRAND_ENGINE):
+        order, attested = order_for(brand)
+        if not order:
+            continue
+        lines.append(f'    {{"{brand}", "{",".join(order)}", '
+                     f'{1 if attested else 0}}},')
+        n += 1
+    lines.append("};")
+    lines.append(f"#define TLSFP_HDR_COUNT {n}")
+    return lines
+
+
 def c_u32_array(name, vals):
     """h2 的 SETTINGS 值与 window_update 都可能超过 16 位，必须用 u32。"""
     if not vals:
@@ -374,6 +400,8 @@ def main():
     out.append(f"#define TLSFP_UA_COUNT {len(ua_rows)}")
     out.append("")
     out.extend(_h2_tables())
+    out.append("")
+    out.extend(_header_order_table())
 
     print("\n".join(out))
     print(f"/* 共 {len(profiles)} 条（注册表 {len(registry)} 条，"

@@ -124,6 +124,15 @@ const tlsfp_h2 *tlsfp_lookup_h2(const char *brand, uint16_t version);
  * Lua 侧的 ffi.cdef 里结构体是截断声明，按偏移读后面的字段会读到垃圾。 */
 const char *tlsfp_h2_pseudo(const tlsfp_h2 *h);
 
+/* 请求头的相对顺序，逗号分隔（如 "sec-ch-ua,...,priority"）。
+ * 伪装是三层的：TLS、h2 开场、请求头顺序。前两层对了、头按自己的顺序发，
+ * 照样能被判。
+ * 只回答"这些头之间谁在前" —— 实际发哪些头由调用方决定（导航请求与子资源
+ * 请求带的头不同），本库不替它决定。
+ * attested 非空时回填 1/0：1 = 该品牌有真机实采背书，0 = 按引擎推断
+ * （移动端全是推断，本项目的真机采集都是桌面浏览器）。 */
+const char *tlsfp_header_order(const char *brand, int *attested);
+
 int tlsfp_build_client_hello(const tlsfp_profile *p, const char *sni,
                              const uint8_t *random32, const uint8_t *session_id,
                              uint8_t *out, size_t outlen);

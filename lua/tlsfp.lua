@@ -66,6 +66,7 @@ typedef struct {
 const tlsfp_h2 *tlsfp_lookup_h2(const char *brand, uint16_t version);
 int  tlsfp_build_h2_preface(const tlsfp_h2 *h, uint8_t *out, size_t outlen);
 const char *tlsfp_h2_pseudo(const tlsfp_h2 *h);
+const char *tlsfp_header_order(const char *brand, int *attested);
 const tlsfp_profile *tlsfp_profile_at(size_t idx);
 const tlsfp_profile *tlsfp_lookup_ja4(const char *ja4);
 size_t tlsfp_profile_count(void);
@@ -240,6 +241,40 @@ function _M.h2_preface(brand, version)
     if n < 0 then return nil, "组装失败（缓冲区不足）" end
     local ps = lib.tlsfp_h2_pseudo(h)
     return ffi.string(h2_buf, n), ps ~= nil and ffi.string(ps) or nil
+end
+
+-- 请求头的相对顺序。伪装是三层的：TLS、h2 开场、请求头顺序 —— 前两层对了、
+-- 头按自己的顺序发，照样能被判。
+--
+-- 只回答"这些头之间谁在前"：实际发哪些头由调用方决定（导航请求与子资源请求
+-- 带的头不同），本库不替它决定。第二个返回值 attested 为 true 表示该品牌有
+-- 真机实采背书，false 表示按引擎推断（移动端全是推断）。
+--
+-- @return table 顺序数组, boolean 是否实采背书   或  nil, err
+function _M.header_order(brand)
+    if not lib then return nil, "libtlsfp.so 未加载" end
+    if type(brand) ~= "string" then return nil, "brand 必须是字符串" end
+    local p = lib.tlsfp_header_order(brand, conf_buf)
+    if p == nil then return nil, "不认识的品牌" end
+    local out = {}
+    for h in ffi.string(p):gmatch("[^,]+") do out[#out + 1] = h end
+    return out, conf_buf[0] == 1
+end
+
+-- 按该品牌的顺序排调用方给的头名。顺序里没有的排在最后并保持原序 ——
+-- 不认识的头不能丢掉，也不能塞到中间。
+function _M.sort_headers(brand, names)
+    local order = _M.header_order(brand)
+    if not order then return names end
+    local pos = {}
+    for i, h in ipairs(order) do pos[h] = i end
+    local known, unknown = {}, {}
+    for _, h in ipairs(names) do
+        if pos[h:lower()] then known[#known + 1] = h else unknown[#unknown + 1] = h end
+    end
+    table.sort(known, function(a, b) return pos[a:lower()] < pos[b:lower()] end)
+    for _, h in ipairs(unknown) do known[#known + 1] = h end
+    return known
 end
 
 function _M.profile_count()
