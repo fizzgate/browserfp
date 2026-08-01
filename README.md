@@ -99,6 +99,7 @@ python -m spec.test_real_stability     # 真机反复连接，每次都须认出
 python -m spec.test_collector_merge    # 采集器必须合并写（防止只采子集冲掉其余样本）
 python -m spec.test_ja4t               # TCP 层 JA4T 解析器（构造向量，不需抓包权限）
 python -m spec.test_quic               # QUIC：RFC 9001 官方向量 + 真机端到端
+.venv-wreq/bin/python -m spec.test_h3  # HTTP/3：GREASE 剔除 + 跨连接稳定性
 python -m spec.test_cf_discrimination  # 指纹是否被区别对待（三臂对照）
 python -m oracle.coverage              # 开源表对真机的覆盖矩阵
 python -m oracle.srcaudit              # 源码审计：还有哪些扩展我们从没见过
@@ -301,8 +302,21 @@ key_share 那条是有价值的阴性结果：它证明现有 13 字段判据**�
   QUIC 版含 `0x39 quic_transport_parameters` —— 正是 `srcaudit` 长期报"从未观测到"
   的盲区之一，至此消除。已采 chromium 系三个浏览器（chrome/chromium/edge 指纹一致）。
 
-  仍缺：H3 应用层（SETTINGS + 伪头顺序，需完成 QUIC 握手）；Firefox/Safari 的 QUIC
-  （需 about:config 预置 prefs，非命令行开关）。
+  **H3 应用层也已覆盖**：`oracle/h3probe.py` 用 aioquic 起 QUIC 服务端完成真握手，
+  取客户端控制流的 SETTINGS 与请求的伪头顺序。实测 chrome/chromium/edge 三者一致：
+
+  ```
+  1:65536,6:262144,7:100,51:1|m,a,s,p
+  ```
+
+  **与参考实现有一处有意分歧：GREASE 设置项必须剔除，不能只排到末尾。**
+  pingly 的 `sort_by_key(|s| (s.is_grease(), s.id))` 保留了 GREASE，而实测 Chrome
+  连续 3 次的 GREASE 项 id 与 value **每次都随机**（4286499706/128806768986/
+  96762675253…），保留它 h3_text 就三次三个值、根本不能当指纹；剔除后三次同值。
+  这与 TLS 层按 RFC 8701 剔 GREASE 同理。剔除的同时保留 `has_grease_setting`
+  布尔——发不发 GREASE 本身是区分点。
+
+  仍缺：Firefox/Safari 的 QUIC 与 H3（需 about:config 预置 prefs，非命令行开关）。
 - **12 个扩展从未观测到**（`srcaudit` 实测）：BoringSSL 声明 31 个，我们见过 19 个。
   其中 `0x002a early_data`（0-RTT）、`0x0039`/`0xffa5`（QUIC）是真实会遇到的，仍是
   识别盲区。`0x002c cookie` 已试图触发：HRR 确实发生了，但 Go 服务端未下发 cookie

@@ -1,0 +1,101 @@
+{
+  "chrome": {
+    "h3_text": "1:65536,6:262144,7:100,51:1|m,a,s,p",
+    "has_grease_setting": true,
+    "header_order": [
+      "sec-ch-ua",
+      "sec-ch-ua-mobile",
+      "sec-ch-ua-platform",
+      "upgrade-insecure-requests",
+      "user-agent",
+      "accept",
+      "sec-fetch-site",
+      "sec-fetch-mode",
+      "sec-fetch-user",
+      "sec-fetch-dest",
+      "accept-encoding",
+      "accept-language",
+      "priority"
+    ],
+    "pseudo_header_order": [
+      ":method",
+      ":authority",
+      ":scheme",
+      ":path"
+    ],
+    "settings": {
+      "1": 65536,
+      "6": 262144,
+      "7": 100,
+      "51": 1,
+      "109968663132": 563659858
+    },
+    "version": "151.0.7922.72"
+  },
+  "chromium": {
+    "h3_text": "1:65536,6:262144,7:100,51:1|m,a,s,p",
+    "has_grease_setting": true,
+    "header_order": [
+      "sec-ch-ua",
+      "sec-ch-ua-mobile",
+      "sec-ch-ua-platform",
+      "upgrade-insecure-requests",
+      "user-agent",
+      "accept",
+      "sec-fetch-site",
+      "sec-fetch-mode",
+      "sec-fetch-user",
+      "sec-fetch-dest",
+      "accept-encoding",
+      "accept-language",
+      "priority"
+    ],
+    "pseudo_header_order": [
+      ":method",
+      ":authority",
+      ":scheme",
+      ":path"
+    ],
+    "settings": {
+      "1": 65536,
+      "6": 262144,
+      "7": 100,
+      "51": 1,
+      "98990192126": 2086547929
+    },
+    "version": "142.0.7444.175"
+  },
+  "edge": {
+    "h3_text": "1:65536,6:262144,7:100,51:1|m,a,s,p",
+    "has_grease_setting": true,
+    "header_order": [
+      "sec-ch-ua",
+      "sec-ch-ua-mobile",
+      "sec-ch-ua-platform",
+      "upgrade-insecure-requests",
+      "user-agent",
+      "accept",
+      "sec-fetch-site",
+      "sec-fetch-mode",
+      "sec-fetch-user",
+      "sec-fetch-dest",
+      "accept-encoding",
+      "accept-language",
+      "priority"
+    ],
+    "pseudo_header_order": [
+      ":method",
+      ":authority",
+      ":scheme",
+      ":path"
+    ],
+    "settings": {
+      "1": 65536,
+      "6": 262144,
+      "7": 100,
+      "51": 1,
+      "102740435726": 1732114856
+    },
+    "version": "151.0.4129.59"
+  }
+}
