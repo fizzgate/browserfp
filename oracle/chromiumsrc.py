@@ -139,6 +139,54 @@ CHROMIUM_CURVE_FILES = ("net/ssl/ssl_config_service.cc",
                         "net/socket/ssl_client_socket_impl.cc")
 
 
+# 同一条曲线在两种配置形态里叫不同名字（老形态用 OpenSSL 的 NID_*，新形态用
+# BoringSSL 的 SSL_GROUP_*）。不归一化就会把纯命名变化读成 curves 变了，段表
+# 凭空多出边界——M126↔M131 那次差异里就同时混着真变化（Kyber→MLKEM）和
+# 假变化（X9_62_prime256v1 → SECP256R1，本是同一条 P-256）。
+CURVE_ALIASES = {
+    "NID_X25519": "x25519",
+    "SSL_GROUP_X25519": "x25519",
+    "NID_X9_62_prime256v1": "secp256r1",
+    "SSL_GROUP_SECP256R1": "secp256r1",
+    "NID_secp384r1": "secp384r1",
+    "SSL_GROUP_SECP384R1": "secp384r1",
+    "NID_secp521r1": "secp521r1",
+    "SSL_GROUP_SECP521R1": "secp521r1",
+    "NID_CECPQ2": "cecpq2",
+    "NID_X25519Kyber768Draft00": "x25519_kyber768_draft00",
+    # M113/114 的过渡命名（后来才加 Draft00 后缀），以及短命的 P256 混合组
+    "NID_X25519Kyber768": "x25519_kyber768_draft00",
+    "NID_P256Kyber768": "p256_kyber768",
+    "SSL_GROUP_X25519_KYBER768_DRAFT00": "x25519_kyber768_draft00",
+    "SSL_GROUP_X25519_MLKEM768": "x25519_mlkem768",
+}
+
+
+def norm_curve(name):
+    """归一化曲线名。未知名字**原样保留**并加前缀标记，不静默丢弃——
+    丢掉一条未知曲线会让两个本不同的版本看起来同段。"""
+    return CURVE_ALIASES.get(name, f"?{name}")
+
+
+def feature_default(tag, name):
+    """取某个 base::Feature 的默认状态。
+
+    与 Firefox 那边的 pref 求值同构：源码里写的是三元表达式，真正发什么取决于
+    flag 默认值。M133 的 postquantum_group 就是
+        IsEnabled(kUseMLKEM) ? X25519_MLKEM768 : X25519_KYBER768_DRAFT00
+    只看表达式无法判断，必须解出默认值。
+    """
+    try:
+        d = _get(f"{JSD}/chromium/chromium@{tag}/net/base/features.cc",
+                 os.path.join(CACHE, tag, "features.cc"))
+    except Exception:
+        return None
+    m = re.search(r"BASE_FEATURE\(\s*" + re.escape(name) + r"\s*,(.*?)\);", d, re.S)
+    if not m:
+        return None
+    return "FEATURE_ENABLED_BY_DEFAULT" in m.group(1)
+
+
 def chromium_curves(tag):
     """返回 (supported_groups, key_share_groups)；取不到时抛错而非给空表。"""
     for f in CHROMIUM_CURVE_FILES:
@@ -160,14 +208,31 @@ def chromium_curves(tag):
                 if item.group(2) == "true":
                     shares.append(item.group(1))
             if groups:
-                return groups, shares
+                return [norm_curve(g) for g in groups], [norm_curve(g) for g in shares]
 
-        m = re.search(r"static const int kCurves\[\]\s*=\s*\{(.*?)\};", d, re.S)
+        # 形态二/三：硬编码数组，变量名在 kCurves 与 kGroups 之间换过，
+        # 且首项可能是个由 feature flag 决定的三元表达式
+        m = re.search(r"(?:static\s+)?const\s+(?:int|uint16_t)\s+"
+                      r"k(?:Curves|Groups)\[\]\s*=\s*\{(.*?)\};", d, re.S)
         if m:
-            groups = re.findall(r"NID_\w+", m.group(1))
+            body = m.group(1)
+            groups = re.findall(r"(?:NID_|SSL_GROUP_)\w+", body)
+            if "postquantum_group" in body:
+                # 该项的实参在上文的三元表达式里，按 feature 默认值解出来
+                tern = re.search(
+                    r"postquantum_group\s*=\s*.*?IsEnabled\(\s*features::(\w+)\s*\)"
+                    r"\s*\?\s*(\w+)\s*:\s*(\w+)", d, re.S)
+                if tern:
+                    on = feature_default(tag, tern.group(1))
+                    pq = tern.group(2) if on else tern.group(3)
+                    if on is None:
+                        raise RuntimeError(
+                            f"{tag} 解不出 features::{tern.group(1)} 的默认值，"
+                            "不能猜 postquantum_group")
+                    groups = [pq] + groups
             if groups:
                 # 老版本没有 send_key_share 概念，key_share 由 BoringSSL 决定
-                return groups, []
+                return [norm_curve(g) for g in groups], []
     raise RuntimeError(f"{tag} 找不到 curves 配置（kDefaultSSLSupportedGroups / "
                        "kCurves 都没有）—— 配置点可能又搬家了")
 
@@ -240,9 +305,8 @@ def main(argv):
 
     print(f"{'版本':>5}  {'tag':<18} {'boringssl':<12} {'扩展':>4} {'签名':>4}  curves")
     for mj, t in sorted(got.items()):
-        cv = [c.replace("SSL_GROUP_", "").replace("NID_", "") for c in t["curves"]]
         print(f"{mj:>5}  {t['tag']:<18} {t['boringssl'][:10]:<12} "
-              f"{len(t['extensions_set']):>4} {len(t['sign_sigalgs']):>4}  {cv}")
+              f"{len(t['extensions_set']):>4} {len(t['sign_sigalgs']):>4}  {t['curves']}")
 
     print("\n相邻版本比对：")
     ms = sorted(got)

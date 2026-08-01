@@ -34,25 +34,47 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from oracle.nsssrc import extract                              # noqa: E402
+from oracle.nsssrc import extract as ff_extract                # noqa: E402
+from oracle.chromiumsrc import extract as cr_extract           # noqa: E402
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 OUT_DIR = os.path.join(HERE, "..", "spec", "segments")
 
 MAX_WORKERS = 5          # 对方是公共服务器，别打太狠
-KEYS = ("ciphers", "sig_algs", "extensions", "curves", "sct")
+
+# 判段用哪些字段，**按品牌不同**：
+#   firefox  三张有序表 + curves + sct（扩展顺序稳定，可比）
+#   chrome   curves + key_share 组 + 签名算法。三处**不能**用：
+#            · 扩展顺序 —— Chromium 自 110 起随机置换（permute_extensions）
+#            · extensions_set —— 那是"实现了的"而非"会发的"
+#            · boringssl revision —— 几乎每个版本都换 revision，拿它判段会让
+#              每一版自成一段。它只是"相同则必定同段"的充分条件，不能反过来
+#              当"不同则不同段"用
+KEYS_BY_BRAND = {
+    "firefox": ("ciphers", "sig_algs", "extensions", "curves", "sct"),
+    "chrome": ("curves", "key_share_groups", "sign_sigalgs"),
+}
+KEYS = KEYS_BY_BRAND["firefox"]
 
 
-def _key(tables):
-    return json.dumps({k: tables[k] for k in KEYS}, sort_keys=True)
+def keys_for(brand):
+    return KEYS_BY_BRAND.get(brand, KEYS)
+
+
+def _key(tables, brand="firefox"):
+    return json.dumps({k: tables.get(k) for k in keys_for(brand)}, sort_keys=True)
+
+
+EXTRACTORS = {"firefox": ff_extract,
+              "chrome": lambda v: cr_extract(int(v))}
 
 
 def scan(brand, lo, hi):
     """返回 {version: tables}，取不到的版本不入表并单独报告。"""
-    if brand != "firefox":
+    if brand not in EXTRACTORS:
         raise NotImplementedError(
-            f"{brand} 的源码站本机不可达（chromium.googlesource.com 连不上），"
-            "暂时只能扫 firefox")
+            f"没有 {brand} 的抽取器；现支持 {sorted(EXTRACTORS)}")
+    extract = EXTRACTORS[brand]
 
     versions = [str(v) for v in range(lo, hi + 1)]
     tables, failed = {}, {}
@@ -69,11 +91,11 @@ def scan(brand, lo, hi):
     return tables, failed
 
 
-def segment(tables):
+def segment(tables, brand="firefox"):
     """把逐版本的表压成连续段。缺失的版本会切断连续性——不能跨着并。"""
     segs = []
     for v in sorted(tables, key=int):
-        k = _key(tables[v])
+        k = _key(tables[v], brand)
         if segs and segs[-1]["key"] == k and int(v) == segs[-1]["to"] + 1:
             segs[-1]["to"] = int(v)
         else:
@@ -82,11 +104,11 @@ def segment(tables):
     return segs
 
 
-def boundary_diff(a, b):
+def boundary_diff(a, b, brand="firefox"):
     """两段之间到底改了什么 —— 段边界的价值全在这里。"""
     out = {}
-    for k in KEYS:
-        x, y = a["tables"][k], b["tables"][k]
+    for k in keys_for(brand):
+        x, y = a["tables"].get(k), b["tables"].get(k)
         if x == y:
             continue
         if not isinstance(x, list) or not isinstance(y, list):
@@ -115,19 +137,22 @@ def main(argv):
 
     print(f"扫描 {brand} {lo}..{hi}（共 {hi - lo + 1} 个版本，有缓存则不走网络）")
     tables, failed = scan(brand, lo, hi)
-    segs = segment(tables)
+    segs = segment(tables, brand)
 
     print(f"取到 {len(tables)} 个版本，失败 {len(failed)} 个\n")
     print(f"划出 {len(segs)} 个指纹段：")
     for i, s in enumerate(segs):
         span = f"{s['from']}" if s["from"] == s["to"] else f"{s['from']}–{s['to']}"
         n = s["to"] - s["from"] + 1
-        print(f"  段{i + 1:<2} {span:<10} {n:>2} 个版本  "
-              f"ciphers={len(s['tables']['ciphers']):2d} "
-              f"sig={len(s['tables']['sig_algs']):2d} "
-              f"ext={len(s['tables']['extensions']):2d}")
+        t = s["tables"]
+        if brand == "chrome":
+            desc = f"curves={t['curves']}  sig={len(t['sign_sigalgs'])}"
+        else:
+            desc = (f"ciphers={len(t['ciphers']):2d} sig={len(t['sig_algs']):2d} "
+                    f"ext={len(t['extensions']):2d}")
+        print(f"  段{i + 1:<2} {span:<10} {n:>2} 个版本  {desc}")
         if i:
-            why = boundary_diff(segs[i - 1], s)
+            why = boundary_diff(segs[i - 1], s, brand)
             if why:
                 for k, v in why.items():
                     print(f"        ↳ {s['from']} 起 {k}: {v}")
