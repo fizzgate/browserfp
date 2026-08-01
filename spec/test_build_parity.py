@@ -113,7 +113,26 @@ def check_random_varies():
     return []
 
 
+def _ensure_fresh():
+    """跑之前先确保 C 产物是当前源码编出来的。
+
+    **这个坑撞过三次**：改了 tlsfp.c 或数据源后忘了重建，门禁比对的是陈旧的
+    .o / profiles.inc，报出的差异真实存在却与当前代码无关 —— 排查方向会被
+    彻底带偏。让门禁自己跑一次 make，比依赖人记得跑可靠。
+    """
+    csrc = os.path.join(ROOT, "csrc")
+    r = subprocess.run(["make", "-s"], cwd=csrc, capture_output=True,
+                       text=True, timeout=300)
+    if r.returncode != 0:
+        return f"make 失败：{(r.stderr or r.stdout)[-200:]}"
+    return None
+
+
 def main():
+    stale = _ensure_fresh()
+    if stale:
+        print(stale, file=sys.stderr)
+        return 2
     if not os.path.exists(BUILDCLI):
         print(f"缺 {BUILDCLI}；先在 csrc 下 make", file=sys.stderr)
         return 2
