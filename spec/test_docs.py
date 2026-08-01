@@ -57,9 +57,29 @@ def check_numbers(text):
 
     只查能从数据唯一确定的量，不查"66/68"这类依赖外网的结果——那个每次跑都
     可能因网络变动，写死会制造假红。
+
+    **覆盖率也要查**。它是 README 里最容易僵尸化的数字：每次改进映射逻辑都会
+    变，而改的人未必想起来同步文档。它由固定的 fixtures 与代码唯一确定，不依赖
+    外网，所以查它不会制造假红。
     """
     with open(REGISTRY) as f:
         registry = json.load(f)
+    from oracle.uamap import UAMapper                            # noqa: E402
+    fixtures = os.path.join(HERE, "fixtures", "prod_user_agents.json")
+    cov = {}
+    if os.path.exists(fixtures):
+        with open(fixtures) as f:
+            rows = json.load(f)
+        mapper = UAMapper()
+        total = sum(r["count"] for r in rows)
+        tally = {}
+        for row in rows:
+            c = mapper.lookup(row["ua"])["confidence"]
+            tally[c] = tally.get(c, 0) + row["count"]
+        for k in ("exact", "same-seg", "fallback"):
+            cov[k] = round(tally.get(k, 0) * 100 / total, 1)
+        cov["可安全伪装"] = round(cov["exact"] + cov["same-seg"], 1)
+
     facts = {
         "唯一指纹数": len(registry),
         "target 名数": sum(len(r["aliases"]) for r in registry),
@@ -67,8 +87,14 @@ def check_numbers(text):
         "真机采集数": sum(1 for r in registry if r["provenance"] == "real-capture"),
     }
     # 每个事实锚定到 README 里唯一的一处表述，改动那处才会被抓到。
+    for label, value in cov.items():
+        facts[f"覆盖率:{label}"] = value
     patterns = {
         "唯一指纹数": r"\|\s*唯一指纹\s*\|\s*\*\*{v}\*\*",
+        "覆盖率:exact": r"exact\s+{v}%",
+        "覆盖率:same-seg": r"same-seg\s+{v}%",
+        "覆盖率:fallback": r"fallback\s+{v}%",
+        "覆盖率:可安全伪装": r"可安全伪装合计\s*{v}%",
         "target 名数": r"来自\s*{v}\s*个\s*target\s*名",
         "含 h2 数": r"\|\s*含 h2 层\s*\|\s*{v}/",
         "真机采集数": r"开源表\s*\d+\s*\+\s*真机采集\s*{v}",

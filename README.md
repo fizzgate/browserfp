@@ -211,8 +211,12 @@ local r = tlsfp.by_ua("chrome", 150)
 | 档位 | 含义 |
 |---|---|
 | `exact` | 该主版本有直接对应的 profile |
-| `same-seg` | 落在同一指纹段内的相邻版本（段内指纹一致，可安全替代）|
-| `fallback` | 只能跨段取最近 —— 有 split-brain 风险，调用方应记录并考虑放弃伪装 |
+| `same-seg` | 落在同一指纹段内（可安全替代），两种证据都算：同库两端指纹一致，或**源码段表**证明同段 |
+| `fallback` | 只能跨段取最近 —— **默认不返回 profile**，宁可不伪装 |
+
+**严格模式是默认**：`fallback` 档一律返回 None/NULL。拿相邻版本的指纹冒充另一个
+版本正是 split-brain 的来源——UA 说 Chrome 78、TLS 却是 Chrome 83 的形态，比完全
+不伪装更容易被判，因为两者互相矛盾本身就是强信号。要伪装就必须精确。
 
 跨品牌检查有个反直觉之处：**判据必须看条目的全部 aliases，不能只看 id**。注册表按
 指纹去重，id 只是众多别名之一——`curl_cffi:tor145` 的 aliases 里含 `wreq:Firefox128`
@@ -226,20 +230,58 @@ local r = tlsfp.by_ua("chrome", 150)
 14026 次请求），这是唯一能回答"库够不够用"的口径：
 
 ```
-exact       81.0%
-same-seg     3.1%     ← 可安全伪装合计 84.1%
-fallback     7.4%     ← 跨指纹段，有风险但有同品牌依据
+exact       82.1%
+same-seg     9.1%     ← 可安全伪装合计 91.2%
+fallback     0.3%     ← 严格模式下不伪装（仅 firefox 78，43 次）
 unparsed     8.5%     ← 非浏览器 UA（扫描器等）
 ```
 
-剩余 fallback 集中在 Firefox 124–127 与 Edge 123–126，这两段在**四个开源库里
-都没有**（已逐库核对变体清单，不是采集遗漏）。
+fallback 一度是 7.4%，靠三件事降到 0.3%：
 
-但**不能据此断言"中间必有指纹变更点"**：见下节，那个判断曾建立在跨库比较上。
+1. **源码段表**（下节）—— 从产生 ClientHello 的源码推导版本区间，回答了抓包答
+   不了的问题（两端分属不同来源库时本就不可比）
+2. **Chromium 系按 UA 里的内核版本映射** —— Opera 110 的 UA 里写着 `Chrome/125`，
+   OPR 版本与内核版本差了 15，按 OPR 号查表必然张冠李戴；Edge 的 `Edg/` 与
+   `Chrome/` 则完全一致（150/148/125/126 四种全对得上）
+3. **逐个查清段内不一致的成因** —— 见"从差异字段回溯源码翻转点"一节
 
 顺带厘清了流量构成：**浏览器只占全部请求的 4.9%**（Codex 47%、claude-cli 15.6%、
 OpenAI SDK 12.2%、Go client 10.9%）。只有浏览器流量需要 TLS 指纹伪装，其余不需要
 ——这个边界决定了本项目的服务范围。
+
+### 源码段表：不跑浏览器也能判版本异同
+
+真实用户的浏览器版本极其分散，拿相邻版本顶就会发出 UA 与 TLS 矛盾的握手。要对
+任意版本给出确定答案，必须知道每个指纹段从哪个版本起、到哪个版本止。抓包做不到
+这点——历史版本要下上百 MB 二进制、还未必跑得起来，两端分属不同来源库时更是无从
+比较。
+
+改读源码：ClientHello 的构成由若干张表与开关决定，按 tag 取几个文件就有。
+
+| | Firefox | Chrome |
+|---|---|---|
+| 源 | hg.mozilla.org 按 release tag | jsDelivr 上的 chromium/chromium 与 google/boringssl |
+| 决定性表 | NSS 的 cipherSuites / defaultSignatureSchemes / clientHelloSendersTLS | BoringSSL 的 kExtensions / kSignSignatureAlgorithms |
+| 还须读 | gecko 的 namedGroups[]、StaticPrefList.yaml | Chromium 的 kCurves/kGroups、kVerifyPrefs、cipher 排除项、features.cc |
+| 段数 | 11（78–152 全覆盖） | 12（70–153，M82 从未发布） |
+
+产物在 `spec/segments/*.json`，每段带 `substitutable` 与判定理由。**逐段判定而非
+品牌级开关**：同一品牌里有的段实采 golden 一致（可替代），有的段同一来源库内就
+分歧（段划粗了，不可替代）。
+
+### 从差异字段回溯源码翻转点
+
+段内两条 golden 不一致时，不去猜，而是把差异字段拿出来回源码找那个字段是**哪个
+版本、哪行代码**翻转的。四个缺口都是这么解掉的：
+
+| 缺口 | 差异字段 | 源码翻转点 |
+|---|---|---|
+| chrome 78 | `0x7550` Channel ID | Chromium M72 删掉使用它的代码（M70 有 35 处引用、M72 起 0 处）|
+| chrome 95 | `0x4469` ALPS | `kAlpsForHttp2` 自 M92 出现即 `ENABLED`，M91 及以前无此符号 |
+| firefox 115 | `0xfe0d` ECH | `network.dns.echconfig.enabled` 在 119 起才是 `true` |
+| firefox 126/127/134 | `0x001b` 等 | NSS `clientHelloSendersTLS` 表在 124 新增 |
+
+每一条都能落到具体代码，且实采两侧都对得上——不是推断。
 
 ### covers_versions：用已验证的等价关系，而不是造样本
 
