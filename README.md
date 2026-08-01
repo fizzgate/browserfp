@@ -249,7 +249,7 @@ python -m oracle.covscan            # 全品牌
 python -m oracle.covscan firefox    # 单品牌，附每个缺漏版本所属段的理由
 ```
 
-扫描结果（这些版本生产流量里没出现过），合计缺 22 个：
+扫描结果（这些版本生产流量里没出现过），合计缺 19 个：
 
 | 品牌 | 已发布版本数 | 缺 | 成因 |
 |---|---|---|---|
@@ -257,8 +257,8 @@ python -m oracle.covscan firefox    # 单品牌，附每个缺漏版本所属段
 | chrome-mobile | 83 | 71, 153 | 同上 |
 | firefox | 76 | 83–84, 111, 119, 121–122 | 83–84 无 golden；其余段内数据矛盾 |
 | firefox-mobile | 76 | 83–84, 111, 119, 121–122 | 同上（145–153 已由派生 profile 覆盖）|
-| safari | 8 | 12–14 | 无段表（闭源，无法源码推导）|
-| safari-mobile | 8 | 12–14 | 同上 |
+| safari | 8 | 12–14 | 无段表（闭源），且桌面侧无这三个版本的数据 |
+| safari-mobile | 8 | — | 已全覆盖（11–18, 26）|
 
 ### 派生 profile：规则被验证过才用
 
@@ -316,6 +316,11 @@ Chrome 82（2020 年疫情期间从 81 直接跳到 83）、Safari 19–25（202
 移动端），其余一律返回"无指纹"而不是找个近似的顶上。OkHttp 栈、UC 浏览器、各类
 扫描器都属此列 —— 库里虽有 okhttp4_android_*、nike_android_mobile 这些条目（对
 **入站识别**有用），但它们不参与出站的 UA→profile 映射。
+
+**utls 的 iOS 条目命名不带品牌名**（`IOS_11_1` / `IOS_12_1` / `IOS_13` /
+`IOS_14`），别名解析若要求以品牌名开头就会漏掉它们 —— `safari-mobile` 表因此
+一度凭空少了 11–14 四个版本。它们确实是 iOS Safari 的指纹（11/12 还是 TLS 1.2
+时代的 `t12i`），补上解析形态后 `safari-mobile` 已全覆盖。
 
 **iOS 上的第三方浏览器按 Safari 处理**。App Store 政策强制所有 iOS 浏览器使用
 系统 WKWebView，自己不带 TLS 栈，所以 FxiOS / EdgiOS / CriOS / OPiOS 发出的

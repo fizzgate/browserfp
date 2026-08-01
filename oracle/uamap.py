@@ -204,6 +204,15 @@ class UAMapper:
                     #   safari172_ios      品牌数字_平台
                     #   FirefoxAndroid135  品牌平台数字
                     # 先把平台词剥掉再匹配"品牌+数字"，三种就统一了。
+                    # utls 用 IOS_11_1 / IOS_13 这种命名，别名里根本不出现
+                    # "safari" —— 但 iOS 上所有浏览器都是系统 WebKit，这就是
+                    # iOS Safari 的指纹。不认这个形态，safari-mobile 表就凭空
+                    # 少掉 11-14 四个版本。
+                    mi = re.match(r"^ios[_-]?(\d{1,2})", name)
+                    if mi:
+                        self.by_brand.setdefault("safari-mobile", {}).setdefault(
+                            int(mi.group(1)), (rec, key))
+                        continue
                     base = MOBILE_ALIAS.sub("", name)
                     mm = re.match(r"^(chrome|chromium|firefox|safari|edge|opera)"
                                   r"[-_]*(\d{1,3})", base)
