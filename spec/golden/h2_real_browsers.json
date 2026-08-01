@@ -100,5 +100,54 @@
     ],
     "version": "142.0.7444.175",
     "window_update": 15663105
+  },
+  "firefox": {
+    "akamai_fingerprint": "1:65536,2:0,4:131072,5:16384|12517377|0|m,p,a,s",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "user-agent",
+      "accept",
+      "accept-language",
+      "accept-encoding",
+      "upgrade-insecure-requests",
+      "sec-fetch-dest",
+      "sec-fetch-mode",
+      "sec-fetch-site",
+      "sec-fetch-user",
+      "priority",
+      "te"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":path",
+      ":authority",
+      ":scheme"
+    ],
+    "settings": [
+      [
+        1,
+        65536
+      ],
+      [
+        2,
+        0
+      ],
+      [
+        4,
+        131072
+      ],
+      [
+        5,
+        16384
+      ]
+    ],
+    "version": "149.0",
+    "window_update": 12517377
   }
 }

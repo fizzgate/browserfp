@@ -217,7 +217,14 @@ class TLS13Client:
             elif ext_id == 0x0029:
                 continue          # pre_shared_key：无票据可用，整个扩展不发
             elif ext_id == 0xFE0D:
-                continue          # ECH：需要服务端配置，参考实现不发
+                # GREASE ECH：Chrome 恒发，服务端按未知 config_id 忽略，不需要
+                # 服务端配合。**不能跳过**——claude.ai 缺了它直接回
+                # handshake_failure(40)，而 cloudflare.com 不要求，所以只打
+                # 后者会漏掉这个缺陷。body 照搬 golden：GREASE ECH 的载荷本就
+                # 是随机字节，结构正确即可，服务端不会解密它。
+                body = bodies.get(ext_id, b"")
+                if not body:
+                    continue
             else:
                 body = bodies.get(ext_id, b"")
             ext_bytes += _u16(ext_id) + _vec(body, 2)

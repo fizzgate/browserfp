@@ -67,13 +67,57 @@ def collect_curl_cffi():
     return out, failures
 
 
+def certutil_path():
+    """找 NSS 的 certutil —— Firefox 用自己的 cert9.db，不看系统钥匙串。"""
+    for p in ("/opt/homebrew/opt/nss/bin/certutil",
+              "/usr/local/opt/nss/bin/certutil",
+              shutil.which("certutil")):
+        if p and os.path.exists(p):
+            return p
+    return None
+
+
+def make_firefox_profile(cert_path=None):
+    """建一个信任观测点自签 CA 的临时 Firefox profile。
+
+    Firefox 不吃 --ignore-certificate-errors 之类的命令行开关，只认 profile 里
+    的 NSS 库。往**临时 profile** 注入信任，不碰用户的 profile、也不碰系统
+    钥匙串——Safari 走系统钥匙串，改那个会影响全机所有程序，所以本模块不采
+    Safari 的 L2。
+    """
+    cu = certutil_path()
+    if not cu:
+        raise FileNotFoundError("缺 certutil：brew install nss")
+    # 注入的必须是 **CA** 证书而不是观测点的 leaf：Firefox 不接受把同一张
+    # 自签证书既当信任锚又当服务器证书，会回 SSLV3_ALERT_BAD_CERTIFICATE。
+    if cert_path is None:
+        cert_path = os.path.join(os.path.dirname(CERT), "ca.pem")
+    profile = tempfile.mkdtemp(prefix="fizztls-ffprof-")
+    subprocess.run([cu, "-N", "-d", f"sql:{profile}", "--empty-password"],
+                   check=True, capture_output=True)
+    subprocess.run([cu, "-A", "-n", "fizztls-observer", "-t", "C,,",
+                    "-i", cert_path, "-d", f"sql:{profile}"],
+                   check=True, capture_output=True)
+    return profile
+
+
 def collect_real():
-    """只采 chromium 系：Firefox/Safari 不吃命令行的证书豁免开关，L2 采不到。"""
+    """采 chromium 系 + Firefox。Safari 走系统钥匙串，不采（见 make_firefox_profile）。"""
     pin = spki_pin()
     out, failures = {}, []
     for name, engine, binary, version in discover():
+        if engine == "firefox":
+            try:
+                r = _capture_firefox(binary, name)
+                r["version"] = version
+                out[name] = r
+                print(f"  {name:20s} {version:22s} {r['akamai_fingerprint']}")
+            except Exception as e:
+                failures.append((name, repr(e)))
+                print(f"  {name:20s} FAILED {e!r}", file=sys.stderr)
+            continue
         if engine != "chromium":
-            print(f"  {name:20s} 跳过（{engine} 无法用命令行豁免自签证书）")
+            print(f"  {name:20s} 跳过（{engine} 用系统钥匙串，注入信任会影响全机）")
             continue
         profile = tempfile.mkdtemp(prefix=f"fizztls-h2-{name}-")
         with H2Probe() as probe:
@@ -99,6 +143,27 @@ def collect_real():
                 p.kill()
         shutil.rmtree(profile, ignore_errors=True)
     return out, failures
+
+
+def _capture_firefox(binary, name):
+    """Firefox 走注入了信任 CA 的临时 profile；-no-remote 避免复用用户实例。"""
+    profile = make_firefox_profile()
+    try:
+        with H2Probe() as probe:
+            p = subprocess.Popen(
+                [binary, "--headless", "--no-remote", "--profile", profile,
+                 f"https://127.0.0.1:{probe.port}/"],
+                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            try:
+                return probe.pop(timeout=40)
+            finally:
+                p.terminate()
+                try:
+                    p.wait(timeout=10)
+                except subprocess.TimeoutExpired:
+                    p.kill()
+    finally:
+        shutil.rmtree(profile, ignore_errors=True)
 
 
 def _write(name, data):
