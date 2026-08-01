@@ -270,6 +270,7 @@ iOS ≡ macOS 覆盖 153/155/180/26）。`test_ua_mapping` 断言该数不少于
 | `safari-mobile` | 15, 16, 17, 18, 26 | —（已全覆盖）|
 | `chrome-mobile` | 99, 131（+ 源码段表覆盖 97–132）| 134 |
 | `firefox-mobile` | 135（+ 源码段表覆盖 124–144）| 115 |
+| `edge-mobile` | — | —（按 UA 内核版本走 chrome 表）|
 | `edge-mobile` | — | 120 |
 
 源码推导对 **Android Firefox 可用**：它与桌面共享 NSS，差异全在 StaticPrefList
@@ -301,6 +302,19 @@ BASE_FEATURE(kPostQuantumKyber, "PostQuantumKyber",
 
 iOS Safari 闭源，这条仍用不上 —— 但 iOS 上所有浏览器共用系统 WebKit，
 `safari-mobile` 靠实采 golden 已全覆盖。
+
+**剩余两个缺口只能实采**。已逐库核对过四家的移动端变体清单，没有一家收录：
+
+| 库 | 移动端变体 |
+|---|---|
+| wreq | 10 个：`FirefoxAndroid135` + 9 个 Safari iOS/iPad |
+| curl_cffi | `chrome99_android`、`chrome131_android`、`safari*_ios` |
+| tls_client | 多为 App 的 OkHttp 栈（`okhttp4_android_*`、`nike_*`、`zalando_*`）|
+| utls | `Android_11_OkHttp`、`IOS_11_1/12_1/13/14` |
+
+`firefox-mobile 115` 与 `chrome-mobile 134` 所在的段内一条 golden 都没有 ——
+不是判段维度没抓到，而是没有任何来源观测过那个区间。补齐需要 Android 真机或
+模拟器实采。
 四个开源库里的 android 变体（okhttp4_android_*、nike_android_mobile 等）绝大多数
 是 **App 的 OkHttp 栈**而非浏览器，不能拿来服务浏览器 UA。
 
