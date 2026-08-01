@@ -5,7 +5,13 @@ UA。出站代理浏览器流量时，需要按 UA 挑一个匹配的指纹去�
 "UA 说是 Chrome 150、TLS 却是别的形态"的 split-brain，比不伪装更容易被判。
 
 **版本相近 ≠ 指纹相同**，所以不能简单取最近版本。实测同一品牌的版本会被压缩成
-若干「指纹段」（Chrome 55 个版本 → 22 段），段内任意版本指纹一致、跨段则不同。
+若干「指纹段」，段内任意版本指纹一致、跨段则不同。
+
+**判"同段"必须在同一个来源库内比**。实测同一版本在不同库里的指纹就不一致：
+    Firefox133  wreq vs tls_client   差 2 项
+    Firefox135  wreq vs curl_cffi    差 1 项
+    Firefox120  tls_client vs utls   差 2 项
+各库抓包的环境、时间、feature 配置不同，跨库比出来的"相同/不同"没有意义。
 映射因此分三档，并且**永远显式告知用的是哪一档**：
 
     exact     该主版本有直接对应的 profile
@@ -129,15 +135,21 @@ class UAMapper:
             return {"profile": rec["id"], "confidence": "exact",
                     "brand": brand, "version": ver, "note": ""}
 
-        # 找上下最近的两个已知版本；若二者指纹相同，说明 ver 落在同一段内
+        # 找上下最近的两个已知版本。判"落在同一指纹段内"有两个条件，缺一不可：
+        #   1. 两端指纹相同
+        #   2. **两端出自同一个来源库** —— 跨库的"相同"是巧合，跨库的"不同"
+        #      也可能只是库间建模差异，都不能作为版本演进的证据
         lower = max((v for v in table if v < ver), default=None)
         upper = min((v for v in table if v > ver), default=None)
         if lower is not None and upper is not None:
             klo, khi = table[lower][1], table[upper][1]
-            if klo == khi:
-                return {"profile": table[upper][0]["id"], "confidence": "same-seg",
+            rlo, rhi = table[lower][0], table[upper][0]
+            srcs_lo = {a.split(":", 1)[0] for a in [rlo["id"]] + rlo.get("aliases", [])}
+            srcs_hi = {a.split(":", 1)[0] for a in [rhi["id"]] + rhi.get("aliases", [])}
+            if klo == khi and (srcs_lo & srcs_hi):
+                return {"profile": rhi["id"], "confidence": "same-seg",
                         "brand": brand, "version": ver,
-                        "note": f"{lower}..{upper} 同一指纹段，可安全替代"}
+                        "note": f"{lower}..{upper} 同库同指纹段，可安全替代"}
 
         near = upper if upper is not None else lower
         if near is None:

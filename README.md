@@ -104,6 +104,7 @@ python -m spec.test_c_parity           # C 实现与 Python 逐字符一致
 python -m spec.test_lua_parity         # Lua FFI 绑定与 Python/C 一致
 python -m spec.test_ua_mapping         # UA 映射质量（真实生产 UA 分布为测试集）
 python -m spec.test_alias_lookup       # 禁止"只比 id 不查 aliases"的查找
+python -m spec.test_cross_source       # 跨库分歧规模 + same-seg 仅同库成立
 python -m spec.test_quic               # QUIC：RFC 9001 官方向量 + 真机端到端
 .venv-wreq/bin/python -m spec.test_h3  # HTTP/3：GREASE 剔除 + 跨连接稳定性
 python -m spec.test_cf_discrimination  # 指纹是否被区别对待（三臂对照）
@@ -221,9 +222,10 @@ fallback     7.4%     ← 跨指纹段，有风险但有同品牌依据
 unparsed     8.5%     ← 非浏览器 UA（扫描器等）
 ```
 
-剩余 fallback 集中在两个真实缺口：Firefox 124–127 与 Edge 123–126。这两段在**所有
-四个开源库里都没有**，且两端分属不同指纹段（Firefox 123↔128 差 ciphers/扩展/
-psk_modes 三项），不能安全替代。补齐需要下载对应版本的真机浏览器。
+剩余 fallback 集中在 Firefox 124–127 与 Edge 123–126，这两段在**四个开源库里
+都没有**（已逐库核对变体清单，不是采集遗漏）。
+
+但**不能据此断言"中间必有指纹变更点"**：见下节，那个判断曾建立在跨库比较上。
 
 顺带厘清了流量构成：**浏览器只占全部请求的 4.9%**（Codex 47%、claude-cli 15.6%、
 OpenAI SDK 12.2%、Go client 10.9%）。只有浏览器流量需要 TLS 指纹伪装，其余不需要
@@ -235,6 +237,34 @@ OpenAI SDK 12.2%、Go client 10.9%）。只有浏览器流量需要 TLS 指纹�
 样本，而是记录"这条实采指纹经验证同时适用哪些版本"：surf 源码写明
 `HelloChrome_150 = HelloChrome_144 + 前置 ML-DSA`，据此推导的 Chrome150 与真机
 Chrome151 实测 **13 字段差异为 0**。该标注只在有硬证据时添加。
+
+## 跨库比较不可作为版本演进的证据
+
+实测同一版本在不同来源库里的指纹就不一致：
+
+```
+Firefox133  wreq vs tls_client   差 2 项（extensions_ordered, psk_modes）
+Firefox135  wreq vs curl_cffi    差 1 项（record_size_limit）
+Firefox120  tls_client vs utls   差 2 项
+```
+
+规模：**29 个版本被多库同时收录，其中 17 个存在跨库分歧（59%）**。各库抓包的
+环境、时间、feature 配置不同，跨库比出来的"相同/不同"都没有意义。
+
+这条曾导致真实误判：先前拿 `tls_client:firefox_123` 与 `wreq:Firefox128` 比较，
+得出"Firefox 123↔128 差 3 项、中间必有变更点"，进而把 Firefox 124–127 判为
+"不能安全替代的缺口"——而那个差异有多少来自版本演进、多少来自库间建模差异，
+根本无从区分。
+
+正确做法是**在同一个库内部**看版本演进，结论完全不同：
+
+```
+wreq 内部：      135 → 136 → 139 → 142 … → 151   全部相同（16 个版本一个指纹）
+tls_client 内部： 102–108 相同；108→110→117→120→123 每档都变
+```
+
+`uamap` 的 `same-seg` 判定因此要求两端**既指纹相同、又出自同一来源库**，
+由 `spec/test_cross_source.py` 断言。
 
 ## 关键方法论
 
