@@ -153,6 +153,23 @@ padding 就跟着变——safari184/155/260_ios 在 HRR 后 padding 直接消失
 | Safari 回 `SSLV3_ALERT_CERTIFICATE_UNKNOWN`（CA 已注入钥匙串） | 观测点只发 leaf 没发链。Firefox 能用库里的 CA 补全，Safari 不会，须发 `fullchain.pem` |
 | `security add-trusted-cert` 卡住 | 实测要 8s、偶发更久（曾撞 60s 超时）；且 CA 已在钥匙串时重复添加会触发确认流程。须放宽超时 + 先查再加 |
 
+## 与同类工具的字段交叉验证
+
+拿 `0x676e67/pingly`（同作者的 TLS/HTTP 分析服务端）的字段定义与我们的
+`clienthello.py` 对照，检查解析器自身有没有盲区：
+
+| pingly 解析的 | 我们 | 结论 |
+|---|---|---|
+| cipher_suites / extensions / compression / session_id / tls_version | ✅ 有 | — |
+| PskKeyExchangeModes / ECH / cert_compression / ALPN | ✅ 有 | — |
+| **KeyShare 组列表** | ❌ 判据里没有 | **实测不增加区分度**：加入后唯一指纹仍是 59（+0） |
+| StatusRequest 内容、OidFilter | ❌ 没解 | 服务端侧扩展，对客户端识别无用 |
+| **TCP 层**（ja4t / satori / TTL 跳数 / MTU） | ❌ 整层没有 | 结构性缺口，见下 |
+| **HTTP/3 与 QUIC** | ❌ 整层没有 | 结构性缺口，见下 |
+
+key_share 那条是有价值的阴性结果：它证明现有 13 字段判据**已足够区分当前全部
+59 个指纹**，不必为此扩判据。但这是在当前样本上的结论，新增来源后应重测。
+
 ## 已知缺口
 
 - **chrome124 不可用**：服务端选 `X25519Kyber768Draft00 (0x6399)`，被 ML-KEM 取代的
@@ -163,6 +180,12 @@ padding 就跟着变——safari184/155/260_ios 在 HRR 后 padding 直接消失
   **均为非浏览器 app profile，浏览器侧无缺口**（四个真机浏览器全部三层齐全）。
 - **CF 挑战未验证**：claude.ai 根路径本就不设防（三种指纹结果一致、无 `cf-mitigated`），
   要验 managed challenge 需要一个真正会触发的端点。
+- **TCP 层指纹整层缺失**（ja4t、TCP options 顺序、TTL 推断跳数、MTU）。我们的观测点
+  用普通 socket，拿不到 TTL/窗口等 IP/TCP 头字段——需要 raw socket 或 eBPF。同类
+  工具 pingly 有 `src/tcp/fingerprint.rs` 覆盖这层。
+- **HTTP/3 与 QUIC 整层缺失**：现有观测点只做 TCP 上的 TLS，QUIC 走 UDP 且 TLS
+  握手内嵌在 QUIC 帧里，需要另一套观测点。`srcaudit` 报出的 `0x0039`/`0xffa5`
+  （quic_transport_parameters）盲区即源于此。
 - **12 个扩展从未观测到**（`srcaudit` 实测）：BoringSSL 声明 31 个，我们见过 19 个。
   其中 `0x002a early_data`（0-RTT）、`0x0039`/`0xffa5`（QUIC）是真实会遇到的，仍是
   识别盲区。`0x002c cookie` 已试图触发：HRR 确实发生了，但 Go 服务端未下发 cookie
