@@ -118,7 +118,14 @@ function _M.identify(record, transport)
     }
 end
 
-local conf_names = { [0] = "exact", [1] = "same-seg", [2] = "fallback" }
+-- C 侧的 confidence 取值：0/1/2 是可用档，负值表示"没给 profile"但原因不同。
+-- **NULL 返回时也要把 confidence 带出去**：fallback（存在跨段的最近版本，只是
+-- 严格模式不许用，该记进补录清单）与 no-brand（表里根本没这个品牌）是两件事，
+-- 合并成一个 nil 会让调用方分不清，也让差分门禁把两侧判成不一致。
+local conf_names = {
+    [0] = "exact", [1] = "same-seg", [2] = "fallback",
+    [-1] = "no-brand", [-2] = "no-version",
+}
 local conf_buf = ffi.new("int[1]")
 
 --- 按 UA 的品牌与主版本选出该用的指纹（生产主入口）。
@@ -131,13 +138,18 @@ function _M.by_ua(brand, version)
     if type(brand) ~= "string" or type(version) ~= "number" then
         return nil, "brand/version 类型错误"
     end
+    conf_buf[0] = -1
     local p = lib.tlsfp_lookup_ua(brand, version, conf_buf)
-    if p == nil then return nil, "该品牌/版本无可用 profile" end
+    local conf = conf_names[conf_buf[0]] or "unknown"
+    if p == nil then
+        -- 第三个返回值给出 confidence：调用方据此区分"该补录"与"本就没有"
+        return nil, "该品牌/版本无可用 profile", conf
+    end
     return {
         id   = ffi.string(p.id),
         ja4  = ffi.string(p.ja4),
         h2   = p.h2_akamai ~= nil and ffi.string(p.h2_akamai) or nil,
-        confidence = conf_names[conf_buf[0]] or "unknown",
+        confidence = conf,
     }
 end
 
