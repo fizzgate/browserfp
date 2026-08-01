@@ -128,7 +128,13 @@ def build():
                                  "settings": h3.get("settings"),
                                  "pseudo_header_order": h3.get("pseudo_header_order"),
                                  "has_grease_setting": h3.get("has_grease_setting")}
+            # 派生条目把 h2 存在同一份 golden 里（derived_mobile.json 的
+            # entry["h2"]），没有独立的 h2 文件 —— 只查 h2_data 会让派生 profile
+            # 永远缺 h2 层，而只有 TLS 层的 profile 在生产里用不完整：伪装浏览器
+            # 流量必然要发 HTTP/2，没有 SETTINGS 帧一看就露。
             h2 = h2_data.get(name)
+            if h2 is None and isinstance(entry, dict):
+                h2 = entry.get("h2")
             if h2 and not rec["h2"]:
                 rec["h2"] = {
                     "akamai_fingerprint": h2.get("akamai_fingerprint"),

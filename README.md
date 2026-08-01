@@ -12,7 +12,7 @@
 | 唯一指纹 | **80**（来自 315 个 target 名，按 13 个确定性字段去重） |
 | 连接形态 | 首连 61 + 会话恢复 15 + QUIC 1 |
 | 来源 | 开源表 67 + 真机采集 12 |
-| 含 h2 层 | 55/78；含 h3 层 1（QUIC 形态）|
+| 含 h2 层 | 56/78；含 h3 层 1（QUIC 形态）|
 | 重建门禁 | 77/77 |
 | 可用性门禁 | 66/68（34 profile × 2 真实站点） |
 
@@ -288,6 +288,13 @@ safari-mobile         0      0
 `firefox-mobile 145–153` 那一段没有任何实采 golden，但**桌面有**，而源码明确
 指出该区间两平台只差一处（Android 不发 SCT）。`oracle/derive.py` 据此从桌面
 golden 派生移动端形态。
+
+**h2 层也要一并派生**。只有 TLS 层的 profile 在生产里用不完整 —— 伪装浏览器
+流量必然要发 HTTP/2，没有 SETTINGS 帧一看就露。实测 Android Firefox 的 h2 与
+桌面不同（HEADER_TABLE_SIZE 65536→4096、INITIAL_WINDOW_SIZE 131072→32768，
+移动端用更小的缓冲区），其余字段完全一致，所以整体取锚点的移动端 h2 而不是
+自己编一组数值。派生结果做过端到端验证：对 cloudflare.com 与 example.com
+TLS1.3 + h2 都通（HTTP 301 / 200）。
 
 这不算"造样本"（README 上文的 covers_versions 一节讲过不塞推导样本），区别在于
 **规则先在有实采 golden 的锚点版本上验证过**：

@@ -37,6 +37,28 @@ MLKEM_GROUP = 0x11EC
 ANCHOR = {"firefox-mobile": ("wreq:Firefox135", "wreq:FirefoxAndroid135", "135")}
 
 
+def h2_delta(brand, registry):
+    """从锚点学出移动端 h2 层与桌面的差异。
+
+    **h2 不能照搬桌面**：实测 Android Firefox 的 SETTINGS 与桌面不同 ——
+    HEADER_TABLE_SIZE 65536→4096、INITIAL_WINDOW_SIZE 131072→32768（移动端用
+    更小的缓冲区），其余字段（priorities / pseudo_header_order / window_update）
+    完全一致。
+
+    只有 TLS 层的 profile 在生产里用不完整：伪装浏览器流量必然要发 HTTP/2，
+    没有 h2 层就没法构造 SETTINGS 帧，识别方一看就露。
+
+    返回锚点移动端那份 h2（整体替换而非逐字段打补丁）—— 差异集中在 SETTINGS
+    的具体数值上，没有"按版本演进"的规律可循，照搬锚点的移动端形态比自己编
+    一组数值诚实。
+    """
+    if brand not in ANCHOR:
+        return None
+    _, mob_alias, _ = ANCHOR[brand]
+    mob = _find(registry, mob_alias)
+    return (mob or {}).get("h2") or None
+
+
 def _load_registry():
     with open(REGISTRY) as f:
         return json.load(f)
@@ -157,11 +179,13 @@ def main(argv):
         return 1
 
     tls, delta = derive(brand, version, registry, src_alias)
+    h2 = h2_delta(brand, registry)
     print(f"\n从 {src_alias} 派生 {brand} {version}")
     print(f"  平台差异: {[k for k, v in delta.items() if v] or '无（两平台同形态）'}")
     print(f"  ja4     : {tls.get('ja4')}  （已按删减后的字段重算）")
     print(f"  扩展数  : {len(tls.get('extensions_ordered') or [])}")
     print(f"  curves  : {[hex(c) for c in (tls.get('curves') or [])]}")
+    print(f"  h2 层    : {'取自锚点移动端 ' + ANCHOR[brand][1] if h2 else '无'}")
 
     if "--write" not in argv:
         print("\n试算模式，未落盘。加 --write 才写入 "
@@ -175,6 +199,8 @@ def main(argv):
             "derived_from": src_alias,
             "delta": [k for k, v in delta.items() if v],
             "fingerprint": tls,
+            "h2": h2,
+            "h2_from": ANCHOR[brand][1] if h2 else None,
         }})
     print(f"\n落盘 → {os.path.normpath(OUT)}  共 {total} 条，本次更新 {changed} 条")
     return 0

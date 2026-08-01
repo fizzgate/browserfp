@@ -4683,7 +4683,35 @@
       "derived:firefox-mobile-153"
     ],
     "default_config": true,
-    "h2": null,
+    "h2": {
+      "akamai_fingerprint": "1:4096,2:0,4:32768,5:16384|12517377|0|m,p,a,s",
+      "priorities": [],
+      "pseudo_header_order": [
+        ":method",
+        ":path",
+        ":authority",
+        ":scheme"
+      ],
+      "settings": [
+        [
+          1,
+          4096
+        ],
+        [
+          2,
+          0
+        ],
+        [
+          4,
+          32768
+        ],
+        [
+          5,
+          16384
+        ]
+      ],
+      "window_update": 12517377
+    },
     "h3": null,
     "id": "derived:firefox-mobile-153",
     "mode": "initial",

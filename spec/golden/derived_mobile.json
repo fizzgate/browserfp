@@ -146,6 +146,36 @@
         771
       ]
     },
+    "h2": {
+      "akamai_fingerprint": "1:4096,2:0,4:32768,5:16384|12517377|0|m,p,a,s",
+      "priorities": [],
+      "pseudo_header_order": [
+        ":method",
+        ":path",
+        ":authority",
+        ":scheme"
+      ],
+      "settings": [
+        [
+          1,
+          4096
+        ],
+        [
+          2,
+          0
+        ],
+        [
+          4,
+          32768
+        ],
+        [
+          5,
+          16384
+        ]
+      ],
+      "window_update": 12517377
+    },
+    "h2_from": "wreq:FirefoxAndroid135",
     "version": "firefox-mobile 153"
   }
 }
