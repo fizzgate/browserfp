@@ -478,17 +478,32 @@ def alps_enabled(tag):
     相反（源码里 M126~133 全是 DISABLED，四家实采却显示 M132+ 已改发新值），
     是 Finch 在运行期覆盖的，静态分析拿不到。
     """
+    # **features.cc 不存在等同于该 feature 不存在**，都返回 False。
+    # 2018 年的 Chromium（M70 及更早）还没有 net/base/features.cc，抽取器若在
+    # 这里返回 None，就会与后来版本的 False 判成不同值，凭空切出一个段 ——
+    # 实测 chrome 71 正是这么被从 70 那边切开的，而两者真实差异只有 channel_id。
     try:
         d = _get(f"{JSD}/chromium/chromium@{tag}/net/base/features.cc",
                  os.path.join(CACHE, tag, "features.cc"))
     except Exception:
-        return None
+        return False
     if "kAlpsForHttp2" not in d:
         return False
     return bool(feature_default(tag, "kAlpsForHttp2"))
 
 
-def chrome_ech(tag, platform="desktop"):
+# kEncryptedClientHello 首次出现的主版本。早于它的版本，features.cc 里没有该
+# 符号不是"已转正为默认行为"，而是**这个功能还不存在** —— 两者方向相反，混在
+# 一起会把 2018 年的 Chrome 判成发 ECH。实测 M71/M72 的 features.cc 只有 700
+# 多字节、通篇没有 ECH 概念，却因"消失即转正"被判成 True，凭空把 chrome 71 从
+# 段 70 切了出去。
+# 实测边界：M96 的 features.cc 里没有该符号、M97 有（逐版本查过 85-99）。
+# **这个下界必须实测而不是估**：第一版按 95 猜，把 91-94 从原本可替代的段里
+# 切了出来，缺漏反而从 5 涨到 11。
+ECH_FEATURE_SINCE = 97
+
+
+def chrome_ech(tag, platform="desktop", major=None):
     """是否默认发 encrypted_client_hello(0xfe0d)。
 
     由 kEncryptedClientHello 决定，实测 M119 起翻成 ENABLED（99-117 都是
@@ -512,8 +527,13 @@ def chrome_ech(tag, platform="desktop"):
         d = _get(f"{JSD}/chromium/chromium@{tag}/net/base/features.cc",
                  os.path.join(CACHE, tag, "features.cc"))
     except Exception:
-        return None
+        # features.cc 不存在 = 2018 年及更早，那时 ECH 连草案都还没有。
+        # 与"feature 消失"（已转正为默认行为）是相反的两件事，不能都当 True。
+        return False
     if "kEncryptedClientHello" not in d:
+        # 只有该 feature 曾经存在过的年代，"消失"才意味着转正
+        if major is not None and major < ECH_FEATURE_SINCE:
+            return False
         return True          # 已转正为默认行为
     return bool(feature_default(tag, "kEncryptedClientHello", platform))
 
@@ -577,7 +597,7 @@ def extract(major, platform="desktop"):
         "cipher_excludes": cipher_excludes,
         "channel_id": channel_id,
         "alps": alps_enabled(tag),
-        "ech": chrome_ech(tag, platform),
+        "ech": chrome_ech(tag, platform, major),
         "ext_order": ext_order,
         "tag": tag,
         "boringssl": rev,
