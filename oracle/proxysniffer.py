@@ -15,6 +15,15 @@
 隧道里第一段字节就是带 SNI 的完整 ClientHello。浏览器只需一个 pref/命令行参数，
 关掉即恢复，不留痕迹。
 
+**Firefox 的 headless 与有头指纹相同**（实测 153.0.1，两种模式采到的
+t13i1616h2_86a278354501_3cbfd9057e0d 逐字段一致），所以容器里用 MOZ_HEADLESS=1
+采 Firefox 是可靠的。**这个结论不能外推到 Chromium**——项目此前就是因为
+"headless Chrome 的 TLS 栈配置可能与有头不同"才坚持有头采集（见
+oracle/capture_browser.py），Chrome 侧没做过同样的对照。
+
+容器内的浏览器要连宿主的观测点时，ProxySniffer 必须绑 0.0.0.0（默认 127.0.0.1
+容器连不进来），容器内则用 host.docker.internal 访问宿主。
+
 注意采到的是"经代理时"的形态。理论上浏览器可能因走代理而调整握手（例如放弃
 ECH），比对 golden 时若见到 ECH 相关差异，先怀疑这一点。
 
