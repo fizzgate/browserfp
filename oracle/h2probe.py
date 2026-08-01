@@ -9,9 +9,11 @@ SETTINGS、头序。L1(sniffer.py) 只覆盖第一层。只对 TLS 不对 h2，�
 例  1:65536,2:0,4:6291456,6:262144|15663105|0|m,a,s,p
 
 与 L1 不同，这里必须完成真握手才能拿到 h2 帧，所以需要自签证书，客户端也必须
-跳过证书校验（curl_cffi 用 SSL_VERIFYPEER=0，Chromium 用
---ignore-certificate-errors）。Firefox/Safari 不吃命令行开关，L2 采不到——
-这是本观测点的已知边界，不是 bug。
+信任它。三种客户端三条路径，都已打通：
+  · curl_cffi  SSL_VERIFYPEER=0
+  · Chromium   --ignore-certificate-errors（151 起还须 -spki-list）
+  · Firefox    certutil 往临时 profile 的 cert9.db 注入 CA
+  · Safari     注入用户钥匙串，采完即删（h2collect.py:_capture_safari）
 """
 
 import os

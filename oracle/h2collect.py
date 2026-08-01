@@ -82,9 +82,9 @@ def make_firefox_profile(cert_path=None):
     """建一个信任观测点自签 CA 的临时 Firefox profile。
 
     Firefox 不吃 --ignore-certificate-errors 之类的命令行开关，只认 profile 里
-    的 NSS 库。往**临时 profile** 注入信任，不碰用户的 profile、也不碰系统
-    钥匙串——Safari 走系统钥匙串，改那个会影响全机所有程序，所以本模块不采
-    Safari 的 L2。
+    的 NSS 库。往**临时 profile** 注入信任，不碰用户的 profile 也不碰钥匙串。
+    Safari 没有独立证书库，走的是另一条路径（_capture_safari：注入用户钥匙串
+    并即时删除），需要 --safari 显式开启。
     """
     cu = certutil_path()
     if not cu:

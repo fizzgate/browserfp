@@ -92,7 +92,9 @@ SNI"——cloudflare.com 有默认证书不介意，claude.ai 多租户直接 ha
 | `--host-resolver-rules` 在 Chrome 151 完全失效 | headless/有头 × 裸规则/显式端口/关 DoH/`--host-rules` 六种组合实测全不生效，只能直连 IP 采集 |
 | h2probe 只能 TLS 1.2 | macOS 系统 Python 3.9 链接 LibreSSL 2.8.3，不支持 TLS 1.3 |
 | ML-KEM `decapsulate` 报 Invalid ciphertext | `encapsulate()` 返回 `(shared_secret, ciphertext)`，不是 `(ct, ss)` |
-| 单独采 Safari 后覆盖矩阵少算 | `browsers.py` 直接写 results 清空了其他样本，须读回合并 |
+| 单独采 Safari 后覆盖矩阵少算 | 直接写 results 清空了其他样本，须读回合并。**同类 bug 出现过两次**（`browsers.py` 与 `h2collect.py`），少算样本不报错，是纯假绿 |
+| Safari 回 `SSLV3_ALERT_CERTIFICATE_UNKNOWN`（CA 已注入钥匙串） | 观测点只发 leaf 没发链。Firefox 能用库里的 CA 补全，Safari 不会，须发 `fullchain.pem` |
+| `security add-trusted-cert` 卡住 | 实测要 8s、偶发更久（曾撞 60s 超时）；且 CA 已在钥匙串时重复添加会触发确认流程。须放宽超时 + 先查再加 |
 
 ## 已知缺口
 
@@ -100,10 +102,24 @@ SNI"——cloudflare.com 有默认证书不介意，claude.ai 多租户直接 ha
   废弃草案，cryptography 未实现。刻意不加豁免表，让它每次都报出来。
 - **5 个纯 TLS1.2 profile 未覆盖**：cloudscraper / confirmed_android / mesh_android_2 /
   okhttp4_android_7 / okhttp4_android_8。参考实现只做 TLS 1.3。
-- **4 个缺 h2 层**：cloudscraper / mesh_android_2 / mms_ios / mms_ios_2。
-- **Safari 的 L2 未采**：Safari 走系统钥匙串，注入信任会影响全机所有程序，未做。
+- **4 个缺 h2 层**：cloudscraper / mesh_android_2 / mms_ios / mms_ios_2 ——
+  **均为非浏览器 app profile，浏览器侧无缺口**（四个真机浏览器全部三层齐全）。
 - **CF 挑战未验证**：claude.ai 根路径本就不设防（三种指纹结果一致、无 `cf-mitigated`），
   要验 managed challenge 需要一个真正会触发的端点。
+
+## 真机采集的四条信任路径
+
+L2 必须完成真握手，所以客户端得信任观测点的自签证书。四种客户端四条路，都已打通：
+
+| 客户端 | 方式 | 副作用 |
+|---|---|---|
+| curl_cffi | `SSL_VERIFYPEER=0` | 无 |
+| Chromium 系 | `--ignore-certificate-errors`（151 起还须 `-spki-list`） | 无 |
+| Firefox | `certutil` 注入**临时 profile** 的 cert9.db | 无（临时目录，用完删） |
+| Safari | 注入**用户**钥匙串，`finally` 里即删并核对残留 | 改钥匙串 + 弹真实窗口，故设 `--safari` 显式开关 |
+
+Safari 那条是唯一有副作用的，默认不跑。观测点必须发**完整链**（`fullchain.pem`）：
+只发 leaf 时 Safari 回 `CERTIFICATE_UNKNOWN`——Firefox 能用库里的 CA 补全，Safari 不会。
 
 ## 环境依赖
 
