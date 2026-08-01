@@ -112,6 +112,8 @@ class Matcher:
             "aliases": rec.get("aliases", []),
             "h2": rec.get("h2", {}).get("akamai_fingerprint") if rec.get("h2") else None,
             "h3": rec.get("h3", {}).get("h3_text") if rec.get("h3") else None,
+            # False 表示该形态需显式 feature flag 才出现，不是浏览器默认行为
+            "default_config": rec.get("default_config", True),
         }
 
 

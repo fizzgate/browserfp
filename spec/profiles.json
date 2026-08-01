@@ -40,6 +40,7 @@
       "utls:Chrome_106_Shuffle",
       "utls:Edge_106"
     ],
+    "default_config": true,
     "h2": {
       "akamai_fingerprint": "1:65536,3:1000,4:6291456,6:262144|15663105|0|m,a,s,p",
       "priorities": [],
@@ -224,6 +225,7 @@
       "wreq:Edge122",
       "utls:Chrome_120"
     ],
+    "default_config": true,
     "h2": {
       "akamai_fingerprint": "1:65536,2:0,4:6291456,6:262144|15663105|0|m,a,s,p",
       "priorities": [],
@@ -409,6 +411,7 @@
       "wreq:Chrome119",
       "wreq:Chrome120"
     ],
+    "default_config": true,
     "h2": {
       "akamai_fingerprint": "1:65536,2:0,4:6291456,6:262144|15663105|0|m,a,s,p",
       "priorities": [],
@@ -595,6 +598,7 @@
       "wreq:Edge127",
       "utls:Chrome_120_PQ"
     ],
+    "default_config": true,
     "h2": {
       "akamai_fingerprint": "1:65536,2:0,4:6291456,6:262144|15663105|0|m,a,s,p",
       "priorities": [],
@@ -794,6 +798,7 @@
       "wreq:Opera131",
       "utls:Chrome_131"
     ],
+    "default_config": true,
     "h2": {
       "akamai_fingerprint": "1:65536,2:0,4:6291456,6:262144|15663105|0|m,a,s,p",
       "priorities": [],
@@ -972,6 +977,7 @@
     "aliases": [
       "curl_cffi:firefox133"
     ],
+    "default_config": true,
     "h2": {
       "akamai_fingerprint": "1:65536,2:0,4:131072,5:16384|12517377|0|m,p,a,s",
       "priorities": [],
@@ -1155,6 +1161,7 @@
     "aliases": [
       "curl_cffi:firefox135"
     ],
+    "default_config": true,
     "h2": {
       "akamai_fingerprint": "1:65536,2:0,4:131072,5:16384|12517377|0|m,p,a,s",
       "priorities": [],
@@ -1342,6 +1349,7 @@
       "curl_cffi:safari153",
       "utls:IOS_14"
     ],
+    "default_config": true,
     "h2": {
       "akamai_fingerprint": "4:4194304,3:100|10485760|0|m,s,p,a",
       "priorities": [],
@@ -1551,6 +1559,7 @@
       "wreq:SafariIos18_1_1",
       "utls:Safari_16_0"
     ],
+    "default_config": true,
     "h2": {
       "akamai_fingerprint": "4:4194304,3:100|10485760|0|m,s,p,a",
       "priorities": [],
@@ -1740,6 +1749,7 @@
       "wreq:Safari26_3",
       "wreq:Safari26_4"
     ],
+    "default_config": true,
     "h2": {
       "akamai_fingerprint": "2:0,3:100,4:2097152,8:1,9:1|10420225|0|m,s,a,p",
       "priorities": [],
@@ -1928,6 +1938,7 @@
     "aliases": [
       "curl_cffi:safari260"
     ],
+    "default_config": true,
     "h2": {
       "akamai_fingerprint": "2:0,3:100,4:2097152,9:1|10420225|0|m,s,a,p",
       "priorities": [],
@@ -2111,6 +2122,7 @@
     "aliases": [
       "curl_cffi:safari260_ios"
     ],
+    "default_config": true,
     "h2": {
       "akamai_fingerprint": "2:0,3:100,4:2097152,9:1|10420225|0|m,s,a,p",
       "priorities": [],
@@ -2297,6 +2309,7 @@
       "curl_cffi:tor145",
       "wreq:Firefox128"
     ],
+    "default_config": true,
     "h2": {
       "akamai_fingerprint": "1:65536,2:0,4:131072,5:16384|12517377|0|m,p,a,s",
       "priorities": [],
@@ -2469,6 +2482,7 @@
       "curl_cffi_psk:edge101",
       "curl_cffi_psk:edge99"
     ],
+    "default_config": true,
     "h2": {
       "akamai_fingerprint": "1:65536,3:1000,4:6291456,6:262144|15663105|0|m,a,s,p",
       "priorities": [],
@@ -2649,6 +2663,7 @@
       "curl_cffi_psk:chrome123",
       "curl_cffi_psk:chrome131_android"
     ],
+    "default_config": true,
     "h2": {
       "akamai_fingerprint": "1:65536,2:0,4:6291456,6:262144|15663105|0|m,a,s,p",
       "priorities": [],
@@ -2829,6 +2844,7 @@
     "aliases": [
       "curl_cffi_psk:chrome124"
     ],
+    "default_config": true,
     "h2": {
       "akamai_fingerprint": "1:65536,2:0,4:6291456,6:262144|15663105|0|m,a,s,p",
       "priorities": [],
@@ -3010,6 +3026,7 @@
     "aliases": [
       "curl_cffi_psk:chrome131"
     ],
+    "default_config": true,
     "h2": {
       "akamai_fingerprint": "1:65536,2:0,4:6291456,6:262144|15663105|0|m,a,s,p",
       "priorities": [],
@@ -3191,6 +3208,7 @@
     "aliases": [
       "curl_cffi_psk:firefox133"
     ],
+    "default_config": true,
     "h2": {
       "akamai_fingerprint": "1:65536,2:0,4:131072,5:16384|12517377|0|m,p,a,s",
       "priorities": [],
@@ -3377,6 +3395,7 @@
     "aliases": [
       "curl_cffi_psk:firefox135"
     ],
+    "default_config": true,
     "h2": {
       "akamai_fingerprint": "1:65536,2:0,4:131072,5:16384|12517377|0|m,p,a,s",
       "priorities": [],
@@ -3566,6 +3585,7 @@
     "aliases": [
       "curl_cffi_psk:safari153"
     ],
+    "default_config": true,
     "h2": {
       "akamai_fingerprint": "4:4194304,3:100|10485760|0|m,s,p,a",
       "priorities": [],
@@ -3752,6 +3772,7 @@
       "curl_cffi_psk:safari170",
       "curl_cffi_psk:safari172_ios"
     ],
+    "default_config": true,
     "h2": {
       "akamai_fingerprint": "4:4194304,3:100|10485760|0|m,s,p,a",
       "priorities": [],
@@ -3932,6 +3953,7 @@
       "curl_cffi_psk:safari184",
       "curl_cffi_psk:safari184_ios"
     ],
+    "default_config": true,
     "h2": {
       "akamai_fingerprint": "2:0,3:100,4:2097152,8:1,9:1|10420225|0|m,s,a,p",
       "priorities": [],
@@ -4120,6 +4142,7 @@
     "aliases": [
       "curl_cffi_psk:safari260"
     ],
+    "default_config": true,
     "h2": {
       "akamai_fingerprint": "2:0,3:100,4:2097152,9:1|10420225|0|m,s,a,p",
       "priorities": [],
@@ -4306,6 +4329,7 @@
     "aliases": [
       "curl_cffi_psk:safari260_ios"
     ],
+    "default_config": true,
     "h2": {
       "akamai_fingerprint": "2:0,3:100,4:2097152,9:1|10420225|0|m,s,a,p",
       "priorities": [],
@@ -4491,6 +4515,7 @@
     "aliases": [
       "curl_cffi_psk:tor145"
     ],
+    "default_config": true,
     "h2": {
       "akamai_fingerprint": "1:65536,2:0,4:131072,5:16384|12517377|0|m,p,a,s",
       "priorities": [],
@@ -4657,6 +4682,7 @@
     "aliases": [
       "linux:chromium-linux"
     ],
+    "default_config": true,
     "h2": null,
     "h3": null,
     "id": "linux:chromium-linux",
@@ -4812,6 +4838,7 @@
     "aliases": [
       "linux:chromium-linux-alps-new"
     ],
+    "default_config": false,
     "h2": null,
     "h3": null,
     "id": "linux:chromium-linux-alps-new",
@@ -5001,6 +5028,7 @@
       "utls:Chrome_133",
       "real:chromium"
     ],
+    "default_config": true,
     "h2": {
       "akamai_fingerprint": "1:65536,2:0,4:6291456,6:262144|15663105|0|m,a,s,p",
       "priorities": [],
@@ -5180,6 +5208,7 @@
       "real:chrome",
       "real:edge"
     ],
+    "default_config": true,
     "h2": {
       "akamai_fingerprint": "1:65536,2:0,4:6291456,6:262144|15663105|0|m,a,s,p",
       "priorities": [],
@@ -5375,6 +5404,7 @@
       "wreq:Firefox151",
       "real:firefox"
     ],
+    "default_config": true,
     "h2": {
       "akamai_fingerprint": "1:65536,2:0,4:131072,5:16384|12517377|0|m,p,a,s",
       "priorities": [],
@@ -5570,6 +5600,7 @@
       "utls:Safari_26_3",
       "real:safari"
     ],
+    "default_config": true,
     "h2": {
       "akamai_fingerprint": "2:0,3:100,4:2097152,9:1|10420225|0|m,s,a,p",
       "priorities": [],
@@ -5754,6 +5785,7 @@
       "curl_cffi_psk:chrome136",
       "real_psk:chromium"
     ],
+    "default_config": true,
     "h2": {
       "akamai_fingerprint": "1:65536,2:0,4:6291456,6:262144|15663105|0|m,a,s,p",
       "priorities": [],
@@ -5936,6 +5968,7 @@
       "real_psk:chrome",
       "real_psk:edge"
     ],
+    "default_config": true,
     "h2": {
       "akamai_fingerprint": "1:65536,2:0,4:6291456,6:262144|15663105|0|m,a,s,p",
       "priorities": [],
@@ -6121,6 +6154,7 @@
     "aliases": [
       "real_psk:firefox"
     ],
+    "default_config": true,
     "h2": {
       "akamai_fingerprint": "1:65536,2:0,4:131072,5:16384|12517377|0|m,p,a,s",
       "priorities": [],
@@ -6311,6 +6345,7 @@
       "real_quic:chromium",
       "real_quic:edge"
     ],
+    "default_config": true,
     "h2": null,
     "h3": {
       "h3_text": "1:65536,6:262144,7:100,51:1|m,a,s,p",
@@ -6433,6 +6468,7 @@
     "aliases": [
       "tls_client:chrome_133"
     ],
+    "default_config": true,
     "h2": {
       "akamai_fingerprint": "1:65536,2:0,4:6291456,6:262144|15663105|0|m,a,s,p",
       "priorities": [],
@@ -6610,6 +6646,7 @@
     "aliases": [
       "tls_client:chrome_146"
     ],
+    "default_config": true,
     "h2": {
       "akamai_fingerprint": "1:65536,2:0,4:6291456,6:262144|15663105|0|m,a,s,p",
       "priorities": [],
@@ -6789,6 +6826,7 @@
     "aliases": [
       "tls_client:cloudscraper"
     ],
+    "default_config": true,
     "h2": null,
     "h3": null,
     "id": "tls_client:cloudscraper",
@@ -6895,6 +6933,7 @@
       "tls_client:confirmed_android",
       "tls_client:okhttp4_android_9"
     ],
+    "default_config": true,
     "h2": {
       "akamai_fingerprint": "4:16777216|16711681|0|m,p,a,s",
       "priorities": [],
@@ -7024,6 +7063,7 @@
       "tls_client:nike_ios_mobile",
       "tls_client:zalando_ios_mobile"
     ],
+    "default_config": true,
     "h2": {
       "akamai_fingerprint": "1:4096,2:1,3:100,4:2097152,5:16384,6:4294967295|15663105|0|m,s,p,a",
       "priorities": [],
@@ -7209,6 +7249,7 @@
       "wreq:Firefox117",
       "utls:Firefox_105"
     ],
+    "default_config": true,
     "h2": {
       "akamai_fingerprint": "1:65536,4:131072,5:16384|12517377|3:0:0:201|5:0:0:101|7:0:0:1|9:0:7:1|11:0:3:1|13:0:0:241|m,p,a,s",
       "priorities": [
@@ -7417,6 +7458,7 @@
     "aliases": [
       "tls_client:firefox_110"
     ],
+    "default_config": true,
     "h2": {
       "akamai_fingerprint": "1:65536,4:131072,5:16384|12517377|3:0:0:201|5:0:0:101|7:0:0:1|9:0:7:1|11:0:3:1|13:0:0:241|m,p,a,s",
       "priorities": [
@@ -7617,6 +7659,7 @@
     "aliases": [
       "tls_client:firefox_120"
     ],
+    "default_config": true,
     "h2": {
       "akamai_fingerprint": "1:65536,4:131072,5:16384|12517377|3:0:0:201|5:0:0:101|7:0:0:1|9:0:7:1|11:0:3:1|13:0:0:241|m,p,a,s",
       "priorities": [
@@ -7818,6 +7861,7 @@
       "tls_client:firefox_123",
       "utls:Firefox_120"
     ],
+    "default_config": true,
     "h2": {
       "akamai_fingerprint": "1:65536,4:131072,5:16384|12517377|3:0:0:201|5:0:0:101|7:0:0:1|9:0:7:1|11:0:3:1|13:0:0:241|m,p,a,s",
       "priorities": [
@@ -8027,6 +8071,7 @@
       "tls_client:firefox_132",
       "tls_client:firefox_133"
     ],
+    "default_config": true,
     "h2": {
       "akamai_fingerprint": "1:65536,2:0,4:131072,5:16384,9:1|12517377|0|m,p,a,s",
       "priorities": [],
@@ -8209,6 +8254,7 @@
       "wreq:FirefoxPrivate136",
       "utls:Firefox_148"
     ],
+    "default_config": true,
     "h2": {
       "akamai_fingerprint": "1:65536,2:0,4:131072,5:16384|12517377|0|m,p,a,s",
       "priorities": [],
@@ -8387,6 +8433,7 @@
     "aliases": [
       "tls_client:firefox_147"
     ],
+    "default_config": true,
     "h2": {
       "akamai_fingerprint": "1:65536,2:0,4:131072,5:16384|12517377|0|m,p,a,s",
       "priorities": [],
@@ -8573,6 +8620,7 @@
       "tls_client:mesh_android",
       "tls_client:mesh_android_1"
     ],
+    "default_config": true,
     "h2": {
       "akamai_fingerprint": "1:65536,3:1000,4:6291456,6:262144|15663105|0|m,a,s,p",
       "priorities": [],
@@ -8748,6 +8796,7 @@
     "aliases": [
       "tls_client:mesh_android_2"
     ],
+    "default_config": true,
     "h2": null,
     "h3": null,
     "id": "tls_client:mesh_android_2",
@@ -8860,6 +8909,7 @@
     "aliases": [
       "tls_client:mesh_ios_2"
     ],
+    "default_config": true,
     "h2": {
       "akamai_fingerprint": "1:4096,3:100,4:2097152|15663105|0|m,a,s,p",
       "priorities": [],
@@ -9034,6 +9084,7 @@
       "tls_client:mms_ios",
       "tls_client:mms_ios_1"
     ],
+    "default_config": true,
     "h2": null,
     "h3": null,
     "id": "tls_client:mms_ios",
@@ -9160,6 +9211,7 @@
     "aliases": [
       "tls_client:mms_ios_2"
     ],
+    "default_config": true,
     "h2": null,
     "h3": null,
     "id": "tls_client:mms_ios_2",
@@ -9286,6 +9338,7 @@
     "aliases": [
       "tls_client:mms_ios_3"
     ],
+    "default_config": true,
     "h2": {
       "akamai_fingerprint": "1:4096,2:1,3:100,4:2097152,5:16384,6:4294967295|15663105|0|m,s,p,a",
       "priorities": [],
@@ -9467,6 +9520,7 @@
       "tls_client:okhttp4_android_13",
       "wreq:OkHttp4_9"
     ],
+    "default_config": true,
     "h2": {
       "akamai_fingerprint": "1:4096,3:4294967295,4:16777216,5:16384,6:4294967295|15663105|0|m,p,a,s",
       "priorities": [],
@@ -9628,6 +9682,7 @@
     "aliases": [
       "tls_client:okhttp4_android_7"
     ],
+    "default_config": true,
     "h2": {
       "akamai_fingerprint": "4:16777216|16711681|0|m,p,a,s",
       "priorities": [],
@@ -9751,6 +9806,7 @@
     "aliases": [
       "tls_client:okhttp4_android_8"
     ],
+    "default_config": true,
     "h2": {
       "akamai_fingerprint": "4:16777216|16711681|0|m,p,a,s",
       "priorities": [],
@@ -9874,6 +9930,7 @@
     "aliases": [
       "tls_client:zalando_android_mobile"
     ],
+    "default_config": true,
     "h2": {
       "akamai_fingerprint": "1:4096,3:4294967295,4:16777216,5:16384,6:4294967295|15663105|0|m,p,a,s",
       "priorities": [],
@@ -10039,6 +10096,7 @@
       "utls:360_11_0",
       "utls:Chrome_70"
     ],
+    "default_config": true,
     "h2": null,
     "h3": null,
     "id": "utls:360_11_0",
@@ -10191,6 +10249,7 @@
     "aliases": [
       "utls:360_7_5"
     ],
+    "default_config": true,
     "h2": null,
     "h3": null,
     "id": "utls:360_7_5",
@@ -10320,6 +10379,7 @@
     "aliases": [
       "utls:Android_11_OkHttp"
     ],
+    "default_config": true,
     "h2": null,
     "h3": null,
     "id": "utls:Android_11_OkHttp",
@@ -10420,6 +10480,7 @@
     "aliases": [
       "utls:Chrome_115_PQ"
     ],
+    "default_config": true,
     "h2": null,
     "h3": null,
     "id": "utls:Chrome_115_PQ",
@@ -10568,6 +10629,7 @@
       "utls:Chrome_58",
       "utls:Chrome_62"
     ],
+    "default_config": true,
     "h2": null,
     "h3": null,
     "id": "utls:Chrome_58",
@@ -10690,6 +10752,7 @@
     "aliases": [
       "utls:Chrome_72"
     ],
+    "default_config": true,
     "h2": null,
     "h3": null,
     "id": "utls:Chrome_72",
@@ -10841,6 +10904,7 @@
       "utls:Chrome_87",
       "utls:Edge_85"
     ],
+    "default_config": true,
     "h2": null,
     "h3": null,
     "id": "utls:Chrome_83",
@@ -10988,6 +11052,7 @@
       "utls:Chrome_96",
       "utls:QQ_11_1"
     ],
+    "default_config": true,
     "h2": null,
     "h3": null,
     "id": "utls:Chrome_96",
@@ -11139,6 +11204,7 @@
     "aliases": [
       "utls:Firefox_102"
     ],
+    "default_config": true,
     "h2": null,
     "h3": null,
     "id": "utls:Firefox_102",
@@ -11286,6 +11352,7 @@
       "utls:Firefox_55",
       "utls:Firefox_56"
     ],
+    "default_config": true,
     "h2": null,
     "h3": null,
     "id": "utls:Firefox_55",
@@ -11405,6 +11472,7 @@
       "utls:Firefox_63",
       "utls:Firefox_65"
     ],
+    "default_config": true,
     "h2": null,
     "h3": null,
     "id": "utls:Firefox_63",
@@ -11553,6 +11621,7 @@
     "aliases": [
       "utls:Firefox_99"
     ],
+    "default_config": true,
     "h2": null,
     "h3": null,
     "id": "utls:Firefox_99",
@@ -11704,6 +11773,7 @@
     "aliases": [
       "utls:IOS_11_1"
     ],
+    "default_config": true,
     "h2": null,
     "h3": null,
     "id": "utls:IOS_11_1",
@@ -11838,6 +11908,7 @@
     "aliases": [
       "utls:IOS_12_1"
     ],
+    "default_config": true,
     "h2": null,
     "h3": null,
     "id": "utls:IOS_12_1",
@@ -11980,6 +12051,7 @@
     "aliases": [
       "utls:IOS_13"
     ],
+    "default_config": true,
     "h2": null,
     "h3": null,
     "id": "utls:IOS_13",
@@ -12139,6 +12211,7 @@
     "aliases": [
       "wreq:Firefox133"
     ],
+    "default_config": true,
     "h2": {
       "akamai_fingerprint": "1:65536,2:0,4:131072,5:16384|12517377|0|m,p,a,s",
       "priorities": [],
@@ -12322,6 +12395,7 @@
     "aliases": [
       "wreq:FirefoxAndroid135"
     ],
+    "default_config": true,
     "h2": {
       "akamai_fingerprint": "1:4096,2:0,4:32768,5:16384|12517377|0|m,p,a,s",
       "priorities": [],
@@ -12509,6 +12583,7 @@
       "wreq:OkHttp4_12",
       "wreq:OkHttp5"
     ],
+    "default_config": true,
     "h2": {
       "akamai_fingerprint": "4:16777216|16711681|0|m,p,a,s",
       "priorities": [],
@@ -12656,6 +12731,7 @@
     "aliases": [
       "wreq:OkHttp3_9"
     ],
+    "default_config": true,
     "h2": {
       "akamai_fingerprint": "4:16777216|16711681|0|m,p,a,s",
       "priorities": [],
@@ -12808,6 +12884,7 @@
       "wreq:Safari15_3",
       "wreq:Safari15_5"
     ],
+    "default_config": true,
     "h2": {
       "akamai_fingerprint": "4:4194304,3:100|10485760|0|m,s,p,a",
       "priorities": [],

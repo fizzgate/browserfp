@@ -73,11 +73,17 @@ def build():
             fp = entry.get("fingerprint", entry)
             version = entry.get("version")
             k = _key(fp)
+            # default_config：该形态是否为浏览器**默认配置**下发出的。
+            # 非默认（需显式 --enable-features 才出现）的形态仍值得入库——Finch
+            # 可能把它下发给部分真实用户——但识别时应优先按默认形态理解流量，
+            # 也不必为枚举 flag 组合而扩表。
+            flags = entry.get("flags") if isinstance(entry, dict) else None
             rec = registry.setdefault(k, {
                 "id": f"{source}:{name}",
                 "aliases": [],
                 "provenance": provenance,
                 "mode": mode,
+                "default_config": not flags,
                 "tls": fp,
                 "h2": None,
                 "h3": None,
@@ -130,6 +136,9 @@ def main():
         print(f"  {prov:18s} {n}")
     for mode, n in sorted(by_mode.items()):
         print(f"  形态 {mode:<13} {n}")
+    nondefault = [r["id"] for r in out if not r.get("default_config", True)]
+    print(f"  默认配置形态       {len(out) - len(nondefault)}/{len(out)}"
+          + (f"（非默认: {' '.join(nondefault)}）" if nondefault else ""))
     with_h3 = sum(1 for r in out if r.get("h3"))
     print(f"  含 h2 层           {with_h2}/{len(out)}")
     print(f"  含 h3 层           {with_h3}（QUIC 形态）")
