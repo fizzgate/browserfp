@@ -38,8 +38,13 @@ def capture_one(target, sniffer, sni="claude.ai"):
 
     c = Curl()
     try:
-        c.setopt(CurlOpt.URL, f"https://{sni}:{sniffer.port}/".encode())
-        c.setopt(CurlOpt.RESOLVE, [f"{sni}:{sniffer.port}:127.0.0.1".encode()])
+        if sni is None:
+            # 无 SNI 模式：直连 IP。真机浏览器只能这样采（Chrome 151 的
+            # --host-resolver-rules 已失效），要与真机严格可比就得有这一套。
+            c.setopt(CurlOpt.URL, f"https://127.0.0.1:{sniffer.port}/".encode())
+        else:
+            c.setopt(CurlOpt.URL, f"https://{sni}:{sniffer.port}/".encode())
+            c.setopt(CurlOpt.RESOLVE, [f"{sni}:{sniffer.port}:127.0.0.1".encode()])
         c.setopt(CurlOpt.TIMEOUT_MS, 5000)
         c.impersonate(target)
         try:
@@ -53,6 +58,15 @@ def capture_one(target, sniffer, sni="claude.ai"):
 
 
 def main(argv):
+    argv = list(argv)
+    # --no-sni：产出与真机浏览器可比的那套 golden（见 capture_one）。
+    no_sni = "--no-sni" in argv
+    if no_sni:
+        argv.remove("--no-sni")
+    sni = None if no_sni else "claude.ai"
+    out_path = GOLDEN_PATH.replace("curl_cffi.json",
+                                   "curl_cffi_nosni.json" if no_sni else "curl_cffi.json")
+
     wanted = argv[1:] or targets.UNIQUE
     unknown = [t for t in wanted if t not in targets.UNIQUE]
     if unknown:
@@ -68,19 +82,19 @@ def main(argv):
     with ClientHelloSniffer() as sniffer:
         for t in wanted:
             try:
-                out[t] = capture_one(t, sniffer)
+                out[t] = capture_one(t, sniffer, sni=sni)
                 print(f"  {t:20s} ja4={out[t]['ja4']}")
             except Exception as e:
                 failures.append((t, repr(e)))
                 print(f"  {t:20s} FAILED {e!r}", file=sys.stderr)
             time.sleep(0.05)
 
-    os.makedirs(os.path.dirname(GOLDEN_PATH), exist_ok=True)
-    with open(GOLDEN_PATH, "w") as f:
+    os.makedirs(os.path.dirname(out_path), exist_ok=True)
+    with open(out_path, "w") as f:
         json.dump(out, f, indent=2, sort_keys=True)
         f.write("\n")
 
-    print(f"\ncaptured {len(out)}/{len(wanted)} → {os.path.normpath(GOLDEN_PATH)}")
+    print(f"\ncaptured {len(out)}/{len(wanted)} → {os.path.normpath(out_path)}")
     if failures:
         print(f"FAILURES ({len(failures)}):", file=sys.stderr)
         for t, e in failures:
