@@ -19,6 +19,7 @@
 import os
 import subprocess
 import sys
+import tempfile
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -47,11 +48,24 @@ def _pick_verdict(lines):
     return lines[-1].strip() if lines else "无输出"
 
 
+# 每轮用一个全新的字节码缓存目录，杜绝"跑的是旧代码"这类假绿。
+#
+# **macOS 系统 Python 把缓存放在源码之外**：sys.pycache_prefix 默认是
+# ~/Library/Caches/com.apple.python/<源码绝对路径>/，源码旁边根本不会出现
+# __pycache__ —— 删本地 __pycache__ 等于什么都没做。而 Python 判缓存是否
+# 有效只看 (mtime, size) 两个数：变异测试里"改一个数字再 cp 还原"既不改
+# 大小、又常落在同一秒，缓存就被判定有效，执行的是变异版本、inspect 读到
+# 的却是还原后的源码。实测因此追查了很久：门禁坚持报 chrome 上限是 150，
+# 而文件里、git 里、getsource 里全是 153。
+_PYCACHE = tempfile.mkdtemp(prefix="tlsfp-pyc-")
+
+
 def _run(mod, timeout=300):
     """跑一个模块，返回 (成功?, 结论摘要)。"""
     env = dict(os.environ)
     for k in ("http_proxy", "https_proxy", "HTTP_PROXY", "HTTPS_PROXY"):
         env.pop(k, None)
+    env["PYTHONPYCACHEPREFIX"] = _PYCACHE
     try:
         out = subprocess.run([PY, "-m", mod], capture_output=True, text=True,
                              timeout=timeout, cwd=ROOT, env=env)

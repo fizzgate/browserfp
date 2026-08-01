@@ -34,6 +34,28 @@ BASELINE = {
 }
 
 
+def check_scan_range(mapper):
+    """扫描上限不得低于库里已有的最大版本号。
+
+    **这是个结构性盲区，不是数据问题**：TARGETS 的上下界是写死的，谁往库里
+    补一条 chrome 155 的 profile，扫描器仍然只扫到 153 —— 那条数据既不被
+    覆盖度统计，也不进三方一致性的比对集，等于加了个没人看的东西。上一轮
+    Edge/Opera 的教训就是"扫描器漏掉一个轴，那个轴上的缺陷就不存在"，
+    版本上限是同一类盲区的时间维度。
+
+    段表同理：段的上界超出扫描范围，说明源码已经推进到更新的版本了。
+    """
+    bad = []
+    for brand, (_tpl, _lo, hi) in TARGETS.items():
+        vt = max(mapper.by_brand.get(brand, {}) or [0])
+        sg = max((s["to"] for s in mapper.segments.get(brand, [])), default=0)
+        top = max(vt, sg)
+        if top > hi:
+            bad.append(f"{brand}: 扫描上限 {hi}，但库里已有 {top} "
+                       f"（版本表 {vt} / 段表 {sg}）—— 超出的版本没人扫")
+    return bad
+
+
 def main():
     mapper = UAMapper()
     worse, better, total = [], [], 0
@@ -62,8 +84,14 @@ def main():
         print(f"\n↓ {brand} 缺漏降到 {n}（水位 {limit}），"
               "确认是真的补上了而非判据放宽后，把 BASELINE 改成新值。")
 
-    print(f"\n{'覆盖未倒退' if not worse else f'{len(worse)} 个品牌覆盖倒退'}")
-    return 1 if worse else 0
+    rng = check_scan_range(mapper)
+    print(f"\n扫描范围覆盖已有数据  {'OK' if not rng else '失败'}")
+    for b in rng:
+        print(f"  ✗ {b}")
+
+    failed = worse or rng
+    print(f"\n{'覆盖未倒退' if not failed else '覆盖或扫描范围有问题'}")
+    return 1 if failed else 0
 
 
 if __name__ == "__main__":
