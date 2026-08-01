@@ -97,6 +97,7 @@ python -m spec.test_live_handshake     # 真实可用：34 profile × 2 站点�
 python -m spec.test_match              # 识别器：认得出 + 认不出必须报 unknown
 python -m spec.test_real_stability     # 真机反复连接，每次都须认出（含充分性断言）
 python -m spec.test_collector_merge    # 采集器必须合并写（防止只采子集冲掉其余样本）
+python -m spec.test_ja4t               # TCP 层 JA4T 解析器（构造向量，不需抓包权限）
 python -m spec.test_cf_discrimination  # 指纹是否被区别对待（三臂对照）
 python -m oracle.coverage              # 开源表对真机的覆盖矩阵
 python -m oracle.srcaudit              # 源码审计：还有哪些扩展我们从没见过
@@ -263,9 +264,18 @@ key_share 那条是有价值的阴性结果：它证明现有 13 字段判据**�
   **均为非浏览器 app profile，浏览器侧无缺口**（四个真机浏览器全部三层齐全）。
 - **CF 挑战未验证**：claude.ai 根路径本就不设防（三种指纹结果一致、无 `cf-mitigated`），
   要验 managed challenge 需要一个真正会触发的端点。
-- **TCP 层指纹整层缺失**（ja4t、TCP options 顺序、TTL 推断跳数、MTU）。我们的观测点
-  用普通 socket，拿不到 TTL/窗口等 IP/TCP 头字段——需要 raw socket 或 eBPF。同类
-  工具 pingly 有 `src/tcp/fingerprint.rs` 覆盖这层。
+- **TCP 层：解析器已就绪，数据只能在生产入口采**。`oracle/ja4t.py` 可从 SYN 包算出
+  JA4T（`window_size_options_MSS_windowscale`），已用构造向量验证（含"非 SYN 包必须
+  报错"的阴性对照）。但**本地采不到数据**，且这不只是权限问题：
+
+  1. ja4t 四项里只有 MSS 能经 socket API（`TCP_MAXSEG`）拿到，options 顺序与
+     window scale **只存在于 SYN 包**，socket API 完全看不到；
+  2. macOS 上 `/dev/bpf` 是 `crw------- root:wheel`，抓包必须 root；
+  3. **即使有 root，回环上采到的也是失真值** —— 实测回环 `TCP_MAXSEG=4024`
+     （loopback MTU 16384），真实网卡是 1460。TCP 指纹取决于客户端 OS 栈**加网络
+     路径**（MTU、中间设备 MSS clamping），本地造不出来。
+
+  故正确落点是在生产入口用 tcpdump/pcap 采 SYN 包再喂给解析器，而不是本地补。
 - **HTTP/3 与 QUIC 整层缺失**：现有观测点只做 TCP 上的 TLS，QUIC 走 UDP 且 TLS
   握手内嵌在 QUIC 帧里，需要另一套观测点。`srcaudit` 报出的 `0x0039`/`0xffa5`
   （quic_transport_parameters）盲区即源于此。
