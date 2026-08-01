@@ -95,12 +95,30 @@ ML-DSA（`0x0904/0905/0906`），连 `tls_client:chrome_146` 都没有。所以�
 python -m spec.test_rebuild            # 数据自洽：profile → 字节 → 解析 → 逐字段比
 python -m spec.test_live_handshake     # 真实可用：34 profile × 2 站点，真握手 + h2
 python -m spec.test_match              # 识别器：认得出 + 认不出必须报 unknown
+python -m spec.test_real_stability     # 真机反复连接，每次都须认出（含充分性断言）
 python -m spec.test_cf_discrimination  # 指纹是否被区别对待（三臂对照）
 python -m oracle.coverage              # 开源表对真机的覆盖矩阵
 python -m oracle.srcaudit              # 源码审计：还有哪些扩展我们从没见过
 ```
 
 自洽 ≠ 可用：字节拼得出、解析回来一致，不代表服务端会接受。两者必须分开验。
+
+**识别稳定性是第三件独立的事**。注册表里每个 profile 是**某一次**握手的快照，而真机
+每次握手都不同。`test_match` 拿注册表自己喂自己，永远发现不了"只在采集那一次能认出"
+这种失效。实测（每浏览器 5 次连接）：
+
+```
+chrome   151  exact×5   JA4 取值=1   扩展顺序取值=5
+chromium 142  exact×5   JA4 取值=1   扩展顺序取值=5
+edge     151  exact×5   JA4 取值=1   扩展顺序取值=5
+firefox  149  exact×5   JA4 取值=1   扩展顺序取值=1
+```
+
+Chromium 系每次连接扩展顺序都不同（RFC 8701 permutation）、GREASE 10 种取值、
+ClientHello 长度在 1707/1739/1771/1803 间浮动，而识别始终命中 —— 这才说明稳定性
+是真的。**门禁因此额外断言"Chromium 系扩展顺序取值数 > 1"**：若某次跑出取值恒为 1，
+说明这轮验证根本没覆盖到变化，属于平凡通过，必须报失败。Firefox 不乱序也不发
+GREASE，其稳定属平凡，故充分性只对 Chromium 系断言。
 
 ## 识别器
 
