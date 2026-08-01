@@ -149,5 +149,51 @@
     ],
     "version": "149.0",
     "window_update": 12517377
+  },
+  "safari": {
+    "akamai_fingerprint": "2:0,3:100,4:2097152,9:1|10420225|0|m,s,a,p",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "sec-fetch-dest",
+      "user-agent",
+      "accept",
+      "sec-fetch-site",
+      "sec-fetch-mode",
+      "accept-language",
+      "priority",
+      "accept-encoding"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":scheme",
+      ":authority",
+      ":path"
+    ],
+    "settings": [
+      [
+        2,
+        0
+      ],
+      [
+        3,
+        100
+      ],
+      [
+        4,
+        2097152
+      ],
+      [
+        9,
+        1
+      ]
+    ],
+    "version": "27.0",
+    "window_update": 10420225
   }
 }

@@ -22,7 +22,11 @@ import sys
 import threading
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-CERT = os.path.join(HERE, "..", "spec", "certs", "cert.pem")
+# 发**完整链**（leaf + CA）而不是只发 leaf：Firefox 库里有 CA 能自己补全，
+# Safari 严格要求服务端把中间证书一并发出，只发 leaf 会回
+# SSLV3_ALERT_CERTIFICATE_UNKNOWN。Chrome 的 SPKI pin 仍指 leaf，不受影响。
+CERT = os.path.join(HERE, "..", "spec", "certs", "fullchain.pem")
+CA_CERT = os.path.join(HERE, "..", "spec", "certs", "ca.pem")
 KEY = os.path.join(HERE, "..", "spec", "certs", "key.pem")
 
 PREFACE = b"PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n"
