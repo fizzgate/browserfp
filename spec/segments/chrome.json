@@ -10,6 +10,7 @@
       "substitutable": true,
       "substitution_reason": "['utls'] \u5404\u81ea\u5185\u90e8\u4e00\u81f4\uff08\u5171 1 \u4e2a\u7248\u672c\uff09",
       "tables": {
+        "alps": null,
         "boringssl": "7f4f41fa81c03e0f8ef1ab5b3d1d566b5968f107",
         "channel_id": true,
         "cipher_excludes": [
@@ -96,6 +97,100 @@
           "SSL_SIGN_RSA_PKCS1_SHA1"
         ]
       },
+      "to": 70
+    },
+    {
+      "from": 71,
+      "substitutable": false,
+      "substitution_reason": "\u6bb5\u5185\u65e0\u5b9e\u91c7 golden",
+      "tables": {
+        "alps": false,
+        "boringssl": "2d98d49cf712ca7dc6f4b23b9c5f5542385d8dbe",
+        "channel_id": true,
+        "cipher_excludes": [
+          "kRSA"
+        ],
+        "curves": [
+          "boringssl-default"
+        ],
+        "ext_order": [
+          0,
+          23,
+          65281,
+          10,
+          11,
+          35,
+          16,
+          5,
+          13,
+          50,
+          13172,
+          18,
+          30032,
+          14,
+          51,
+          45,
+          42,
+          43,
+          44,
+          65445,
+          24,
+          27
+        ],
+        "extensions_set": [
+          "application_layer_protocol_negotiation",
+          "cert_compression",
+          "certificate_timestamp",
+          "channel_id",
+          "cookie",
+          "early_data",
+          "ec_point_formats",
+          "extended_master_secret",
+          "key_share",
+          "next_proto_neg",
+          "psk_key_exchange_modes",
+          "quic_transport_parameters",
+          "renegotiate",
+          "server_name",
+          "session_ticket",
+          "signature_algorithms",
+          "signature_algorithms_cert",
+          "srtp",
+          "status_request",
+          "supported_groups",
+          "supported_versions",
+          "token_binding"
+        ],
+        "key_share_groups": [],
+        "sign_sigalgs": [
+          "SSL_SIGN_ED25519",
+          "SSL_SIGN_ECDSA_SECP256R1_SHA256",
+          "SSL_SIGN_RSA_PSS_RSAE_SHA256",
+          "SSL_SIGN_RSA_PKCS1_SHA256",
+          "SSL_SIGN_ECDSA_SECP384R1_SHA384",
+          "SSL_SIGN_RSA_PSS_RSAE_SHA384",
+          "SSL_SIGN_RSA_PKCS1_SHA384",
+          "SSL_SIGN_ECDSA_SECP521R1_SHA512",
+          "SSL_SIGN_RSA_PSS_RSAE_SHA512",
+          "SSL_SIGN_RSA_PKCS1_SHA512",
+          "SSL_SIGN_ECDSA_SHA1",
+          "SSL_SIGN_RSA_PKCS1_SHA1"
+        ],
+        "tag": "71.0.3578.137",
+        "verify_prefs": null,
+        "verify_sigalgs": [
+          "SSL_SIGN_ED25519",
+          "SSL_SIGN_ECDSA_SECP256R1_SHA256",
+          "SSL_SIGN_RSA_PSS_RSAE_SHA256",
+          "SSL_SIGN_RSA_PKCS1_SHA256",
+          "SSL_SIGN_ECDSA_SECP384R1_SHA384",
+          "SSL_SIGN_RSA_PSS_RSAE_SHA384",
+          "SSL_SIGN_RSA_PKCS1_SHA384",
+          "SSL_SIGN_RSA_PSS_RSAE_SHA512",
+          "SSL_SIGN_RSA_PKCS1_SHA512",
+          "SSL_SIGN_RSA_PKCS1_SHA1"
+        ]
+      },
       "to": 71
     },
     {
@@ -103,6 +198,7 @@
       "substitutable": true,
       "substitution_reason": "['utls'] \u5404\u81ea\u5185\u90e8\u4e00\u81f4\uff08\u5171 1 \u4e2a\u7248\u672c\uff09",
       "tables": {
+        "alps": false,
         "boringssl": "0f5ecd3a854546d943104e1f7421e489b7f4d5aa",
         "channel_id": false,
         "cipher_excludes": [
@@ -193,9 +289,10 @@
     },
     {
       "from": 83,
-      "substitutable": false,
-      "substitution_reason": "\u6bb5\u5212\u7c97\u4e86\uff08\u5f3a\u8bc1\u636e\uff09\uff1autls \u8986\u76d6 3 \u7248\u672c\u5374\u6709 2 \u79cd\u6307\u7eb9",
+      "substitutable": true,
+      "substitution_reason": "['utls'] \u5404\u81ea\u5185\u90e8\u4e00\u81f4\uff08\u5171 2 \u4e2a\u7248\u672c\uff09",
       "tables": {
+        "alps": false,
         "boringssl": "5298ef99bf2b2d77600b3bb74dd572027bf495be",
         "channel_id": false,
         "cipher_excludes": [
@@ -291,6 +388,117 @@
           "SSL_SIGN_RSA_PKCS1_SHA1"
         ]
       },
+      "to": 90
+    },
+    {
+      "from": 91,
+      "substitutable": true,
+      "substitution_reason": "['utls'] \u5404\u81ea\u5185\u90e8\u4e00\u81f4\uff08\u5171 1 \u4e2a\u7248\u672c\uff09",
+      "tables": {
+        "alps": true,
+        "boringssl": "49f0329110a1d93a5febc2bceceedc655d995420",
+        "channel_id": false,
+        "cipher_excludes": [
+          "3DES",
+          "kRSA"
+        ],
+        "curves": [
+          "boringssl-default"
+        ],
+        "ext_order": [
+          0,
+          65033,
+          55817,
+          23,
+          65281,
+          10,
+          11,
+          35,
+          16,
+          5,
+          13,
+          13172,
+          18,
+          30032,
+          14,
+          51,
+          45,
+          42,
+          43,
+          44,
+          57,
+          65445,
+          24,
+          27,
+          34,
+          17513
+        ],
+        "extensions_set": [
+          "application_layer_protocol_negotiation",
+          "application_settings",
+          "cert_compression",
+          "certificate_timestamp",
+          "channel_id",
+          "cookie",
+          "delegated_credential",
+          "early_data",
+          "ec_point_formats",
+          "ech_is_inner",
+          "encrypted_client_hello",
+          "extended_master_secret",
+          "key_share",
+          "next_proto_neg",
+          "psk_key_exchange_modes",
+          "quic_transport_parameters_legacy",
+          "quic_transport_parameters_standard",
+          "renegotiate",
+          "server_name",
+          "session_ticket",
+          "signature_algorithms",
+          "srtp",
+          "status_request",
+          "supported_groups",
+          "supported_versions",
+          "token_binding"
+        ],
+        "key_share_groups": [],
+        "sign_sigalgs": [
+          "SSL_SIGN_ED25519",
+          "SSL_SIGN_ECDSA_SECP256R1_SHA256",
+          "SSL_SIGN_RSA_PSS_RSAE_SHA256",
+          "SSL_SIGN_RSA_PKCS1_SHA256",
+          "SSL_SIGN_ECDSA_SECP384R1_SHA384",
+          "SSL_SIGN_RSA_PSS_RSAE_SHA384",
+          "SSL_SIGN_RSA_PKCS1_SHA384",
+          "SSL_SIGN_ECDSA_SECP521R1_SHA512",
+          "SSL_SIGN_RSA_PSS_RSAE_SHA512",
+          "SSL_SIGN_RSA_PKCS1_SHA512",
+          "SSL_SIGN_ECDSA_SHA1",
+          "SSL_SIGN_RSA_PKCS1_SHA1"
+        ],
+        "tag": "91.0.4472.101",
+        "verify_prefs": [
+          "SSL_SIGN_ECDSA_SECP256R1_SHA256",
+          "SSL_SIGN_RSA_PSS_RSAE_SHA256",
+          "SSL_SIGN_RSA_PKCS1_SHA256",
+          "SSL_SIGN_ECDSA_SECP384R1_SHA384",
+          "SSL_SIGN_RSA_PSS_RSAE_SHA384",
+          "SSL_SIGN_RSA_PKCS1_SHA384",
+          "SSL_SIGN_RSA_PSS_RSAE_SHA512",
+          "SSL_SIGN_RSA_PKCS1_SHA512"
+        ],
+        "verify_sigalgs": [
+          "SSL_SIGN_ECDSA_SECP256R1_SHA256",
+          "SSL_SIGN_RSA_PSS_RSAE_SHA256",
+          "SSL_SIGN_RSA_PKCS1_SHA256",
+          "SSL_SIGN_ECDSA_SECP384R1_SHA384",
+          "SSL_SIGN_RSA_PSS_RSAE_SHA384",
+          "SSL_SIGN_RSA_PKCS1_SHA384",
+          "SSL_SIGN_RSA_PSS_RSAE_SHA512",
+          "SSL_SIGN_RSA_PKCS1_SHA512",
+          "SSL_SIGN_RSA_PKCS1_SHA1"
+        ]
+      },
       "to": 96
     },
     {
@@ -298,6 +506,7 @@
       "substitutable": false,
       "substitution_reason": "\u6bb5\u5212\u7c97\u4e86\uff08\u5f3a\u8bc1\u636e\uff09\uff1awreq \u8986\u76d6 10 \u7248\u672c\u5374\u6709 2 \u79cd\u6307\u7eb9",
       "tables": {
+        "alps": true,
         "boringssl": "69030a0ceabfe69c58cb2b83d9d4852333e3d0c2",
         "channel_id": false,
         "cipher_excludes": [
@@ -403,6 +612,7 @@
       "substitutable": false,
       "substitution_reason": "\u6bb5\u5212\u7c97\u4e86\uff08\u5f3a\u8bc1\u636e\uff09\uff1acurl_cffi \u8986\u76d6 5 \u7248\u672c\u5374\u6709 4 \u79cd\u6307\u7eb9\u3001tls_client \u8986\u76d6 3 \u7248\u672c\u5374\u6709 3 \u79cd\u6307\u7eb9\u3001wreq \u8986\u76d6 11 \u7248\u672c\u5374\u6709 3 \u79cd\u6307\u7eb9",
       "tables": {
+        "alps": true,
         "boringssl": "ae88f198a49d77993e9c44b017d0e69c810dc668",
         "channel_id": false,
         "cipher_excludes": [
@@ -486,6 +696,7 @@
       "substitutable": true,
       "substitution_reason": "['wreq'] \u5404\u81ea\u5185\u90e8\u4e00\u81f4\uff08\u5171 1 \u4e2a\u7248\u672c\uff09",
       "tables": {
+        "alps": true,
         "boringssl": "58f3bc83230d2958bb9710bc910972c4f5d382dc",
         "channel_id": false,
         "cipher_excludes": [
@@ -565,8 +776,9 @@
     {
       "from": 131,
       "substitutable": false,
-      "substitution_reason": "\u6bb5\u5212\u7c97\u4e86\uff08\u5f3a\u8bc1\u636e\uff09\uff1awreq \u8986\u76d6 11 \u7248\u672c\u5374\u6709 2 \u79cd\u6307\u7eb9",
+      "substitution_reason": "\u6bb5\u5212\u7c97\u4e86\uff08\u5f3a\u8bc1\u636e\uff09\uff1awreq \u8986\u76d6 10 \u7248\u672c\u5374\u6709 2 \u79cd\u6307\u7eb9",
       "tables": {
+        "alps": true,
         "boringssl": "cd95210465496ac2337b313cf49f607762abe286",
         "channel_id": false,
         "cipher_excludes": [
@@ -645,6 +857,94 @@
           "SSL_SIGN_RSA_PKCS1_SHA1"
         ]
       },
+      "to": 140
+    },
+    {
+      "from": 141,
+      "substitutable": true,
+      "substitution_reason": "['wreq'] \u5404\u81ea\u5185\u90e8\u4e00\u81f4\uff08\u5171 1 \u4e2a\u7248\u672c\uff09",
+      "tables": {
+        "alps": false,
+        "boringssl": "40e035a9e5d721b3b7c15c46259d782ffe7d9e96",
+        "channel_id": false,
+        "cipher_excludes": [
+          "kRSA"
+        ],
+        "curves": [
+          "x25519_mlkem768",
+          "x25519",
+          "secp256r1",
+          "secp384r1"
+        ],
+        "ext_order": [],
+        "extensions_set": [
+          "application_layer_protocol_negotiation",
+          "application_settings",
+          "application_settings_old",
+          "cert_compression",
+          "certificate_authorities",
+          "certificate_timestamp",
+          "channel_id",
+          "cookie",
+          "delegated_credential",
+          "early_data",
+          "ec_point_formats",
+          "encrypted_client_hello",
+          "extended_master_secret",
+          "key_share",
+          "next_proto_neg",
+          "pake",
+          "psk_key_exchange_modes",
+          "quic_transport_parameters",
+          "quic_transport_parameters_legacy",
+          "renegotiate",
+          "server_name",
+          "session_ticket",
+          "signature_algorithms",
+          "srtp",
+          "status_request",
+          "supported_groups",
+          "supported_versions",
+          "trust_anchors"
+        ],
+        "key_share_groups": [],
+        "sign_sigalgs": [
+          "SSL_SIGN_ED25519",
+          "SSL_SIGN_ECDSA_SECP256R1_SHA256",
+          "SSL_SIGN_RSA_PSS_RSAE_SHA256",
+          "SSL_SIGN_RSA_PKCS1_SHA256",
+          "SSL_SIGN_ECDSA_SECP384R1_SHA384",
+          "SSL_SIGN_RSA_PSS_RSAE_SHA384",
+          "SSL_SIGN_RSA_PKCS1_SHA384",
+          "SSL_SIGN_ECDSA_SECP521R1_SHA512",
+          "SSL_SIGN_RSA_PSS_RSAE_SHA512",
+          "SSL_SIGN_RSA_PKCS1_SHA512",
+          "SSL_SIGN_ECDSA_SHA1",
+          "SSL_SIGN_RSA_PKCS1_SHA1"
+        ],
+        "tag": "141.0.7390.122",
+        "verify_prefs": [
+          "SSL_SIGN_ECDSA_SECP256R1_SHA256",
+          "SSL_SIGN_RSA_PSS_RSAE_SHA256",
+          "SSL_SIGN_RSA_PKCS1_SHA256",
+          "SSL_SIGN_ECDSA_SECP384R1_SHA384",
+          "SSL_SIGN_RSA_PSS_RSAE_SHA384",
+          "SSL_SIGN_RSA_PKCS1_SHA384",
+          "SSL_SIGN_RSA_PSS_RSAE_SHA512",
+          "SSL_SIGN_RSA_PKCS1_SHA512"
+        ],
+        "verify_sigalgs": [
+          "SSL_SIGN_ECDSA_SECP256R1_SHA256",
+          "SSL_SIGN_RSA_PSS_RSAE_SHA256",
+          "SSL_SIGN_RSA_PKCS1_SHA256",
+          "SSL_SIGN_ECDSA_SECP384R1_SHA384",
+          "SSL_SIGN_RSA_PSS_RSAE_SHA384",
+          "SSL_SIGN_RSA_PKCS1_SHA384",
+          "SSL_SIGN_RSA_PSS_RSAE_SHA512",
+          "SSL_SIGN_RSA_PKCS1_SHA512",
+          "SSL_SIGN_RSA_PKCS1_SHA1"
+        ]
+      },
       "to": 141
     },
     {
@@ -652,6 +952,7 @@
       "substitutable": true,
       "substitution_reason": "wreq \u8986\u76d6 8 \u4e2a\u7248\u672c\u4e00\u81f4\uff1b\u53e6\u6709 tls_client(2 \u7248\u672c 2 \u79cd) \u5206\u6b67\uff0c\u8bc1\u636e\u5f31\u4e8e\u524d\u8005",
       "tables": {
+        "alps": true,
         "boringssl": "91f3df0a20f6d3dd3e2f749b4a2730b68c3d585e",
         "channel_id": false,
         "cipher_excludes": [
@@ -742,6 +1043,7 @@
       "substitutable": false,
       "substitution_reason": "\u6bb5\u5185\u65e0\u5b9e\u91c7 golden",
       "tables": {
+        "alps": true,
         "boringssl": "1a5078d343ba5d9501062caf11e3173fc364dc59",
         "channel_id": false,
         "cipher_excludes": [
@@ -837,7 +1139,7 @@
       "to": 153
     }
   ],
-  "substitutable_segments": 4,
+  "substitutable_segments": 7,
   "substitution_note": "**\u4e0d\u53ef**\u7528\u4e8e\u6bb5\u5185\u66ff\u4ee3\uff1a\u4ec5\u8bc1\u660e\u8de8\u6bb5\u5fc5\u5b9a\u4e0d\u540c\uff0c\u4e0d\u4fdd\u8bc1\u6bb5\u5185\u76f8\u540c\u3002Chrome \u7684 feature \u9ed8\u8ba4\u503c\u4f1a\u88ab Finch \u8fd0\u884c\u671f\u8986\u76d6\uff08\u5b9e\u8bc1\uff1akUseNewAlpsCodepointHttp2 \u6e90\u7801\u91cc M126~133 \u5168\u4e3a DISABLED\uff0c\u800c\u56db\u5bb6\u5b9e\u91c7\u4e00\u81f4\u663e\u793a M132+ \u5df2\u6539\u53d1\u65b0 codepoint 0x44cd\uff09\uff0c\u540c\u4e00\u7248\u672c\u5728\u4e0d\u540c\u7528\u6237/\u5730\u533a/\u65f6\u95f4\u53ef\u80fd\u53d1\u51fa\u4e0d\u540c\u6307\u7eb9",
   "unavailable": [
     "82"

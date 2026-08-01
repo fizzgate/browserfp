@@ -382,6 +382,28 @@ def ordered_extensions(rev):
     return [vals[n] for n in names if n in vals]
 
 
+def alps_enabled(tag):
+    """ALPS(application_settings) 是否默认发送。
+
+    判据是 net/base/features.cc 里有没有 kAlpsForHttp2 且默认 ENABLED —— 该
+    feature 自 M92 出现即默认开启，M91 及以前根本没有这个符号。实采两侧都对
+    得上：utls:Chrome_87 不发 ALPS、utls:Chrome_96 发。
+
+    **只判"发不发"，不判用哪个 codepoint**。codepoint 从 0x4469 迁到 0x44cd
+    由 kUseNewAlpsCodepointHttp2 控制，而那个 feature 的源码默认值与实际行为
+    相反（源码里 M126~133 全是 DISABLED，四家实采却显示 M132+ 已改发新值），
+    是 Finch 在运行期覆盖的，静态分析拿不到。
+    """
+    try:
+        d = _get(f"{JSD}/chromium/chromium@{tag}/net/base/features.cc",
+                 os.path.join(CACHE, tag, "features.cc"))
+    except Exception:
+        return None
+    if "kAlpsForHttp2" not in d:
+        return False
+    return bool(feature_default(tag, "kAlpsForHttp2"))
+
+
 def extract(major):
     """返回该 Chrome 主版本的 ClientHello 相关表。"""
     tag, rev = boringssl_revision(major)
@@ -434,6 +456,7 @@ def extract(major):
         "verify_prefs": verify_prefs,
         "cipher_excludes": cipher_excludes,
         "channel_id": channel_id,
+        "alps": alps_enabled(tag),
         "ext_order": ext_order,
         "tag": tag,
         "boringssl": rev,
