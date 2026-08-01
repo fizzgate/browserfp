@@ -181,6 +181,22 @@ def segment_substitutable(seg, golden):
                     + " 分歧，证据弱于前者")
         return True, why
     if weak_bad:
+        # **跨库共识可以压过单库内部的分歧**。同一版本在不同库里指纹常常不同
+        # （29 个多库版本中 17 个有分歧），所以跨库"不同"没有意义；但跨库
+        # **相同**是强证据 —— 采集噪声不会让几家独立抓的包凑成同一份指纹。
+        # 实测段 108-111：linux:111 / tls_client:108 / wreq:109 三个独立来源
+        # 指纹完全一致，只有 tls_client:110 一条孤立不同，那是它自己的数据
+        # 问题（缺 0x23 与 0x2d），不该让整段判成证据不足。
+        groups = {}
+        for src, keys in per_src.items():
+            for key, vs in keys.items():
+                groups.setdefault(key, set()).add(src)
+        if groups:
+            top_key, top_srcs = max(groups.items(), key=lambda kv: len(kv[1]))
+            others = sum(len(v) for k, v in groups.items() if k != top_key)
+            if len(top_srcs) >= 3 and len(top_srcs) > others:
+                return True, (f"跨库共识：{sorted(top_srcs)} 三家以上指纹一致，"
+                              f"少数派 {others} 家（疑数据不全）")
         return False, ("证据不足："
                        + "、".join(f"{s} 覆盖 {n} 版本有 {k} 种指纹"
                                    for s, k, n in sorted(weak_bad)))
