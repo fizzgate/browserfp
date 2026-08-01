@@ -8,5 +8,8 @@ csrc/*.o
 csrc/*.so
 csrc/ja4cli
 csrc/lookup_test
+csrc/buildcli
+csrc/uacli
+csrc/snitest
 csrc/profiles.inc
 spec/cache/
