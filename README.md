@@ -248,6 +248,32 @@ key_share 那条是有价值的阴性结果：它证明现有 13 字段判据**�
 ⚠ 分析这类空洞时**不能假设版本号连续**：Safari 从 18 直接跳到 26（Apple 2025 年
 改用年份命名），19–25 根本不存在，早期版本的自动分析曾把它们误报成高风险空洞。
 
+## 平台维度是真实的区分点
+
+用已采数据裁决了一个此前存疑的问题——**同版本浏览器在不同平台上指纹确实不同**：
+
+| 对比 | 差异字段数 | 差在哪 |
+|---|---|---|
+| Firefox135 vs FirefoxAndroid135 | 2 | extensions_ordered, curves |
+| Firefox136 vs FirefoxPrivate136 | 2 | extensions_ordered, psk_modes |
+| Safari26_4 vs SafariIos26 | **4** | ciphers, extensions_ordered, curves, supported_versions |
+
+这同时纠正了先前对 `enetx/surf` 的一处解读：它的 Firefox 移动端变体自陈是
+placeholder（与桌面相同），**那是该库自己的简化，不代表平台维度不存在**。
+wreq 的 `FirefoxAndroid135` 就是真实不同的。隐私模式同理，也是独立形态。
+
+当前平台标注分布（74 个指纹）：
+
+```
+未标注平台 38 · iOS 16 · Android 13 · macOS(真机) 7 · 隐私模式 1
+```
+
+「未标注」那 38 个是开源库对桌面 Chrome/Firefox 只给一份、未区分
+Windows/Linux/macOS 的结果。**我们的真机采集也全部来自 macOS**——所以
+Windows/Linux 桌面版是否与 macOS 同指纹，目前**没有直接证据**。Chrome 系跨平台
+共用 BoringSSL，大概率相同；Firefox 走 NSS 且已证明 Android 版不同，桌面各平台
+之间更值得实测。
+
 ## 已知缺口
 
 - **chrome124 不可用**：服务端选 `X25519Kyber768Draft00 (0x6399)`，被 ML-KEM 取代的
