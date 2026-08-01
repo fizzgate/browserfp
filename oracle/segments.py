@@ -55,13 +55,32 @@ def golden_by_version(brand):
         return {}
     with open(REGISTRY) as f:
         registry = json.load(f)
-    pat = (r"^(\w+):(?:[Cc]hrome|[Cc]hromium)[-_]?(\d+)$" if brand == "chrome"
-           else r"^(\w+):[Ff]irefox[-_]?(\d+)$")
+    # 移动端别名的命名有三种形态，与 oracle/uamap.py 用同一套剥离逻辑
+    MOB = re.compile(r"android|ios|ipad|iphone|mobile", re.I)
+    if brand == "chrome":
+        pat = r"^(\w+):(?:[Cc]hrome|[Cc]hromium)[-_]?(\d+)$"
+    elif brand == "firefox-mobile":
+        pat = None            # 走下面的移动端分支
+    else:
+        pat = r"^(\w+):[Ff]irefox[-_]?(\d+)$"
+
     out = {}
     for rec in registry:
         if rec.get("mode") != "initial" or not rec.get("default_config", True):
             continue
         for alias in [rec["id"]] + rec.get("aliases", []):
+            src, name = alias.split(":", 1)
+            if brand == "firefox-mobile":
+                if not MOB.search(name):
+                    continue
+                base = MOB.sub("", name.lower())
+                m = re.match(r"^firefox[-_]*(\d{1,3})", base)
+                if m:
+                    out.setdefault(int(m.group(1)), []).append(
+                        (src, _fp_key(rec["tls"])))
+                continue
+            if MOB.search(name):
+                continue      # 桌面段表不收移动端别名
             m = re.match(pat, alias)
             if m:
                 out.setdefault(int(m.group(2)), []).append(
@@ -141,6 +160,10 @@ MAX_WORKERS = 5          # 对方是公共服务器，别打太狠
 #              当"不同则不同段"用
 KEYS_BY_BRAND = {
     "firefox": ("ciphers", "sig_algs", "extensions", "curves", "sct", "ech"),
+    # Android Firefox 与桌面共享 NSS，差异全在 StaticPrefList 的 ANDROID 分支
+    # （实测 135 版：不发 SCT、不发 MLKEM），所以判段字段与桌面相同，只是按
+    # android 平台求值。
+    "firefox-mobile": ("ciphers", "sig_algs", "extensions", "curves", "sct", "ech"),
     # 用 verify_* 而非 sign_*：ClientHello 里发的 signature_algorithms 表示
     # "我能验证哪些签名"。verify_prefs 是 Chromium 的硬编码覆盖（有它就压过
     # BoringSSL 默认），cipher_excludes 是 :!3DES 这类排除项。补上这两项之前，
@@ -166,6 +189,7 @@ def _key(tables, brand="firefox"):
 
 
 EXTRACTORS = {"firefox": ff_extract,
+              "firefox-mobile": lambda v: ff_extract(v, "android"),
               "chrome": lambda v: cr_extract(int(v))}
 
 

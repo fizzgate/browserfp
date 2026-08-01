@@ -54,10 +54,20 @@ FILES = {
     "staticprefs": "modules/libpref/init/StaticPrefList.yaml",
 }
 
-# release 桌面构建里**未定义**的宏。StaticPrefList.yaml 的默认值大量包在
-# 这些条件里，取错分支会得到与真实 release 相反的结论。
-UNDEFINED_IN_RELEASE = ("EARLY_BETA_OR_EARLIER", "ANDROID", "NIGHTLY_BUILD",
-                        "MOZ_WIDGET_ANDROID", "MOZ_DEV_EDITION", "DEBUG")
+# 各构建里**未定义**的宏。StaticPrefList.yaml 的默认值大量包在这些条件里，
+# 取错分支会得到与真实构建相反的结论。
+#
+# **Android 与桌面必须分开求值**：实测 wreq:FirefoxAndroid135 与桌面 135 的两处
+# 差异都由 ANDROID 分支决定 —— Android 不发 SCT（CT mode 的
+# `#if defined(ANDROID) → 0`），也不发 MLKEM（enable_kyber = @IS_NOT_ANDROID@）。
+# 一直按桌面求值的话，推导出来的 Android 形态会多出这两样。
+UNDEFINED_BY_PLATFORM = {
+    "desktop": ("EARLY_BETA_OR_EARLIER", "ANDROID", "NIGHTLY_BUILD",
+                "MOZ_WIDGET_ANDROID", "MOZ_DEV_EDITION", "DEBUG"),
+    "android": ("EARLY_BETA_OR_EARLIER", "NIGHTLY_BUILD",
+                "MOZ_DEV_EDITION", "DEBUG"),
+}
+UNDEFINED_IN_RELEASE = UNDEFINED_BY_PLATFORM["desktop"]
 
 
 def tag_candidates(version):
@@ -112,10 +122,10 @@ def fetch(version, name, attempts=3):
     raise last if last else RuntimeError(f"{version}/{name} 取不到")
 
 
-def _cond_holds(expr):
-    """在 release 桌面构建下求值一个 #if 条件（只支持 defined/!/&&/||）。"""
+def _cond_holds(expr, platform="desktop"):
+    """在指定平台的 release 构建下求值一个 #if 条件（只支持 defined/!/&&/||）。"""
     e = expr.strip()
-    for macro in UNDEFINED_IN_RELEASE:
+    for macro in UNDEFINED_BY_PLATFORM.get(platform, UNDEFINED_IN_RELEASE):
         e = e.replace(f"defined({macro})", "False")
     e = re.sub(r"defined\([A-Za-z_]\w*\)", "True", e)   # 其余宏视为已定义
     e = e.replace("&&", " and ").replace("||", " or ").replace("!", " not ")
@@ -125,7 +135,7 @@ def _cond_holds(expr):
         return True          # 判不了就按"条件成立"走，宁可保守
 
 
-def pref_value(text, name):
+def pref_value(text, name, platform="desktop"):
     """取某个 pref 在 **release 桌面构建**下的默认值。
 
     **不能只取第一个 `value:`**。这些默认值大量包在 C 预处理条件里，而首个
@@ -147,18 +157,18 @@ def pref_value(text, name):
     for line in body.splitlines():
         t = line.strip()
         if t.startswith("#ifdef "):
-            active, taken = _cond_holds(f"defined({t[7:].strip()})"), False
+            active, taken = _cond_holds(f"defined({t[7:].strip()})", platform), False
             taken = active
         elif t.startswith("#ifndef "):
-            active = not _cond_holds(f"defined({t[8:].strip()})")
+            active = not _cond_holds(f"defined({t[8:].strip()})", platform)
             taken = active
         elif t.startswith("#if "):
-            active = _cond_holds(t[4:])
+            active = _cond_holds(t[4:], platform)
             taken = active
         elif t.startswith("#else"):
             active = not taken
         elif t.startswith("#elif "):
-            active = (not taken) and _cond_holds(t[6:])
+            active = (not taken) and _cond_holds(t[6:], platform)
             taken = taken or active
         elif t.startswith("#endif"):
             active, taken = True, False
@@ -172,30 +182,34 @@ def pref_value(text, name):
 # @IS_NIGHTLY_BUILD@（release 即 false），119 起才是 true —— 直接把标记当字符串
 # 用会判成"这些版本都开了 ECH"，与实采相反（tls_client:firefox_117 不发 ECH、
 # firefox_120 发）。
-BUILD_TOKENS = {
-    "@IS_NIGHTLY_BUILD@": False,
-    "@IS_EARLY_BETA_OR_EARLIER@": False,
-    "@IS_ANDROID@": False,
-    "@IS_NOT_ANDROID@": True,
-    "@IS_NOT_NIGHTLY_BUILD@": True,
-    "@IS_NOT_EARLY_BETA_OR_EARLIER@": True,
+BUILD_TOKENS_BY_PLATFORM = {
+    "desktop": {"@IS_NIGHTLY_BUILD@": False, "@IS_EARLY_BETA_OR_EARLIER@": False,
+                "@IS_ANDROID@": False, "@IS_NOT_ANDROID@": True,
+                "@IS_NOT_NIGHTLY_BUILD@": True,
+                "@IS_NOT_EARLY_BETA_OR_EARLIER@": True},
+    "android": {"@IS_NIGHTLY_BUILD@": False, "@IS_EARLY_BETA_OR_EARLIER@": False,
+                "@IS_ANDROID@": True, "@IS_NOT_ANDROID@": False,
+                "@IS_NOT_NIGHTLY_BUILD@": True,
+                "@IS_NOT_EARLY_BETA_OR_EARLIER@": True},
 }
+BUILD_TOKENS = BUILD_TOKENS_BY_PLATFORM["desktop"]
 
 
-def pref_bool(text, name):
-    """取某个 bool pref 在 release 桌面构建下的值；取不到返回 None。"""
-    raw = pref_value(text, name)
+def pref_bool(text, name, platform="desktop"):
+    """取某个 bool pref 在指定平台 release 构建下的值；取不到返回 None。"""
+    raw = pref_value(text, name, platform)
     if raw is None:
         return None
     raw = raw.strip()
-    if raw in BUILD_TOKENS:
-        return BUILD_TOKENS[raw]
+    tokens = BUILD_TOKENS_BY_PLATFORM.get(platform, BUILD_TOKENS)
+    if raw in tokens:
+        return tokens[raw]
     if raw in ("true", "false"):
         return raw == "true"
     return None
 
 
-def sends_ech(version):
+def sends_ech(version, platform="desktop"):
     """是否默认发 encrypted_client_hello(0xfe0d)。
 
     由 network.dns.echconfig.enabled 决定。与 SCT 那条同理：扩展在 sender 表里
@@ -203,7 +217,7 @@ def sends_ech(version):
     """
     try:
         return pref_bool(fetch(version, "staticprefs"),
-                         "network.dns.echconfig.enabled")
+                         "network.dns.echconfig.enabled", platform)
     except Exception:
         return None
 
@@ -219,7 +233,7 @@ def gecko_groups(version):
     return out
 
 
-def sends_sct(version):
+def sends_sct(version, platform="desktop"):
     """是否发 signed_certificate_timestamp(0x0012)。
 
     该扩展在 sender 表里恒存在，是否真发由 SSL_ENABLE_SIGNED_CERT_TIMESTAMPS
@@ -227,7 +241,7 @@ def sends_sct(version):
     与三个参考项目的实测（133 不发、135 发）矛盾。
     """
     v = pref_value(fetch(version, "staticprefs"),
-                   "security.pki.certificate_transparency.mode")
+                   "security.pki.certificate_transparency.mode", platform)
     return None if v is None else v.strip() != "0"
 
 
@@ -272,8 +286,13 @@ def _strip_comments(s):
     return re.sub(r"//[^\n]*", "", s)
 
 
-def extract(version):
-    """返回该版本的三张有序表（数值形式）。"""
+def extract(version, platform="desktop"):
+    """返回该版本在指定平台下的表。
+
+    platform="android" 时按 GeckoView 构建求值——Android Firefox 与桌面共享
+    NSS，差异全在 StaticPrefList 的 ANDROID 分支里（实测 135 版：Android 不发
+    SCT、不发 MLKEM，两处都由 pref 决定）。
+    """
     con = fetch(version, "ssl3con.c")
     ext = fetch(version, "ssl3ext.c")
     cmap, emap, smap = symbol_table(version)
@@ -291,18 +310,29 @@ def extract(version):
     exts = [emap[n] for n in re.findall(r"(ssl_\w+_xtn)", body) if n in emap]
 
     # 条件发送的扩展要按实际条件裁剪，否则段表看不出 133/134 与 135 的区别
-    sct = sends_sct(version)
+    sct = sends_sct(version, platform)
     if sct is False and emap.get("ssl_signed_cert_timestamp_xtn") in exts:
         exts = [e for e in exts if e != emap["ssl_signed_cert_timestamp_xtn"]]
 
-    ech = sends_ech(version)
+    ech = sends_ech(version, platform)
     ECH_EXT = 0xFE0D
     if ech is False and ECH_EXT in exts:
         exts = [e for e in exts if e != ECH_EXT]
 
+    # gecko 硬编码两份 group 列表：含后量子 KEM 的与不含的，按 enable_kyber
+    # 选。该 pref 的默认值是 @IS_NOT_ANDROID@ —— 桌面开、Android 关，所以
+    # Android 走第二份（实测 wreq:FirefoxAndroid135 的 curves 确实没有 0x11ec）。
     groups = gecko_groups(version)
+    kyber = True
+    try:
+        kyber = pref_bool(fetch(version, "staticprefs"),
+                          "security.tls.enable_kyber", platform)
+    except Exception:
+        pass
+    idx = 0 if (kyber is not False and len(groups) > 0) else 1
+    curves = groups[idx] if len(groups) > idx else (groups[0] if groups else [])
     return {"ciphers": ciphers, "sig_algs": sigs, "extensions": exts,
-            "curves": groups[0] if groups else [], "sct": sct, "ech": ech}
+            "curves": curves, "sct": sct, "ech": ech}
 
 
 def check_prefs(version):
