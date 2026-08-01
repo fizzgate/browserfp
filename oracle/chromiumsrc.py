@@ -16,6 +16,21 @@ signature_algorithms，它们不参与置换。
 **同一链路覆盖 Chrome / Edge / Opera**：三家共用 Chromium 内核，段边界应当一致，
 可以互相印证；不一致的地方就是各家自己改过的，值得单独标注。
 
+**Chrome 的 feature 默认值不代表实际行为 —— Finch 会在运行期覆盖它**。这是
+Chrome 与 Firefox 最本质的区别，也是 chrome 段表 usable_for_substitution=false
+的真正原因。实证：
+    源码 net/base/features.cc 里 kUseNewAlpsCodepointHttp2 在 M126/130/131/
+    132/133 全部是 FEATURE_DISABLED_BY_DEFAULT（M140 起才 ENABLED）
+    但 curl_cffi、tls_client、utls、wreq **四家实采一致**显示 M131 发旧
+    codepoint 0x4469、M132+ 发新的 0x44cd
+四家独立数据不会同时错，唯一解释是 Finch 实验在 132 前后把该 feature 推开了，
+而源码默认值直到 140 才跟上。这意味着**同一个 Chrome 版本在不同用户/地区/
+时间可能发出不同指纹**，"版本 → 唯一指纹"对 Chrome 根本不成立。
+
+因此 Chrome 只能靠实采，且实采到的也只是"某个 Finch 配置下的一种形态"。源码
+在 Chrome 这条线上只能用于反向判断：curves/sigalgs 这类硬编码表变了则**必定**
+不同段；不能反过来证明同段。
+
 **extensions_set 不能直接当成 ClientHello 里的扩展集合**：kExtensions 列的是
 BoringSSL **实现了**的扩展，25 条里 add_clienthello 回调无一为 NULL，是否真发
 全在回调内部按运行期配置决定（ECH 要配了才发、ALPS 要 Chromium 开了才发）。

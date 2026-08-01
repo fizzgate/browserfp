@@ -174,11 +174,13 @@ def main(argv):
         # 文档里迟早被误用。
         #   firefox  可以：ClientHello 由几张静态表决定，静态分析覆盖得全，
         #            实测 SCT 维度 47 条与实采全对
-        #   chrome   不可以：大量行为由运行期 feature flag 决定，静态分析覆盖
-        #            不到。实测同段内各参考项目仍有多种指纹（段 131-141 里
-        #            utls/tls_client/curl_cffi/wreq **四家独立地**都把 131 与
-        #            132+ 分开，而源码判据没抓到）。它只能用于反向判断——
-        #            curves/sigalgs 变了则**必定**不同段。
+        #   chrome   不可以：feature 默认值不代表实际行为，Finch 会在运行期
+        #            覆盖。实证——kUseNewAlpsCodepointHttp2 在源码里 M126~133
+        #            全是 DISABLED（M140 才 ENABLED），而四家实采一致显示
+        #            M131 发旧 codepoint 0x4469、M132+ 发新的 0x44cd。同一个
+        #            Chrome 版本在不同用户/地区/时间可能发出不同指纹，
+        #            "版本 → 唯一指纹"对 Chrome 不成立。它只能用于反向判断：
+        #            curves/sigalgs 这类硬编码表变了则**必定**不同段。
         substitutable = brand == "firefox"
         payload = {
             "brand": brand,
@@ -187,7 +189,10 @@ def main(argv):
                 "段内可安全替代（源码三表 + curves + sct 已覆盖决定性维度）"
                 if substitutable else
                 "**不可**用于段内替代：仅证明跨段必定不同，不保证段内相同。"
-                "Chrome 大量行为由运行期 feature flag 决定，静态分析覆盖不到"),
+                "Chrome 的 feature 默认值会被 Finch 运行期覆盖（实证："
+                "kUseNewAlpsCodepointHttp2 源码里 M126~133 全为 DISABLED，"
+                "而四家实采一致显示 M132+ 已改发新 codepoint 0x44cd），"
+                "同一版本在不同用户/地区/时间可能发出不同指纹"),
             "scanned": [lo, hi],
             "unavailable": sorted(failed, key=int),
             "segments": [{"from": s["from"], "to": s["to"],
