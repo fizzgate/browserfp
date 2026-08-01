@@ -8,7 +8,7 @@
     {
       "from": 70,
       "substitutable": false,
-      "substitution_reason": "\u6bb5\u5212\u7c97\u4e86\uff1autls \u5185\u90e8 2 \u79cd\u6307\u7eb9",
+      "substitution_reason": "\u8bc1\u636e\u4e0d\u8db3\uff1autls \u8986\u76d6 2 \u7248\u672c\u6709 2 \u79cd\u6307\u7eb9",
       "tables": {
         "boringssl": "7f4f41fa81c03e0f8ef1ab5b3d1d566b5968f107",
         "cipher_excludes": [
@@ -100,7 +100,7 @@
     {
       "from": 83,
       "substitutable": false,
-      "substitution_reason": "\u6bb5\u5212\u7c97\u4e86\uff1autls \u5185\u90e8 2 \u79cd\u6307\u7eb9",
+      "substitution_reason": "\u6bb5\u5212\u7c97\u4e86\uff08\u5f3a\u8bc1\u636e\uff09\uff1autls \u8986\u76d6 3 \u7248\u672c\u5374\u6709 2 \u79cd\u6307\u7eb9",
       "tables": {
         "boringssl": "5298ef99bf2b2d77600b3bb74dd572027bf495be",
         "cipher_excludes": [
@@ -201,7 +201,7 @@
     {
       "from": 97,
       "substitutable": false,
-      "substitution_reason": "\u6bb5\u5212\u7c97\u4e86\uff1awreq \u5185\u90e8 2 \u79cd\u6307\u7eb9",
+      "substitution_reason": "\u6bb5\u5212\u7c97\u4e86\uff08\u5f3a\u8bc1\u636e\uff09\uff1awreq \u8986\u76d6 10 \u7248\u672c\u5374\u6709 2 \u79cd\u6307\u7eb9",
       "tables": {
         "boringssl": "69030a0ceabfe69c58cb2b83d9d4852333e3d0c2",
         "cipher_excludes": [
@@ -305,7 +305,7 @@
     {
       "from": 116,
       "substitutable": false,
-      "substitution_reason": "\u6bb5\u5212\u7c97\u4e86\uff1acurl_cffi \u5185\u90e8 4 \u79cd\u6307\u7eb9\u3001tls_client \u5185\u90e8 3 \u79cd\u6307\u7eb9\u3001wreq \u5185\u90e8 3 \u79cd\u6307\u7eb9",
+      "substitution_reason": "\u6bb5\u5212\u7c97\u4e86\uff08\u5f3a\u8bc1\u636e\uff09\uff1acurl_cffi \u8986\u76d6 5 \u7248\u672c\u5374\u6709 4 \u79cd\u6307\u7eb9\u3001tls_client \u8986\u76d6 3 \u7248\u672c\u5374\u6709 3 \u79cd\u6307\u7eb9\u3001wreq \u8986\u76d6 11 \u7248\u672c\u5374\u6709 3 \u79cd\u6307\u7eb9",
       "tables": {
         "boringssl": "ae88f198a49d77993e9c44b017d0e69c810dc668",
         "cipher_excludes": [
@@ -387,7 +387,7 @@
     {
       "from": 130,
       "substitutable": true,
-      "substitution_reason": "['wreq'] \u5404\u81ea\u5185\u90e8\u6307\u7eb9\u4e00\u81f4",
+      "substitution_reason": "['wreq'] \u5404\u81ea\u5185\u90e8\u4e00\u81f4\uff08\u5171 1 \u4e2a\u7248\u672c\uff09",
       "tables": {
         "boringssl": "58f3bc83230d2958bb9710bc910972c4f5d382dc",
         "cipher_excludes": [
@@ -467,7 +467,7 @@
     {
       "from": 131,
       "substitutable": false,
-      "substitution_reason": "\u6bb5\u5212\u7c97\u4e86\uff1acurl_cffi \u5185\u90e8 2 \u79cd\u6307\u7eb9\u3001tls_client \u5185\u90e8 2 \u79cd\u6307\u7eb9\u3001utls \u5185\u90e8 2 \u79cd\u6307\u7eb9\u3001wreq \u5185\u90e8 2 \u79cd\u6307\u7eb9",
+      "substitution_reason": "\u6bb5\u5212\u7c97\u4e86\uff08\u5f3a\u8bc1\u636e\uff09\uff1awreq \u8986\u76d6 11 \u7248\u672c\u5374\u6709 2 \u79cd\u6307\u7eb9",
       "tables": {
         "boringssl": "cd95210465496ac2337b313cf49f607762abe286",
         "cipher_excludes": [
@@ -550,8 +550,8 @@
     },
     {
       "from": 142,
-      "substitutable": false,
-      "substitution_reason": "\u6bb5\u5212\u7c97\u4e86\uff1atls_client \u5185\u90e8 2 \u79cd\u6307\u7eb9",
+      "substitutable": true,
+      "substitution_reason": "wreq \u8986\u76d6 8 \u4e2a\u7248\u672c\u4e00\u81f4\uff1b\u53e6\u6709 tls_client(2 \u7248\u672c 2 \u79cd) \u5206\u6b67\uff0c\u8bc1\u636e\u5f31\u4e8e\u524d\u8005",
       "tables": {
         "boringssl": "91f3df0a20f6d3dd3e2f749b4a2730b68c3d585e",
         "cipher_excludes": [
@@ -736,7 +736,7 @@
       "to": 153
     }
   ],
-  "substitutable_segments": 1,
+  "substitutable_segments": 2,
   "substitution_note": "**\u4e0d\u53ef**\u7528\u4e8e\u6bb5\u5185\u66ff\u4ee3\uff1a\u4ec5\u8bc1\u660e\u8de8\u6bb5\u5fc5\u5b9a\u4e0d\u540c\uff0c\u4e0d\u4fdd\u8bc1\u6bb5\u5185\u76f8\u540c\u3002Chrome \u7684 feature \u9ed8\u8ba4\u503c\u4f1a\u88ab Finch \u8fd0\u884c\u671f\u8986\u76d6\uff08\u5b9e\u8bc1\uff1akUseNewAlpsCodepointHttp2 \u6e90\u7801\u91cc M126~133 \u5168\u4e3a DISABLED\uff0c\u800c\u56db\u5bb6\u5b9e\u91c7\u4e00\u81f4\u663e\u793a M132+ \u5df2\u6539\u53d1\u65b0 codepoint 0x44cd\uff09\uff0c\u540c\u4e00\u7248\u672c\u5728\u4e0d\u540c\u7528\u6237/\u5730\u533a/\u65f6\u95f4\u53ef\u80fd\u53d1\u51fa\u4e0d\u540c\u6307\u7eb9",
   "unavailable": [
     "82"

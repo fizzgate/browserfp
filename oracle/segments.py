@@ -87,14 +87,43 @@ def segment_substitutable(seg, golden):
     per_src = {}
     for v in range(seg["from"], seg["to"] + 1):
         for src, key in golden.get(v, []):
-            per_src.setdefault(src, set()).add(key)
+            per_src.setdefault(src, {}).setdefault(key, set()).add(v)
     if not per_src:
         return False, "段内无实采 golden"
-    split = {src: len(ks) for src, ks in per_src.items() if len(ks) > 1}
-    if split:
-        return False, ("段划粗了："
-                       + "、".join(f"{s} 内部 {n} 种指纹" for s, n in sorted(split.items())))
-    return True, f"{sorted(per_src)} 各自内部指纹一致"
+
+    # **证据强度不等**：一家库覆盖 13 个版本全部一致，与另一家只收录 2 个版本
+    # 且不一致，不该被当作同等分量。前者是段内一致的强证据，后者可能只是那两
+    # 条数据里有一条不全（实测 tls_client:firefox_135 只有 14 个扩展，而同段的
+    # curl_cffi、wreq、utls 都是 16）。
+    STRONG = 3        # 覆盖到这么多版本才算强证据
+    strong_ok, strong_bad, weak_bad = [], [], []
+    for src, keys in per_src.items():
+        n_ver = len({v for vs in keys.values() for v in vs})
+        if len(keys) == 1:
+            if n_ver >= STRONG:
+                strong_ok.append((src, n_ver))
+        elif n_ver >= STRONG:
+            strong_bad.append((src, len(keys), n_ver))
+        else:
+            weak_bad.append((src, len(keys), n_ver))
+
+    if strong_bad:
+        return False, ("段划粗了（强证据）："
+                       + "、".join(f"{s} 覆盖 {n} 版本却有 {k} 种指纹"
+                                   for s, k, n in sorted(strong_bad)))
+    if strong_ok:
+        why = "、".join(f"{s} 覆盖 {n} 个版本一致" for s, n in sorted(strong_ok))
+        if weak_bad:
+            why += ("；另有 " + "、".join(f"{s}({n} 版本 {k} 种)"
+                                         for s, k, n in sorted(weak_bad))
+                    + " 分歧，证据弱于前者")
+        return True, why
+    if weak_bad:
+        return False, ("证据不足："
+                       + "、".join(f"{s} 覆盖 {n} 版本有 {k} 种指纹"
+                                   for s, k, n in sorted(weak_bad)))
+    covered = {v for keys in per_src.values() for vs in keys.values() for v in vs}
+    return True, f"{sorted(per_src)} 各自内部一致（共 {len(covered)} 个版本）"
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 OUT_DIR = os.path.join(HERE, "..", "spec", "segments")
