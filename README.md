@@ -70,6 +70,7 @@ ML-DSA（`0x0904/0905/0906`），连 `tls_client:chrome_146` 都没有。所以�
       ├─ oracle/gocollect.py   tls-client 67 个（Go 采集器发真实 ClientHello）
       ├─ oracle/wreqcollect.py wreq 133 个（须用 .venv-wreq/bin/python 跑）
       ├─ oracle/utlscollect.py refraction utls 36 个（老版本 + QQ/360）
+      ├─ oracle/dockercollect.py Linux 版浏览器（容器内，补非 macOS 平台）
       ├─ oracle/goh2collect.py tls-client 71 个的 h2 层
       ├─ oracle/browsers.py    真机浏览器 TLS 层
       └─ oracle/h2collect.py   真机浏览器 h2 层

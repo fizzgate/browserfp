@@ -1,0 +1,149 @@
+{
+  "chromium-linux": {
+    "fingerprint": {
+      "alpn": [
+        "h2",
+        "http/1.1"
+      ],
+      "app_settings": [
+        "h2"
+      ],
+      "cert_compression": [
+        2
+      ],
+      "ciphers": [
+        4865,
+        4866,
+        4867,
+        49195,
+        49199,
+        49196,
+        49200,
+        52393,
+        52392,
+        49171,
+        49172,
+        156,
+        157,
+        47,
+        53
+      ],
+      "client_version": 771,
+      "compression": [
+        0
+      ],
+      "curves": [
+        4588,
+        29,
+        23,
+        24
+      ],
+      "ech": true,
+      "extension_bodies": {
+        "0": "0017000014686f73742e646f636b65722e696e7465726e616c",
+        "5": "0100000000",
+        "10": "000a4a4a11ec001d00170018",
+        "11": "0100",
+        "13": "001004030804040105030805050108060601",
+        "16": "000c02683208687474702f312e31",
+        "18": "",
+        "23": "",
+        "27": "020002",
+        "35": "",
+        "43": "065a5a03040303",
+        "45": "0101",
+        "51": "04ed4a4a00010011ec04c0f0513344576aef23b46a6a6c4a6413d3c065df1940674738146a0be23663855acc429230bdaa007e540ef41130138485dec5848f66ac13475e67e506ded8266e873d17e45f3f6895eca3366b8486d2a5932bc7c8d4904207f0cb212274175ac4359a97e630a4231b9e3484a13e404d38997c875ca37fa71ed735650f8141b4e92fb5eb18b8223bfda0bf1591935a790d2c2109d914a67f90355fd520fa813759ebbc07384338e319ce29731851a28aa0656dc07795c05ac607cbf6226cf1e0c94b1255e06a59ecfc115aa73f43d4a5d2a12b9df828df678b9a7bc8e53183053ca8f96ba2c23a8e60d66441d3534d691c44709444aa0ad7320e2218968d62b3cf52667534a807c16a09d3052ec79a1f579ad1900e84b594e4082ca42249b6c22441b4436b9ab1cb5c268bbbc7aa299d520370f5fa78b884b940a58789c66884094efe053364d31c40aa1992e6556fd170e0a6bc3da3b9a78bb6b0aa674ca99fbf5a6155f44184b02e450c45e691956bd0a3e8a88848d1be2bb97211538ae4da8c99370f9e68b6a4d0437ca77b625436da454fb75727451614cb10aca3dba97e7c00e170295e639128b785dd46aff7eb2804f02239e76d4d1b416ea93ddeaabccaab9b25eb36f77ab1a44bc553441226534268a554aa7b00f712428313b3663c20fbb26aa1bc07938118c00b4c4708b757a673f644887f98a1c7b643a4b3b423a7960440935420cf77552d92631d1eb20d6ba18f1731774274a30df1283f8b19a0ebcdb994a9b7c687a61754769816cbe9c2b450542b963dd8568f2d34b3fc524561066d66989f8583bf87e1413cb3744968a954234a9102b92221c70dd2b7f741cbb1d31be03a8364552eebe3cc26c736c6d847432455f15745f5981eb25688648879e87422443b22395a6c8b8c9e7c0ac0c76143e06ccb201a6b67676b2fe71c109aaa0fe6085d56ab70b4471c15606001b11443b72dd0bb967a0553a433b52192468a951a771fe3d1c72ee22ee65770ae2a0296f38a5a86b2a49cb9c163a47a0471a524c0e622c58218cd2be3cd1aacbfba928e134c75fdfb75aab0069b7bb31e0b7fe8756a4c7694dcd4ae7d68524c0453f2265d7a4a4b0ef0035e705a8b7644cd9197b664b987b6680807a1e9f234e52425468562c8a4102aabc4c59b5fabc8161967b9a827c6faa3c184d26a5184007636b61dd6b5e95b991120cebce48f45687189d17a84d57d3a76791749517b20420544cf097810e501345bd8b09d789a3b745c3d79aa2e57447ba1077ec19908e737f4136ee8b3aa9af7499d272bc9e574f5dc2021d979144c4bd8f2570fd3864ba06e11c0aafd415684b6b8dbe7a530198447a013dc301cdc902e9936bfd6c37a14e41775dc0b3e21421f5067536ac457e829c784036e3865ba0c200c0777e9d25275eab69f282fbb91195a5440b7a640993b1e70c70ee5f636eecb1439d1710ae1b80a69bc40e401628b5022204a30fa3220312eb4d06e6ff5c672399d6062319eb8ba54b373a5a94d2eb3ac0b6c0d19c240b6ac2adcd09b980053d446ba21e01811792bbe779ebb6cbd03a33030d0cfe0b4581ce181c9c4258a2a6ddf0a4e6cf533afd704faa32c802344ea4a7a24861ea053c93e2a6441f936be3eecca6ad3e4694a9d4ace2c5f0effda47f7a37e3f19be05f17377ff5c21f9d03579a2caf93651b651d66a7ed6370f240be04a001d0020a32f327fa55b24490c27a826884a63c2816c00dfe6890c6ae21cdb8135039973",
+        "17513": "0003026832",
+        "19018": "00",
+        "60138": "",
+        "65037": "00000100015c002035798639fd760257450f2a46c668d77981c6a89bf824948a339763003752b96d009070fc1db081014d763d86a1df7342ac80a89fc6994a27aac8abc53875fd3f742f78a5ef2abb48f50f486804d2439d7ecd5fabdb25d5f795e0ff35a5c4024a1d33b20351e0947a1f1b0f3307c406aeff1fc4f9db59fcb7201b177644bfdc4489707ba1fb85ce04f6bde09af95e8a483ddb1cb5a3b19a83c793a0b5d2cc8493ac5395b2585560ad2371e68af42db9029a0a",
+        "65281": "00"
+      },
+      "extensions_ordered": [
+        35,
+        27,
+        23,
+        16,
+        65037,
+        18,
+        11,
+        10,
+        45,
+        13,
+        51,
+        17513,
+        5,
+        65281,
+        0,
+        43
+      ],
+      "has_grease": true,
+      "ja3": "771,4865-4866-4867-49195-49199-49196-49200-52393-52392-49171-49172-156-157-47-53,35-27-23-16-65037-18-11-10-45-13-51-17513-5-65281-0-43,4588-29-23-24,0",
+      "ja3_hash": "78b9c4da529dca4b82ab1700f61a05ea",
+      "ja4": "t13d1516h2_8daaf6152771_02713d6af862",
+      "point_formats": [
+        0
+      ],
+      "psk_modes": [
+        1
+      ],
+      "raw_ciphers": [
+        27242,
+        4865,
+        4866,
+        4867,
+        49195,
+        49199,
+        49196,
+        49200,
+        52393,
+        52392,
+        49171,
+        49172,
+        156,
+        157,
+        47,
+        53
+      ],
+      "raw_extensions": [
+        60138,
+        35,
+        27,
+        23,
+        16,
+        65037,
+        18,
+        11,
+        10,
+        45,
+        13,
+        51,
+        17513,
+        5,
+        65281,
+        0,
+        43,
+        19018
+      ],
+      "record_size_limit": null,
+      "session_id_len": 32,
+      "sig_algs": [
+        1027,
+        2052,
+        1025,
+        1283,
+        2053,
+        1281,
+        2054,
+        1537
+      ],
+      "supported_versions": [
+        772,
+        771
+      ]
+    },
+    "image": "21hsmw/flaresolverr:nodriver",
+    "platform": "linux",
+    "version": "Chromium 133.0.6943.126 built on Debian GNU/Linux 12 (bookworm)"
+  }
+}
