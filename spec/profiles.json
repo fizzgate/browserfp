@@ -11638,7 +11638,35 @@
     "aliases": [
       "wreq:Firefox133"
     ],
-    "h2": null,
+    "h2": {
+      "akamai_fingerprint": "1:65536,2:0,4:131072,5:16384|12517377|0|m,p,a,s",
+      "priorities": [],
+      "pseudo_header_order": [
+        ":method",
+        ":path",
+        ":authority",
+        ":scheme"
+      ],
+      "settings": [
+        [
+          1,
+          65536
+        ],
+        [
+          2,
+          0
+        ],
+        [
+          4,
+          131072
+        ],
+        [
+          5,
+          16384
+        ]
+      ],
+      "window_update": 12517377
+    },
     "id": "wreq:Firefox133",
     "mode": "initial",
     "provenance": "opensource-table",
@@ -11792,7 +11820,35 @@
     "aliases": [
       "wreq:FirefoxAndroid135"
     ],
-    "h2": null,
+    "h2": {
+      "akamai_fingerprint": "1:4096,2:0,4:32768,5:16384|12517377|0|m,p,a,s",
+      "priorities": [],
+      "pseudo_header_order": [
+        ":method",
+        ":path",
+        ":authority",
+        ":scheme"
+      ],
+      "settings": [
+        [
+          1,
+          4096
+        ],
+        [
+          2,
+          0
+        ],
+        [
+          4,
+          32768
+        ],
+        [
+          5,
+          16384
+        ]
+      ],
+      "window_update": 12517377
+    },
     "id": "wreq:FirefoxAndroid135",
     "mode": "initial",
     "provenance": "opensource-table",
@@ -11950,7 +12006,23 @@
       "wreq:OkHttp4_12",
       "wreq:OkHttp5"
     ],
-    "h2": null,
+    "h2": {
+      "akamai_fingerprint": "4:16777216|16711681|0|m,p,a,s",
+      "priorities": [],
+      "pseudo_header_order": [
+        ":method",
+        ":path",
+        ":authority",
+        ":scheme"
+      ],
+      "settings": [
+        [
+          4,
+          16777216
+        ]
+      ],
+      "window_update": 16711681
+    },
     "id": "wreq:OkHttp3_11",
     "mode": "initial",
     "provenance": "opensource-table",
@@ -12080,7 +12152,23 @@
     "aliases": [
       "wreq:OkHttp3_9"
     ],
-    "h2": null,
+    "h2": {
+      "akamai_fingerprint": "4:16777216|16711681|0|m,p,a,s",
+      "priorities": [],
+      "pseudo_header_order": [
+        ":method",
+        ":path",
+        ":authority",
+        ":scheme"
+      ],
+      "settings": [
+        [
+          4,
+          16777216
+        ]
+      ],
+      "window_update": 16711681
+    },
     "id": "wreq:OkHttp3_9",
     "mode": "initial",
     "provenance": "opensource-table",
@@ -12215,7 +12303,27 @@
       "wreq:Safari15_3",
       "wreq:Safari15_5"
     ],
-    "h2": null,
+    "h2": {
+      "akamai_fingerprint": "4:4194304,3:100|10485760|0|m,s,p,a",
+      "priorities": [],
+      "pseudo_header_order": [
+        ":method",
+        ":scheme",
+        ":path",
+        ":authority"
+      ],
+      "settings": [
+        [
+          4,
+          4194304
+        ],
+        [
+          3,
+          100
+        ]
+      ],
+      "window_update": 10485760
+    },
     "id": "wreq:Safari15_3",
     "mode": "initial",
     "provenance": "opensource-table",

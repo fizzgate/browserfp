@@ -1,0 +1,6063 @@
+{
+  "Chrome100": {
+    "akamai_fingerprint": "1:65536,3:1000,4:6291456,6:262144|15663105|0|m,a,s,p",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "sec-ch-ua",
+      "sec-ch-ua-mobile",
+      "sec-ch-ua-platform",
+      "user-agent",
+      "sec-fetch-dest",
+      "sec-fetch-mode",
+      "sec-fetch-site",
+      "accept",
+      "accept-encoding",
+      "accept-language"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":authority",
+      ":scheme",
+      ":path"
+    ],
+    "settings": [
+      [
+        1,
+        65536
+      ],
+      [
+        3,
+        1000
+      ],
+      [
+        4,
+        6291456
+      ],
+      [
+        6,
+        262144
+      ]
+    ],
+    "window_update": 15663105
+  },
+  "Chrome101": {
+    "akamai_fingerprint": "1:65536,3:1000,4:6291456,6:262144|15663105|0|m,a,s,p",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "sec-ch-ua",
+      "sec-ch-ua-mobile",
+      "sec-ch-ua-platform",
+      "user-agent",
+      "sec-fetch-dest",
+      "sec-fetch-mode",
+      "sec-fetch-site",
+      "accept",
+      "accept-encoding",
+      "accept-language"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":authority",
+      ":scheme",
+      ":path"
+    ],
+    "settings": [
+      [
+        1,
+        65536
+      ],
+      [
+        3,
+        1000
+      ],
+      [
+        4,
+        6291456
+      ],
+      [
+        6,
+        262144
+      ]
+    ],
+    "window_update": 15663105
+  },
+  "Chrome104": {
+    "akamai_fingerprint": "1:65536,3:1000,4:6291456,6:262144|15663105|0|m,a,s,p",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "sec-ch-ua",
+      "sec-ch-ua-mobile",
+      "sec-ch-ua-platform",
+      "user-agent",
+      "sec-fetch-dest",
+      "sec-fetch-mode",
+      "sec-fetch-site",
+      "accept",
+      "accept-encoding",
+      "accept-language"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":authority",
+      ":scheme",
+      ":path"
+    ],
+    "settings": [
+      [
+        1,
+        65536
+      ],
+      [
+        3,
+        1000
+      ],
+      [
+        4,
+        6291456
+      ],
+      [
+        6,
+        262144
+      ]
+    ],
+    "window_update": 15663105
+  },
+  "Chrome105": {
+    "akamai_fingerprint": "1:65536,3:1000,4:6291456,6:262144|15663105|0|m,a,s,p",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "sec-ch-ua",
+      "sec-ch-ua-mobile",
+      "sec-ch-ua-platform",
+      "user-agent",
+      "sec-fetch-dest",
+      "sec-fetch-mode",
+      "sec-fetch-site",
+      "accept",
+      "accept-encoding",
+      "accept-language"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":authority",
+      ":scheme",
+      ":path"
+    ],
+    "settings": [
+      [
+        1,
+        65536
+      ],
+      [
+        3,
+        1000
+      ],
+      [
+        4,
+        6291456
+      ],
+      [
+        6,
+        262144
+      ]
+    ],
+    "window_update": 15663105
+  },
+  "Chrome106": {
+    "akamai_fingerprint": "1:65536,2:0,3:1000,4:6291456,6:262144|15663105|0|m,a,s,p",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "sec-ch-ua",
+      "sec-ch-ua-mobile",
+      "sec-ch-ua-platform",
+      "user-agent",
+      "sec-fetch-dest",
+      "sec-fetch-mode",
+      "sec-fetch-site",
+      "accept",
+      "accept-encoding",
+      "accept-language"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":authority",
+      ":scheme",
+      ":path"
+    ],
+    "settings": [
+      [
+        1,
+        65536
+      ],
+      [
+        2,
+        0
+      ],
+      [
+        3,
+        1000
+      ],
+      [
+        4,
+        6291456
+      ],
+      [
+        6,
+        262144
+      ]
+    ],
+    "window_update": 15663105
+  },
+  "Chrome107": {
+    "akamai_fingerprint": "1:65536,2:0,3:1000,4:6291456,6:262144|15663105|0|m,a,s,p",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "sec-ch-ua",
+      "sec-ch-ua-mobile",
+      "sec-ch-ua-platform",
+      "user-agent",
+      "sec-fetch-dest",
+      "sec-fetch-mode",
+      "sec-fetch-site",
+      "accept",
+      "accept-encoding",
+      "accept-language"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":authority",
+      ":scheme",
+      ":path"
+    ],
+    "settings": [
+      [
+        1,
+        65536
+      ],
+      [
+        2,
+        0
+      ],
+      [
+        3,
+        1000
+      ],
+      [
+        4,
+        6291456
+      ],
+      [
+        6,
+        262144
+      ]
+    ],
+    "window_update": 15663105
+  },
+  "Chrome108": {
+    "akamai_fingerprint": "1:65536,2:0,3:1000,4:6291456,6:262144|15663105|0|m,a,s,p",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "sec-ch-ua",
+      "sec-ch-ua-mobile",
+      "sec-ch-ua-platform",
+      "user-agent",
+      "sec-fetch-dest",
+      "sec-fetch-mode",
+      "sec-fetch-site",
+      "accept",
+      "accept-encoding",
+      "accept-language"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":authority",
+      ":scheme",
+      ":path"
+    ],
+    "settings": [
+      [
+        1,
+        65536
+      ],
+      [
+        2,
+        0
+      ],
+      [
+        3,
+        1000
+      ],
+      [
+        4,
+        6291456
+      ],
+      [
+        6,
+        262144
+      ]
+    ],
+    "window_update": 15663105
+  },
+  "Chrome109": {
+    "akamai_fingerprint": "1:65536,2:0,3:1000,4:6291456,6:262144|15663105|0|m,a,s,p",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "sec-ch-ua",
+      "sec-ch-ua-mobile",
+      "sec-ch-ua-platform",
+      "user-agent",
+      "sec-fetch-dest",
+      "sec-fetch-mode",
+      "sec-fetch-site",
+      "accept",
+      "accept-encoding",
+      "accept-language"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":authority",
+      ":scheme",
+      ":path"
+    ],
+    "settings": [
+      [
+        1,
+        65536
+      ],
+      [
+        2,
+        0
+      ],
+      [
+        3,
+        1000
+      ],
+      [
+        4,
+        6291456
+      ],
+      [
+        6,
+        262144
+      ]
+    ],
+    "window_update": 15663105
+  },
+  "Chrome110": {
+    "akamai_fingerprint": "1:65536,3:1000,4:6291456,6:262144|15663105|0|m,a,s,p",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "sec-ch-ua",
+      "sec-ch-ua-mobile",
+      "sec-ch-ua-platform",
+      "user-agent",
+      "sec-fetch-dest",
+      "sec-fetch-mode",
+      "sec-fetch-site",
+      "accept",
+      "accept-encoding",
+      "accept-language"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":authority",
+      ":scheme",
+      ":path"
+    ],
+    "settings": [
+      [
+        1,
+        65536
+      ],
+      [
+        3,
+        1000
+      ],
+      [
+        4,
+        6291456
+      ],
+      [
+        6,
+        262144
+      ]
+    ],
+    "window_update": 15663105
+  },
+  "Chrome114": {
+    "akamai_fingerprint": "1:65536,2:0,3:1000,4:6291456,6:262144|15663105|0|m,a,s,p",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "sec-ch-ua",
+      "sec-ch-ua-mobile",
+      "sec-ch-ua-platform",
+      "user-agent",
+      "sec-fetch-dest",
+      "sec-fetch-mode",
+      "sec-fetch-site",
+      "accept",
+      "accept-encoding",
+      "accept-language"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":authority",
+      ":scheme",
+      ":path"
+    ],
+    "settings": [
+      [
+        1,
+        65536
+      ],
+      [
+        2,
+        0
+      ],
+      [
+        3,
+        1000
+      ],
+      [
+        4,
+        6291456
+      ],
+      [
+        6,
+        262144
+      ]
+    ],
+    "window_update": 15663105
+  },
+  "Chrome116": {
+    "akamai_fingerprint": "1:65536,2:0,3:1000,4:6291456,6:262144|15663105|0|m,a,s,p",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "sec-ch-ua",
+      "sec-ch-ua-mobile",
+      "sec-ch-ua-platform",
+      "user-agent",
+      "sec-fetch-dest",
+      "sec-fetch-mode",
+      "sec-fetch-site",
+      "accept",
+      "accept-encoding",
+      "accept-language"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":authority",
+      ":scheme",
+      ":path"
+    ],
+    "settings": [
+      [
+        1,
+        65536
+      ],
+      [
+        2,
+        0
+      ],
+      [
+        3,
+        1000
+      ],
+      [
+        4,
+        6291456
+      ],
+      [
+        6,
+        262144
+      ]
+    ],
+    "window_update": 15663105
+  },
+  "Chrome117": {
+    "akamai_fingerprint": "1:65536,2:0,4:6291456,6:262144|15663105|0|m,a,s,p",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "sec-ch-ua",
+      "sec-ch-ua-mobile",
+      "sec-ch-ua-platform",
+      "user-agent",
+      "sec-fetch-dest",
+      "sec-fetch-mode",
+      "sec-fetch-site",
+      "accept",
+      "accept-encoding",
+      "accept-language"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":authority",
+      ":scheme",
+      ":path"
+    ],
+    "settings": [
+      [
+        1,
+        65536
+      ],
+      [
+        2,
+        0
+      ],
+      [
+        4,
+        6291456
+      ],
+      [
+        6,
+        262144
+      ]
+    ],
+    "window_update": 15663105
+  },
+  "Chrome118": {
+    "akamai_fingerprint": "1:65536,2:0,4:6291456,6:262144|15663105|0|m,a,s,p",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "sec-ch-ua",
+      "sec-ch-ua-mobile",
+      "sec-ch-ua-platform",
+      "user-agent",
+      "sec-fetch-dest",
+      "sec-fetch-mode",
+      "sec-fetch-site",
+      "accept",
+      "accept-encoding",
+      "accept-language"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":authority",
+      ":scheme",
+      ":path"
+    ],
+    "settings": [
+      [
+        1,
+        65536
+      ],
+      [
+        2,
+        0
+      ],
+      [
+        4,
+        6291456
+      ],
+      [
+        6,
+        262144
+      ]
+    ],
+    "window_update": 15663105
+  },
+  "Chrome119": {
+    "akamai_fingerprint": "1:65536,2:0,4:6291456,6:262144|15663105|0|m,a,s,p",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "sec-ch-ua",
+      "sec-ch-ua-mobile",
+      "sec-ch-ua-platform",
+      "user-agent",
+      "sec-fetch-dest",
+      "sec-fetch-mode",
+      "sec-fetch-site",
+      "accept",
+      "accept-encoding",
+      "accept-language"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":authority",
+      ":scheme",
+      ":path"
+    ],
+    "settings": [
+      [
+        1,
+        65536
+      ],
+      [
+        2,
+        0
+      ],
+      [
+        4,
+        6291456
+      ],
+      [
+        6,
+        262144
+      ]
+    ],
+    "window_update": 15663105
+  },
+  "Chrome120": {
+    "akamai_fingerprint": "1:65536,2:0,4:6291456,6:262144|15663105|0|m,a,s,p",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "sec-ch-ua",
+      "sec-ch-ua-mobile",
+      "sec-ch-ua-platform",
+      "user-agent",
+      "sec-fetch-dest",
+      "sec-fetch-mode",
+      "sec-fetch-site",
+      "accept",
+      "accept-encoding",
+      "accept-language"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":authority",
+      ":scheme",
+      ":path"
+    ],
+    "settings": [
+      [
+        1,
+        65536
+      ],
+      [
+        2,
+        0
+      ],
+      [
+        4,
+        6291456
+      ],
+      [
+        6,
+        262144
+      ]
+    ],
+    "window_update": 15663105
+  },
+  "Chrome123": {
+    "akamai_fingerprint": "1:65536,2:0,4:6291456,6:262144|15663105|0|m,a,s,p",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "sec-ch-ua",
+      "sec-ch-ua-mobile",
+      "sec-ch-ua-platform",
+      "user-agent",
+      "sec-fetch-dest",
+      "sec-fetch-mode",
+      "sec-fetch-site",
+      "accept",
+      "accept-encoding",
+      "accept-language"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":authority",
+      ":scheme",
+      ":path"
+    ],
+    "settings": [
+      [
+        1,
+        65536
+      ],
+      [
+        2,
+        0
+      ],
+      [
+        4,
+        6291456
+      ],
+      [
+        6,
+        262144
+      ]
+    ],
+    "window_update": 15663105
+  },
+  "Chrome124": {
+    "akamai_fingerprint": "1:65536,2:0,4:6291456,6:262144|15663105|0|m,a,s,p",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "sec-ch-ua",
+      "sec-ch-ua-mobile",
+      "sec-ch-ua-platform",
+      "user-agent",
+      "sec-fetch-dest",
+      "sec-fetch-mode",
+      "sec-fetch-site",
+      "accept",
+      "accept-encoding",
+      "accept-language"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":authority",
+      ":scheme",
+      ":path"
+    ],
+    "settings": [
+      [
+        1,
+        65536
+      ],
+      [
+        2,
+        0
+      ],
+      [
+        4,
+        6291456
+      ],
+      [
+        6,
+        262144
+      ]
+    ],
+    "window_update": 15663105
+  },
+  "Chrome126": {
+    "akamai_fingerprint": "1:65536,2:0,4:6291456,6:262144|15663105|0|m,a,s,p",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "sec-ch-ua",
+      "sec-ch-ua-mobile",
+      "sec-ch-ua-platform",
+      "user-agent",
+      "sec-fetch-dest",
+      "sec-fetch-mode",
+      "sec-fetch-site",
+      "accept",
+      "accept-encoding",
+      "accept-language"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":authority",
+      ":scheme",
+      ":path"
+    ],
+    "settings": [
+      [
+        1,
+        65536
+      ],
+      [
+        2,
+        0
+      ],
+      [
+        4,
+        6291456
+      ],
+      [
+        6,
+        262144
+      ]
+    ],
+    "window_update": 15663105
+  },
+  "Chrome127": {
+    "akamai_fingerprint": "1:65536,2:0,4:6291456,6:262144|15663105|0|m,a,s,p",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "sec-ch-ua",
+      "sec-ch-ua-mobile",
+      "sec-ch-ua-platform",
+      "user-agent",
+      "sec-fetch-dest",
+      "sec-fetch-mode",
+      "sec-fetch-site",
+      "accept",
+      "accept-encoding",
+      "accept-language"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":authority",
+      ":scheme",
+      ":path"
+    ],
+    "settings": [
+      [
+        1,
+        65536
+      ],
+      [
+        2,
+        0
+      ],
+      [
+        4,
+        6291456
+      ],
+      [
+        6,
+        262144
+      ]
+    ],
+    "window_update": 15663105
+  },
+  "Chrome128": {
+    "akamai_fingerprint": "1:65536,2:0,4:6291456,6:262144|15663105|0|m,a,s,p",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "sec-ch-ua",
+      "sec-ch-ua-mobile",
+      "sec-ch-ua-platform",
+      "user-agent",
+      "sec-fetch-dest",
+      "sec-fetch-mode",
+      "sec-fetch-site",
+      "accept",
+      "accept-encoding",
+      "accept-language"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":authority",
+      ":scheme",
+      ":path"
+    ],
+    "settings": [
+      [
+        1,
+        65536
+      ],
+      [
+        2,
+        0
+      ],
+      [
+        4,
+        6291456
+      ],
+      [
+        6,
+        262144
+      ]
+    ],
+    "window_update": 15663105
+  },
+  "Chrome129": {
+    "akamai_fingerprint": "1:65536,2:0,4:6291456,6:262144|15663105|0|m,a,s,p",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "sec-ch-ua",
+      "sec-ch-ua-mobile",
+      "sec-ch-ua-platform",
+      "user-agent",
+      "sec-fetch-dest",
+      "sec-fetch-mode",
+      "sec-fetch-site",
+      "accept",
+      "accept-encoding",
+      "accept-language",
+      "priority"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":authority",
+      ":scheme",
+      ":path"
+    ],
+    "settings": [
+      [
+        1,
+        65536
+      ],
+      [
+        2,
+        0
+      ],
+      [
+        4,
+        6291456
+      ],
+      [
+        6,
+        262144
+      ]
+    ],
+    "window_update": 15663105
+  },
+  "Chrome130": {
+    "akamai_fingerprint": "1:65536,2:0,4:6291456,6:262144|15663105|0|m,a,s,p",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "sec-ch-ua",
+      "sec-ch-ua-mobile",
+      "sec-ch-ua-platform",
+      "user-agent",
+      "sec-fetch-dest",
+      "sec-fetch-mode",
+      "sec-fetch-site",
+      "accept",
+      "accept-encoding",
+      "accept-language",
+      "priority"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":authority",
+      ":scheme",
+      ":path"
+    ],
+    "settings": [
+      [
+        1,
+        65536
+      ],
+      [
+        2,
+        0
+      ],
+      [
+        4,
+        6291456
+      ],
+      [
+        6,
+        262144
+      ]
+    ],
+    "window_update": 15663105
+  },
+  "Chrome131": {
+    "akamai_fingerprint": "1:65536,2:0,4:6291456,6:262144|15663105|0|m,a,s,p",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "sec-ch-ua",
+      "sec-ch-ua-mobile",
+      "sec-ch-ua-platform",
+      "user-agent",
+      "sec-fetch-dest",
+      "sec-fetch-mode",
+      "sec-fetch-site",
+      "accept",
+      "accept-encoding",
+      "accept-language",
+      "priority"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":authority",
+      ":scheme",
+      ":path"
+    ],
+    "settings": [
+      [
+        1,
+        65536
+      ],
+      [
+        2,
+        0
+      ],
+      [
+        4,
+        6291456
+      ],
+      [
+        6,
+        262144
+      ]
+    ],
+    "window_update": 15663105
+  },
+  "Chrome132": {
+    "akamai_fingerprint": "1:65536,2:0,4:6291456,6:262144|15663105|0|m,a,s,p",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "sec-ch-ua",
+      "sec-ch-ua-mobile",
+      "sec-ch-ua-platform",
+      "user-agent",
+      "sec-fetch-dest",
+      "sec-fetch-mode",
+      "sec-fetch-site",
+      "accept",
+      "accept-encoding",
+      "accept-language",
+      "priority"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":authority",
+      ":scheme",
+      ":path"
+    ],
+    "settings": [
+      [
+        1,
+        65536
+      ],
+      [
+        2,
+        0
+      ],
+      [
+        4,
+        6291456
+      ],
+      [
+        6,
+        262144
+      ]
+    ],
+    "window_update": 15663105
+  },
+  "Chrome133": {
+    "akamai_fingerprint": "1:65536,2:0,4:6291456,6:262144|15663105|0|m,a,s,p",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "sec-ch-ua",
+      "sec-ch-ua-mobile",
+      "sec-ch-ua-platform",
+      "user-agent",
+      "sec-fetch-dest",
+      "sec-fetch-mode",
+      "sec-fetch-site",
+      "accept",
+      "accept-encoding",
+      "accept-language",
+      "priority"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":authority",
+      ":scheme",
+      ":path"
+    ],
+    "settings": [
+      [
+        1,
+        65536
+      ],
+      [
+        2,
+        0
+      ],
+      [
+        4,
+        6291456
+      ],
+      [
+        6,
+        262144
+      ]
+    ],
+    "window_update": 15663105
+  },
+  "Chrome134": {
+    "akamai_fingerprint": "1:65536,2:0,4:6291456,6:262144|15663105|0|m,a,s,p",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "sec-ch-ua",
+      "sec-ch-ua-mobile",
+      "sec-ch-ua-platform",
+      "user-agent",
+      "sec-fetch-dest",
+      "sec-fetch-mode",
+      "sec-fetch-site",
+      "accept",
+      "accept-encoding",
+      "accept-language",
+      "priority"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":authority",
+      ":scheme",
+      ":path"
+    ],
+    "settings": [
+      [
+        1,
+        65536
+      ],
+      [
+        2,
+        0
+      ],
+      [
+        4,
+        6291456
+      ],
+      [
+        6,
+        262144
+      ]
+    ],
+    "window_update": 15663105
+  },
+  "Chrome135": {
+    "akamai_fingerprint": "1:65536,2:0,4:6291456,6:262144|15663105|0|m,a,s,p",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "sec-ch-ua",
+      "sec-ch-ua-mobile",
+      "sec-ch-ua-platform",
+      "user-agent",
+      "sec-fetch-dest",
+      "sec-fetch-mode",
+      "sec-fetch-site",
+      "accept",
+      "accept-encoding",
+      "accept-language",
+      "priority"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":authority",
+      ":scheme",
+      ":path"
+    ],
+    "settings": [
+      [
+        1,
+        65536
+      ],
+      [
+        2,
+        0
+      ],
+      [
+        4,
+        6291456
+      ],
+      [
+        6,
+        262144
+      ]
+    ],
+    "window_update": 15663105
+  },
+  "Chrome136": {
+    "akamai_fingerprint": "1:65536,2:0,4:6291456,6:262144|15663105|0|m,a,s,p",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "sec-ch-ua",
+      "sec-ch-ua-mobile",
+      "sec-ch-ua-platform",
+      "user-agent",
+      "sec-fetch-dest",
+      "sec-fetch-mode",
+      "sec-fetch-site",
+      "accept",
+      "accept-encoding",
+      "accept-language",
+      "priority"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":authority",
+      ":scheme",
+      ":path"
+    ],
+    "settings": [
+      [
+        1,
+        65536
+      ],
+      [
+        2,
+        0
+      ],
+      [
+        4,
+        6291456
+      ],
+      [
+        6,
+        262144
+      ]
+    ],
+    "window_update": 15663105
+  },
+  "Chrome137": {
+    "akamai_fingerprint": "1:65536,2:0,4:6291456,6:262144|15663105|0|m,a,s,p",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "sec-ch-ua",
+      "sec-ch-ua-mobile",
+      "sec-ch-ua-platform",
+      "user-agent",
+      "sec-fetch-dest",
+      "sec-fetch-mode",
+      "sec-fetch-site",
+      "accept",
+      "accept-encoding",
+      "accept-language",
+      "priority"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":authority",
+      ":scheme",
+      ":path"
+    ],
+    "settings": [
+      [
+        1,
+        65536
+      ],
+      [
+        2,
+        0
+      ],
+      [
+        4,
+        6291456
+      ],
+      [
+        6,
+        262144
+      ]
+    ],
+    "window_update": 15663105
+  },
+  "Chrome138": {
+    "akamai_fingerprint": "1:65536,2:0,4:6291456,6:262144|15663105|0|m,a,s,p",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "sec-ch-ua",
+      "sec-ch-ua-mobile",
+      "sec-ch-ua-platform",
+      "user-agent",
+      "sec-fetch-dest",
+      "sec-fetch-mode",
+      "sec-fetch-site",
+      "accept",
+      "accept-encoding",
+      "accept-language",
+      "priority"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":authority",
+      ":scheme",
+      ":path"
+    ],
+    "settings": [
+      [
+        1,
+        65536
+      ],
+      [
+        2,
+        0
+      ],
+      [
+        4,
+        6291456
+      ],
+      [
+        6,
+        262144
+      ]
+    ],
+    "window_update": 15663105
+  },
+  "Chrome139": {
+    "akamai_fingerprint": "1:65536,2:0,4:6291456,6:262144|15663105|0|m,a,s,p",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "sec-ch-ua",
+      "sec-ch-ua-mobile",
+      "sec-ch-ua-platform",
+      "user-agent",
+      "sec-fetch-dest",
+      "sec-fetch-mode",
+      "sec-fetch-site",
+      "accept",
+      "accept-encoding",
+      "accept-language",
+      "priority"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":authority",
+      ":scheme",
+      ":path"
+    ],
+    "settings": [
+      [
+        1,
+        65536
+      ],
+      [
+        2,
+        0
+      ],
+      [
+        4,
+        6291456
+      ],
+      [
+        6,
+        262144
+      ]
+    ],
+    "window_update": 15663105
+  },
+  "Chrome140": {
+    "akamai_fingerprint": "1:65536,2:0,4:6291456,6:262144|15663105|0|m,a,s,p",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "sec-ch-ua",
+      "sec-ch-ua-mobile",
+      "sec-ch-ua-platform",
+      "user-agent",
+      "sec-fetch-dest",
+      "sec-fetch-mode",
+      "sec-fetch-site",
+      "accept",
+      "accept-encoding",
+      "accept-language",
+      "priority"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":authority",
+      ":scheme",
+      ":path"
+    ],
+    "settings": [
+      [
+        1,
+        65536
+      ],
+      [
+        2,
+        0
+      ],
+      [
+        4,
+        6291456
+      ],
+      [
+        6,
+        262144
+      ]
+    ],
+    "window_update": 15663105
+  },
+  "Chrome141": {
+    "akamai_fingerprint": "1:65536,2:0,4:6291456,6:262144|15663105|0|m,a,s,p",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "sec-ch-ua",
+      "sec-ch-ua-mobile",
+      "sec-ch-ua-platform",
+      "user-agent",
+      "sec-fetch-dest",
+      "sec-fetch-mode",
+      "sec-fetch-site",
+      "accept",
+      "accept-encoding",
+      "accept-language",
+      "priority"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":authority",
+      ":scheme",
+      ":path"
+    ],
+    "settings": [
+      [
+        1,
+        65536
+      ],
+      [
+        2,
+        0
+      ],
+      [
+        4,
+        6291456
+      ],
+      [
+        6,
+        262144
+      ]
+    ],
+    "window_update": 15663105
+  },
+  "Chrome142": {
+    "akamai_fingerprint": "1:65536,2:0,4:6291456,6:262144|15663105|0|m,a,s,p",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "sec-ch-ua",
+      "sec-ch-ua-mobile",
+      "sec-ch-ua-platform",
+      "user-agent",
+      "sec-fetch-dest",
+      "sec-fetch-mode",
+      "sec-fetch-site",
+      "accept",
+      "accept-encoding",
+      "accept-language",
+      "priority"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":authority",
+      ":scheme",
+      ":path"
+    ],
+    "settings": [
+      [
+        1,
+        65536
+      ],
+      [
+        2,
+        0
+      ],
+      [
+        4,
+        6291456
+      ],
+      [
+        6,
+        262144
+      ]
+    ],
+    "window_update": 15663105
+  },
+  "Chrome143": {
+    "akamai_fingerprint": "1:65536,2:0,4:6291456,6:262144|15663105|0|m,a,s,p",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "sec-ch-ua",
+      "sec-ch-ua-mobile",
+      "sec-ch-ua-platform",
+      "user-agent",
+      "sec-fetch-dest",
+      "sec-fetch-mode",
+      "sec-fetch-site",
+      "accept",
+      "accept-encoding",
+      "accept-language",
+      "priority"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":authority",
+      ":scheme",
+      ":path"
+    ],
+    "settings": [
+      [
+        1,
+        65536
+      ],
+      [
+        2,
+        0
+      ],
+      [
+        4,
+        6291456
+      ],
+      [
+        6,
+        262144
+      ]
+    ],
+    "window_update": 15663105
+  },
+  "Chrome144": {
+    "akamai_fingerprint": "1:65536,2:0,4:6291456,6:262144|15663105|0|m,a,s,p",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "sec-ch-ua",
+      "sec-ch-ua-mobile",
+      "sec-ch-ua-platform",
+      "user-agent",
+      "sec-fetch-dest",
+      "sec-fetch-mode",
+      "sec-fetch-site",
+      "accept",
+      "accept-encoding",
+      "accept-language",
+      "priority"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":authority",
+      ":scheme",
+      ":path"
+    ],
+    "settings": [
+      [
+        1,
+        65536
+      ],
+      [
+        2,
+        0
+      ],
+      [
+        4,
+        6291456
+      ],
+      [
+        6,
+        262144
+      ]
+    ],
+    "window_update": 15663105
+  },
+  "Chrome145": {
+    "akamai_fingerprint": "1:65536,2:0,4:6291456,6:262144|15663105|0|m,a,s,p",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "sec-ch-ua",
+      "sec-ch-ua-mobile",
+      "sec-ch-ua-platform",
+      "user-agent",
+      "sec-fetch-dest",
+      "sec-fetch-mode",
+      "sec-fetch-site",
+      "accept",
+      "accept-encoding",
+      "accept-language",
+      "priority"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":authority",
+      ":scheme",
+      ":path"
+    ],
+    "settings": [
+      [
+        1,
+        65536
+      ],
+      [
+        2,
+        0
+      ],
+      [
+        4,
+        6291456
+      ],
+      [
+        6,
+        262144
+      ]
+    ],
+    "window_update": 15663105
+  },
+  "Chrome146": {
+    "akamai_fingerprint": "1:65536,2:0,4:6291456,6:262144|15663105|0|m,a,s,p",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "sec-ch-ua",
+      "sec-ch-ua-mobile",
+      "sec-ch-ua-platform",
+      "user-agent",
+      "sec-fetch-dest",
+      "sec-fetch-mode",
+      "sec-fetch-site",
+      "accept",
+      "accept-encoding",
+      "accept-language",
+      "priority"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":authority",
+      ":scheme",
+      ":path"
+    ],
+    "settings": [
+      [
+        1,
+        65536
+      ],
+      [
+        2,
+        0
+      ],
+      [
+        4,
+        6291456
+      ],
+      [
+        6,
+        262144
+      ]
+    ],
+    "window_update": 15663105
+  },
+  "Chrome147": {
+    "akamai_fingerprint": "1:65536,2:0,4:6291456,6:262144|15663105|0|m,a,s,p",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "sec-ch-ua",
+      "sec-ch-ua-mobile",
+      "sec-ch-ua-platform",
+      "user-agent",
+      "sec-fetch-dest",
+      "sec-fetch-mode",
+      "sec-fetch-site",
+      "accept",
+      "accept-encoding",
+      "accept-language",
+      "priority"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":authority",
+      ":scheme",
+      ":path"
+    ],
+    "settings": [
+      [
+        1,
+        65536
+      ],
+      [
+        2,
+        0
+      ],
+      [
+        4,
+        6291456
+      ],
+      [
+        6,
+        262144
+      ]
+    ],
+    "window_update": 15663105
+  },
+  "Chrome148": {
+    "akamai_fingerprint": "1:65536,2:0,4:6291456,6:262144|15663105|0|m,a,s,p",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "sec-ch-ua",
+      "sec-ch-ua-mobile",
+      "sec-ch-ua-platform",
+      "user-agent",
+      "sec-fetch-dest",
+      "sec-fetch-mode",
+      "sec-fetch-site",
+      "accept",
+      "accept-encoding",
+      "accept-language",
+      "priority"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":authority",
+      ":scheme",
+      ":path"
+    ],
+    "settings": [
+      [
+        1,
+        65536
+      ],
+      [
+        2,
+        0
+      ],
+      [
+        4,
+        6291456
+      ],
+      [
+        6,
+        262144
+      ]
+    ],
+    "window_update": 15663105
+  },
+  "Chrome149": {
+    "akamai_fingerprint": "1:65536,2:0,4:6291456,6:262144|15663105|0|m,a,s,p",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "sec-ch-ua",
+      "sec-ch-ua-mobile",
+      "sec-ch-ua-platform",
+      "user-agent",
+      "sec-fetch-dest",
+      "sec-fetch-mode",
+      "sec-fetch-site",
+      "accept",
+      "accept-encoding",
+      "accept-language",
+      "priority"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":authority",
+      ":scheme",
+      ":path"
+    ],
+    "settings": [
+      [
+        1,
+        65536
+      ],
+      [
+        2,
+        0
+      ],
+      [
+        4,
+        6291456
+      ],
+      [
+        6,
+        262144
+      ]
+    ],
+    "window_update": 15663105
+  },
+  "Edge101": {
+    "akamai_fingerprint": "1:65536,3:1000,4:6291456,6:262144|15663105|0|m,a,s,p",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "sec-ch-ua",
+      "sec-ch-ua-mobile",
+      "sec-ch-ua-platform",
+      "user-agent",
+      "sec-fetch-dest",
+      "sec-fetch-mode",
+      "sec-fetch-site",
+      "accept",
+      "accept-encoding",
+      "accept-language"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":authority",
+      ":scheme",
+      ":path"
+    ],
+    "settings": [
+      [
+        1,
+        65536
+      ],
+      [
+        3,
+        1000
+      ],
+      [
+        4,
+        6291456
+      ],
+      [
+        6,
+        262144
+      ]
+    ],
+    "window_update": 15663105
+  },
+  "Edge122": {
+    "akamai_fingerprint": "1:65536,2:0,4:6291456,6:262144|15663105|0|m,a,s,p",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "sec-ch-ua",
+      "sec-ch-ua-mobile",
+      "sec-ch-ua-platform",
+      "user-agent",
+      "sec-fetch-dest",
+      "sec-fetch-mode",
+      "sec-fetch-site",
+      "accept",
+      "accept-encoding",
+      "accept-language"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":authority",
+      ":scheme",
+      ":path"
+    ],
+    "settings": [
+      [
+        1,
+        65536
+      ],
+      [
+        2,
+        0
+      ],
+      [
+        4,
+        6291456
+      ],
+      [
+        6,
+        262144
+      ]
+    ],
+    "window_update": 15663105
+  },
+  "Edge127": {
+    "akamai_fingerprint": "1:65536,2:0,4:6291456,6:262144|15663105|0|m,a,s,p",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "sec-ch-ua",
+      "sec-ch-ua-mobile",
+      "sec-ch-ua-platform",
+      "user-agent",
+      "sec-fetch-dest",
+      "sec-fetch-mode",
+      "sec-fetch-site",
+      "accept",
+      "accept-encoding",
+      "accept-language",
+      "priority"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":authority",
+      ":scheme",
+      ":path"
+    ],
+    "settings": [
+      [
+        1,
+        65536
+      ],
+      [
+        2,
+        0
+      ],
+      [
+        4,
+        6291456
+      ],
+      [
+        6,
+        262144
+      ]
+    ],
+    "window_update": 15663105
+  },
+  "Edge131": {
+    "akamai_fingerprint": "1:65536,2:0,4:6291456,6:262144|15663105|0|m,a,s,p",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "sec-ch-ua",
+      "sec-ch-ua-mobile",
+      "sec-ch-ua-platform",
+      "user-agent",
+      "sec-fetch-dest",
+      "sec-fetch-mode",
+      "sec-fetch-site",
+      "accept",
+      "accept-encoding",
+      "accept-language",
+      "priority"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":authority",
+      ":scheme",
+      ":path"
+    ],
+    "settings": [
+      [
+        1,
+        65536
+      ],
+      [
+        2,
+        0
+      ],
+      [
+        4,
+        6291456
+      ],
+      [
+        6,
+        262144
+      ]
+    ],
+    "window_update": 15663105
+  },
+  "Edge134": {
+    "akamai_fingerprint": "1:65536,2:0,4:6291456,6:262144|15663105|0|m,a,s,p",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "sec-ch-ua",
+      "sec-ch-ua-mobile",
+      "sec-ch-ua-platform",
+      "user-agent",
+      "sec-fetch-dest",
+      "sec-fetch-mode",
+      "sec-fetch-site",
+      "accept",
+      "accept-encoding",
+      "accept-language",
+      "priority"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":authority",
+      ":scheme",
+      ":path"
+    ],
+    "settings": [
+      [
+        1,
+        65536
+      ],
+      [
+        2,
+        0
+      ],
+      [
+        4,
+        6291456
+      ],
+      [
+        6,
+        262144
+      ]
+    ],
+    "window_update": 15663105
+  },
+  "Edge135": {
+    "akamai_fingerprint": "1:65536,2:0,4:6291456,6:262144|15663105|0|m,a,s,p",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "sec-ch-ua",
+      "sec-ch-ua-mobile",
+      "sec-ch-ua-platform",
+      "user-agent",
+      "sec-fetch-dest",
+      "sec-fetch-mode",
+      "sec-fetch-site",
+      "accept",
+      "accept-encoding",
+      "accept-language",
+      "priority"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":authority",
+      ":scheme",
+      ":path"
+    ],
+    "settings": [
+      [
+        1,
+        65536
+      ],
+      [
+        2,
+        0
+      ],
+      [
+        4,
+        6291456
+      ],
+      [
+        6,
+        262144
+      ]
+    ],
+    "window_update": 15663105
+  },
+  "Edge136": {
+    "akamai_fingerprint": "1:65536,2:0,4:6291456,6:262144|15663105|0|m,a,s,p",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "sec-ch-ua",
+      "sec-ch-ua-mobile",
+      "sec-ch-ua-platform",
+      "user-agent",
+      "sec-fetch-dest",
+      "sec-fetch-mode",
+      "sec-fetch-site",
+      "accept",
+      "accept-encoding",
+      "accept-language",
+      "priority"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":authority",
+      ":scheme",
+      ":path"
+    ],
+    "settings": [
+      [
+        1,
+        65536
+      ],
+      [
+        2,
+        0
+      ],
+      [
+        4,
+        6291456
+      ],
+      [
+        6,
+        262144
+      ]
+    ],
+    "window_update": 15663105
+  },
+  "Edge137": {
+    "akamai_fingerprint": "1:65536,2:0,4:6291456,6:262144|15663105|0|m,a,s,p",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "sec-ch-ua",
+      "sec-ch-ua-mobile",
+      "sec-ch-ua-platform",
+      "user-agent",
+      "sec-fetch-dest",
+      "sec-fetch-mode",
+      "sec-fetch-site",
+      "accept",
+      "accept-encoding",
+      "accept-language",
+      "priority"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":authority",
+      ":scheme",
+      ":path"
+    ],
+    "settings": [
+      [
+        1,
+        65536
+      ],
+      [
+        2,
+        0
+      ],
+      [
+        4,
+        6291456
+      ],
+      [
+        6,
+        262144
+      ]
+    ],
+    "window_update": 15663105
+  },
+  "Edge138": {
+    "akamai_fingerprint": "1:65536,2:0,4:6291456,6:262144|15663105|0|m,a,s,p",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "sec-ch-ua",
+      "sec-ch-ua-mobile",
+      "sec-ch-ua-platform",
+      "user-agent",
+      "sec-fetch-dest",
+      "sec-fetch-mode",
+      "sec-fetch-site",
+      "accept",
+      "accept-encoding",
+      "accept-language",
+      "priority"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":authority",
+      ":scheme",
+      ":path"
+    ],
+    "settings": [
+      [
+        1,
+        65536
+      ],
+      [
+        2,
+        0
+      ],
+      [
+        4,
+        6291456
+      ],
+      [
+        6,
+        262144
+      ]
+    ],
+    "window_update": 15663105
+  },
+  "Edge139": {
+    "akamai_fingerprint": "1:65536,2:0,4:6291456,6:262144|15663105|0|m,a,s,p",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "sec-ch-ua",
+      "sec-ch-ua-mobile",
+      "sec-ch-ua-platform",
+      "user-agent",
+      "sec-fetch-dest",
+      "sec-fetch-mode",
+      "sec-fetch-site",
+      "accept",
+      "accept-encoding",
+      "accept-language",
+      "priority"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":authority",
+      ":scheme",
+      ":path"
+    ],
+    "settings": [
+      [
+        1,
+        65536
+      ],
+      [
+        2,
+        0
+      ],
+      [
+        4,
+        6291456
+      ],
+      [
+        6,
+        262144
+      ]
+    ],
+    "window_update": 15663105
+  },
+  "Edge140": {
+    "akamai_fingerprint": "1:65536,2:0,4:6291456,6:262144|15663105|0|m,a,s,p",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "sec-ch-ua",
+      "sec-ch-ua-mobile",
+      "sec-ch-ua-platform",
+      "user-agent",
+      "sec-fetch-dest",
+      "sec-fetch-mode",
+      "sec-fetch-site",
+      "accept",
+      "accept-encoding",
+      "accept-language",
+      "priority"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":authority",
+      ":scheme",
+      ":path"
+    ],
+    "settings": [
+      [
+        1,
+        65536
+      ],
+      [
+        2,
+        0
+      ],
+      [
+        4,
+        6291456
+      ],
+      [
+        6,
+        262144
+      ]
+    ],
+    "window_update": 15663105
+  },
+  "Edge141": {
+    "akamai_fingerprint": "1:65536,2:0,4:6291456,6:262144|15663105|0|m,a,s,p",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "sec-ch-ua",
+      "sec-ch-ua-mobile",
+      "sec-ch-ua-platform",
+      "user-agent",
+      "sec-fetch-dest",
+      "sec-fetch-mode",
+      "sec-fetch-site",
+      "accept",
+      "accept-encoding",
+      "accept-language",
+      "priority"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":authority",
+      ":scheme",
+      ":path"
+    ],
+    "settings": [
+      [
+        1,
+        65536
+      ],
+      [
+        2,
+        0
+      ],
+      [
+        4,
+        6291456
+      ],
+      [
+        6,
+        262144
+      ]
+    ],
+    "window_update": 15663105
+  },
+  "Edge142": {
+    "akamai_fingerprint": "1:65536,2:0,4:6291456,6:262144|15663105|0|m,a,s,p",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "sec-ch-ua",
+      "sec-ch-ua-mobile",
+      "sec-ch-ua-platform",
+      "user-agent",
+      "sec-fetch-dest",
+      "sec-fetch-mode",
+      "sec-fetch-site",
+      "accept",
+      "accept-encoding",
+      "accept-language",
+      "priority"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":authority",
+      ":scheme",
+      ":path"
+    ],
+    "settings": [
+      [
+        1,
+        65536
+      ],
+      [
+        2,
+        0
+      ],
+      [
+        4,
+        6291456
+      ],
+      [
+        6,
+        262144
+      ]
+    ],
+    "window_update": 15663105
+  },
+  "Edge143": {
+    "akamai_fingerprint": "1:65536,2:0,4:6291456,6:262144|15663105|0|m,a,s,p",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "sec-ch-ua",
+      "sec-ch-ua-mobile",
+      "sec-ch-ua-platform",
+      "user-agent",
+      "sec-fetch-dest",
+      "sec-fetch-mode",
+      "sec-fetch-site",
+      "accept",
+      "accept-encoding",
+      "accept-language",
+      "priority"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":authority",
+      ":scheme",
+      ":path"
+    ],
+    "settings": [
+      [
+        1,
+        65536
+      ],
+      [
+        2,
+        0
+      ],
+      [
+        4,
+        6291456
+      ],
+      [
+        6,
+        262144
+      ]
+    ],
+    "window_update": 15663105
+  },
+  "Edge144": {
+    "akamai_fingerprint": "1:65536,2:0,4:6291456,6:262144|15663105|0|m,a,s,p",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "sec-ch-ua",
+      "sec-ch-ua-mobile",
+      "sec-ch-ua-platform",
+      "user-agent",
+      "sec-fetch-dest",
+      "sec-fetch-mode",
+      "sec-fetch-site",
+      "accept",
+      "accept-encoding",
+      "accept-language",
+      "priority"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":authority",
+      ":scheme",
+      ":path"
+    ],
+    "settings": [
+      [
+        1,
+        65536
+      ],
+      [
+        2,
+        0
+      ],
+      [
+        4,
+        6291456
+      ],
+      [
+        6,
+        262144
+      ]
+    ],
+    "window_update": 15663105
+  },
+  "Edge145": {
+    "akamai_fingerprint": "1:65536,2:0,4:6291456,6:262144|15663105|0|m,a,s,p",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "sec-ch-ua",
+      "sec-ch-ua-mobile",
+      "sec-ch-ua-platform",
+      "user-agent",
+      "sec-fetch-dest",
+      "sec-fetch-mode",
+      "sec-fetch-site",
+      "accept",
+      "accept-encoding",
+      "accept-language",
+      "priority"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":authority",
+      ":scheme",
+      ":path"
+    ],
+    "settings": [
+      [
+        1,
+        65536
+      ],
+      [
+        2,
+        0
+      ],
+      [
+        4,
+        6291456
+      ],
+      [
+        6,
+        262144
+      ]
+    ],
+    "window_update": 15663105
+  },
+  "Edge146": {
+    "akamai_fingerprint": "1:65536,2:0,4:6291456,6:262144|15663105|0|m,a,s,p",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "sec-ch-ua",
+      "sec-ch-ua-mobile",
+      "sec-ch-ua-platform",
+      "user-agent",
+      "sec-fetch-dest",
+      "sec-fetch-mode",
+      "sec-fetch-site",
+      "accept",
+      "accept-encoding",
+      "accept-language",
+      "priority"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":authority",
+      ":scheme",
+      ":path"
+    ],
+    "settings": [
+      [
+        1,
+        65536
+      ],
+      [
+        2,
+        0
+      ],
+      [
+        4,
+        6291456
+      ],
+      [
+        6,
+        262144
+      ]
+    ],
+    "window_update": 15663105
+  },
+  "Edge147": {
+    "akamai_fingerprint": "1:65536,2:0,4:6291456,6:262144|15663105|0|m,a,s,p",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "sec-ch-ua",
+      "sec-ch-ua-mobile",
+      "sec-ch-ua-platform",
+      "user-agent",
+      "sec-fetch-dest",
+      "sec-fetch-mode",
+      "sec-fetch-site",
+      "accept",
+      "accept-encoding",
+      "accept-language",
+      "priority"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":authority",
+      ":scheme",
+      ":path"
+    ],
+    "settings": [
+      [
+        1,
+        65536
+      ],
+      [
+        2,
+        0
+      ],
+      [
+        4,
+        6291456
+      ],
+      [
+        6,
+        262144
+      ]
+    ],
+    "window_update": 15663105
+  },
+  "Edge148": {
+    "akamai_fingerprint": "1:65536,2:0,4:6291456,6:262144|15663105|0|m,a,s,p",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "sec-ch-ua",
+      "sec-ch-ua-mobile",
+      "sec-ch-ua-platform",
+      "user-agent",
+      "sec-fetch-dest",
+      "sec-fetch-mode",
+      "sec-fetch-site",
+      "accept",
+      "accept-encoding",
+      "accept-language",
+      "priority"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":authority",
+      ":scheme",
+      ":path"
+    ],
+    "settings": [
+      [
+        1,
+        65536
+      ],
+      [
+        2,
+        0
+      ],
+      [
+        4,
+        6291456
+      ],
+      [
+        6,
+        262144
+      ]
+    ],
+    "window_update": 15663105
+  },
+  "Firefox109": {
+    "akamai_fingerprint": "1:65536,4:131072,5:16384|12517377|3:0:0:201|5:0:0:101|7:0:0:1|9:0:7:1|11:0:3:1|13:0:0:241|m,p,a,s",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "PRIORITY",
+      "PRIORITY",
+      "PRIORITY",
+      "PRIORITY",
+      "PRIORITY",
+      "PRIORITY",
+      "HEADERS"
+    ],
+    "header_order": [
+      "te",
+      "user-agent",
+      "accept",
+      "accept-encoding",
+      "accept-language",
+      "sec-fetch-dest",
+      "sec-fetch-mode",
+      "sec-fetch-site"
+    ],
+    "priorities": [
+      [
+        3,
+        0,
+        0,
+        201
+      ],
+      [
+        5,
+        0,
+        0,
+        101
+      ],
+      [
+        7,
+        0,
+        0,
+        1
+      ],
+      [
+        9,
+        7,
+        0,
+        1
+      ],
+      [
+        11,
+        3,
+        0,
+        1
+      ],
+      [
+        13,
+        0,
+        0,
+        241
+      ]
+    ],
+    "pseudo_header_order": [
+      ":method",
+      ":path",
+      ":authority",
+      ":scheme"
+    ],
+    "settings": [
+      [
+        1,
+        65536
+      ],
+      [
+        4,
+        131072
+      ],
+      [
+        5,
+        16384
+      ]
+    ],
+    "window_update": 12517377
+  },
+  "Firefox117": {
+    "akamai_fingerprint": "1:65536,4:131072,5:16384|12517377|3:0:0:201|5:0:0:101|7:0:0:1|9:0:7:1|11:0:3:1|13:0:0:241|m,p,a,s",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "PRIORITY",
+      "PRIORITY",
+      "PRIORITY",
+      "PRIORITY",
+      "PRIORITY",
+      "PRIORITY",
+      "HEADERS"
+    ],
+    "header_order": [
+      "te",
+      "user-agent",
+      "accept",
+      "accept-encoding",
+      "accept-language",
+      "sec-fetch-dest",
+      "sec-fetch-mode",
+      "sec-fetch-site"
+    ],
+    "priorities": [
+      [
+        3,
+        0,
+        0,
+        201
+      ],
+      [
+        5,
+        0,
+        0,
+        101
+      ],
+      [
+        7,
+        0,
+        0,
+        1
+      ],
+      [
+        9,
+        7,
+        0,
+        1
+      ],
+      [
+        11,
+        3,
+        0,
+        1
+      ],
+      [
+        13,
+        0,
+        0,
+        241
+      ]
+    ],
+    "pseudo_header_order": [
+      ":method",
+      ":path",
+      ":authority",
+      ":scheme"
+    ],
+    "settings": [
+      [
+        1,
+        65536
+      ],
+      [
+        4,
+        131072
+      ],
+      [
+        5,
+        16384
+      ]
+    ],
+    "window_update": 12517377
+  },
+  "Firefox128": {
+    "akamai_fingerprint": "1:65536,2:0,3:0,4:131072,5:16384|12517377|0|m,p,a,s",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "te",
+      "user-agent",
+      "accept",
+      "accept-encoding",
+      "accept-language",
+      "sec-fetch-dest",
+      "sec-fetch-mode",
+      "sec-fetch-site",
+      "priority"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":path",
+      ":authority",
+      ":scheme"
+    ],
+    "settings": [
+      [
+        1,
+        65536
+      ],
+      [
+        2,
+        0
+      ],
+      [
+        3,
+        0
+      ],
+      [
+        4,
+        131072
+      ],
+      [
+        5,
+        16384
+      ]
+    ],
+    "window_update": 12517377
+  },
+  "Firefox133": {
+    "akamai_fingerprint": "1:65536,2:0,4:131072,5:16384|12517377|0|m,p,a,s",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "te",
+      "user-agent",
+      "accept",
+      "accept-encoding",
+      "accept-language",
+      "sec-fetch-dest",
+      "sec-fetch-mode",
+      "sec-fetch-site",
+      "priority"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":path",
+      ":authority",
+      ":scheme"
+    ],
+    "settings": [
+      [
+        1,
+        65536
+      ],
+      [
+        2,
+        0
+      ],
+      [
+        4,
+        131072
+      ],
+      [
+        5,
+        16384
+      ]
+    ],
+    "window_update": 12517377
+  },
+  "Firefox135": {
+    "akamai_fingerprint": "1:65536,2:0,4:131072,5:16384|12517377|0|m,p,a,s",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "te",
+      "user-agent",
+      "accept",
+      "accept-encoding",
+      "accept-language",
+      "sec-fetch-dest",
+      "sec-fetch-mode",
+      "sec-fetch-site",
+      "priority"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":path",
+      ":authority",
+      ":scheme"
+    ],
+    "settings": [
+      [
+        1,
+        65536
+      ],
+      [
+        2,
+        0
+      ],
+      [
+        4,
+        131072
+      ],
+      [
+        5,
+        16384
+      ]
+    ],
+    "window_update": 12517377
+  },
+  "Firefox136": {
+    "akamai_fingerprint": "1:65536,2:0,4:131072,5:16384|12517377|0|m,p,a,s",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "te",
+      "user-agent",
+      "accept",
+      "accept-encoding",
+      "accept-language",
+      "sec-fetch-dest",
+      "sec-fetch-mode",
+      "sec-fetch-site",
+      "priority"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":path",
+      ":authority",
+      ":scheme"
+    ],
+    "settings": [
+      [
+        1,
+        65536
+      ],
+      [
+        2,
+        0
+      ],
+      [
+        4,
+        131072
+      ],
+      [
+        5,
+        16384
+      ]
+    ],
+    "window_update": 12517377
+  },
+  "Firefox139": {
+    "akamai_fingerprint": "1:65536,2:0,4:131072,5:16384|12517377|0|m,p,a,s",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "te",
+      "user-agent",
+      "accept",
+      "accept-encoding",
+      "accept-language",
+      "sec-fetch-dest",
+      "sec-fetch-mode",
+      "sec-fetch-site",
+      "priority"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":path",
+      ":authority",
+      ":scheme"
+    ],
+    "settings": [
+      [
+        1,
+        65536
+      ],
+      [
+        2,
+        0
+      ],
+      [
+        4,
+        131072
+      ],
+      [
+        5,
+        16384
+      ]
+    ],
+    "window_update": 12517377
+  },
+  "Firefox142": {
+    "akamai_fingerprint": "1:65536,2:0,4:131072,5:16384|12517377|0|m,p,a,s",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "te",
+      "user-agent",
+      "accept",
+      "accept-encoding",
+      "accept-language",
+      "sec-fetch-dest",
+      "sec-fetch-mode",
+      "sec-fetch-site",
+      "priority"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":path",
+      ":authority",
+      ":scheme"
+    ],
+    "settings": [
+      [
+        1,
+        65536
+      ],
+      [
+        2,
+        0
+      ],
+      [
+        4,
+        131072
+      ],
+      [
+        5,
+        16384
+      ]
+    ],
+    "window_update": 12517377
+  },
+  "Firefox143": {
+    "akamai_fingerprint": "1:65536,2:0,4:131072,5:16384|12517377|0|m,p,a,s",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "te",
+      "user-agent",
+      "accept",
+      "accept-encoding",
+      "accept-language",
+      "sec-fetch-dest",
+      "sec-fetch-mode",
+      "sec-fetch-site",
+      "priority"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":path",
+      ":authority",
+      ":scheme"
+    ],
+    "settings": [
+      [
+        1,
+        65536
+      ],
+      [
+        2,
+        0
+      ],
+      [
+        4,
+        131072
+      ],
+      [
+        5,
+        16384
+      ]
+    ],
+    "window_update": 12517377
+  },
+  "Firefox144": {
+    "akamai_fingerprint": "1:65536,2:0,4:131072,5:16384|12517377|0|m,p,a,s",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "te",
+      "user-agent",
+      "accept",
+      "accept-encoding",
+      "accept-language",
+      "sec-fetch-dest",
+      "sec-fetch-mode",
+      "sec-fetch-site",
+      "priority"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":path",
+      ":authority",
+      ":scheme"
+    ],
+    "settings": [
+      [
+        1,
+        65536
+      ],
+      [
+        2,
+        0
+      ],
+      [
+        4,
+        131072
+      ],
+      [
+        5,
+        16384
+      ]
+    ],
+    "window_update": 12517377
+  },
+  "Firefox145": {
+    "akamai_fingerprint": "1:65536,2:0,4:131072,5:16384|12517377|0|m,p,a,s",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "te",
+      "user-agent",
+      "accept",
+      "accept-encoding",
+      "accept-language",
+      "sec-fetch-dest",
+      "sec-fetch-mode",
+      "sec-fetch-site",
+      "priority"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":path",
+      ":authority",
+      ":scheme"
+    ],
+    "settings": [
+      [
+        1,
+        65536
+      ],
+      [
+        2,
+        0
+      ],
+      [
+        4,
+        131072
+      ],
+      [
+        5,
+        16384
+      ]
+    ],
+    "window_update": 12517377
+  },
+  "Firefox146": {
+    "akamai_fingerprint": "1:65536,2:0,4:131072,5:16384|12517377|0|m,p,a,s",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "te",
+      "user-agent",
+      "accept",
+      "accept-encoding",
+      "accept-language",
+      "sec-fetch-dest",
+      "sec-fetch-mode",
+      "sec-fetch-site",
+      "priority"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":path",
+      ":authority",
+      ":scheme"
+    ],
+    "settings": [
+      [
+        1,
+        65536
+      ],
+      [
+        2,
+        0
+      ],
+      [
+        4,
+        131072
+      ],
+      [
+        5,
+        16384
+      ]
+    ],
+    "window_update": 12517377
+  },
+  "Firefox147": {
+    "akamai_fingerprint": "1:65536,2:0,4:131072,5:16384|12517377|0|m,p,a,s",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "te",
+      "user-agent",
+      "accept",
+      "accept-encoding",
+      "accept-language",
+      "sec-fetch-dest",
+      "sec-fetch-mode",
+      "sec-fetch-site",
+      "priority"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":path",
+      ":authority",
+      ":scheme"
+    ],
+    "settings": [
+      [
+        1,
+        65536
+      ],
+      [
+        2,
+        0
+      ],
+      [
+        4,
+        131072
+      ],
+      [
+        5,
+        16384
+      ]
+    ],
+    "window_update": 12517377
+  },
+  "Firefox148": {
+    "akamai_fingerprint": "1:65536,2:0,4:131072,5:16384|12517377|0|m,p,a,s",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "te",
+      "user-agent",
+      "accept",
+      "accept-encoding",
+      "accept-language",
+      "sec-fetch-dest",
+      "sec-fetch-mode",
+      "sec-fetch-site",
+      "priority"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":path",
+      ":authority",
+      ":scheme"
+    ],
+    "settings": [
+      [
+        1,
+        65536
+      ],
+      [
+        2,
+        0
+      ],
+      [
+        4,
+        131072
+      ],
+      [
+        5,
+        16384
+      ]
+    ],
+    "window_update": 12517377
+  },
+  "Firefox149": {
+    "akamai_fingerprint": "1:65536,2:0,4:131072,5:16384|12517377|0|m,p,a,s",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "te",
+      "user-agent",
+      "accept",
+      "accept-encoding",
+      "accept-language",
+      "sec-fetch-dest",
+      "sec-fetch-mode",
+      "sec-fetch-site",
+      "priority"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":path",
+      ":authority",
+      ":scheme"
+    ],
+    "settings": [
+      [
+        1,
+        65536
+      ],
+      [
+        2,
+        0
+      ],
+      [
+        4,
+        131072
+      ],
+      [
+        5,
+        16384
+      ]
+    ],
+    "window_update": 12517377
+  },
+  "Firefox150": {
+    "akamai_fingerprint": "1:65536,2:0,4:131072,5:16384|12517377|0|m,p,a,s",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "te",
+      "user-agent",
+      "accept",
+      "accept-encoding",
+      "accept-language",
+      "sec-fetch-dest",
+      "sec-fetch-mode",
+      "sec-fetch-site",
+      "priority"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":path",
+      ":authority",
+      ":scheme"
+    ],
+    "settings": [
+      [
+        1,
+        65536
+      ],
+      [
+        2,
+        0
+      ],
+      [
+        4,
+        131072
+      ],
+      [
+        5,
+        16384
+      ]
+    ],
+    "window_update": 12517377
+  },
+  "Firefox151": {
+    "akamai_fingerprint": "1:65536,2:0,4:131072,5:16384|12517377|0|m,p,a,s",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "te",
+      "user-agent",
+      "accept",
+      "accept-encoding",
+      "accept-language",
+      "sec-fetch-dest",
+      "sec-fetch-mode",
+      "sec-fetch-site",
+      "priority"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":path",
+      ":authority",
+      ":scheme"
+    ],
+    "settings": [
+      [
+        1,
+        65536
+      ],
+      [
+        2,
+        0
+      ],
+      [
+        4,
+        131072
+      ],
+      [
+        5,
+        16384
+      ]
+    ],
+    "window_update": 12517377
+  },
+  "FirefoxAndroid135": {
+    "akamai_fingerprint": "1:4096,2:0,4:32768,5:16384|12517377|0|m,p,a,s",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "te",
+      "user-agent",
+      "accept",
+      "accept-encoding",
+      "accept-language",
+      "sec-fetch-dest",
+      "sec-fetch-mode",
+      "sec-fetch-site",
+      "priority"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":path",
+      ":authority",
+      ":scheme"
+    ],
+    "settings": [
+      [
+        1,
+        4096
+      ],
+      [
+        2,
+        0
+      ],
+      [
+        4,
+        32768
+      ],
+      [
+        5,
+        16384
+      ]
+    ],
+    "window_update": 12517377
+  },
+  "FirefoxPrivate135": {
+    "akamai_fingerprint": "1:65536,2:0,4:131072,5:16384|12517377|0|m,p,a,s",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "te",
+      "user-agent",
+      "accept",
+      "accept-encoding",
+      "accept-language",
+      "sec-fetch-dest",
+      "sec-fetch-mode",
+      "sec-fetch-site",
+      "priority"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":path",
+      ":authority",
+      ":scheme"
+    ],
+    "settings": [
+      [
+        1,
+        65536
+      ],
+      [
+        2,
+        0
+      ],
+      [
+        4,
+        131072
+      ],
+      [
+        5,
+        16384
+      ]
+    ],
+    "window_update": 12517377
+  },
+  "FirefoxPrivate136": {
+    "akamai_fingerprint": "1:65536,2:0,4:131072,5:16384|12517377|0|m,p,a,s",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "te",
+      "user-agent",
+      "accept",
+      "accept-encoding",
+      "accept-language",
+      "sec-fetch-dest",
+      "sec-fetch-mode",
+      "sec-fetch-site",
+      "priority"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":path",
+      ":authority",
+      ":scheme"
+    ],
+    "settings": [
+      [
+        1,
+        65536
+      ],
+      [
+        2,
+        0
+      ],
+      [
+        4,
+        131072
+      ],
+      [
+        5,
+        16384
+      ]
+    ],
+    "window_update": 12517377
+  },
+  "OkHttp3_11": {
+    "akamai_fingerprint": "4:16777216|16711681|0|m,p,a,s",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "accept",
+      "accept-language",
+      "user-agent",
+      "accept-encoding"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":path",
+      ":authority",
+      ":scheme"
+    ],
+    "settings": [
+      [
+        4,
+        16777216
+      ]
+    ],
+    "window_update": 16711681
+  },
+  "OkHttp3_13": {
+    "akamai_fingerprint": "4:16777216|16711681|0|m,p,a,s",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "accept",
+      "accept-language",
+      "user-agent",
+      "accept-encoding"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":path",
+      ":authority",
+      ":scheme"
+    ],
+    "settings": [
+      [
+        4,
+        16777216
+      ]
+    ],
+    "window_update": 16711681
+  },
+  "OkHttp3_14": {
+    "akamai_fingerprint": "4:16777216|16711681|0|m,p,a,s",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "accept",
+      "accept-language",
+      "user-agent",
+      "accept-encoding"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":path",
+      ":authority",
+      ":scheme"
+    ],
+    "settings": [
+      [
+        4,
+        16777216
+      ]
+    ],
+    "window_update": 16711681
+  },
+  "OkHttp3_9": {
+    "akamai_fingerprint": "4:16777216|16711681|0|m,p,a,s",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "accept",
+      "accept-language",
+      "user-agent",
+      "accept-encoding"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":path",
+      ":authority",
+      ":scheme"
+    ],
+    "settings": [
+      [
+        4,
+        16777216
+      ]
+    ],
+    "window_update": 16711681
+  },
+  "OkHttp4_10": {
+    "akamai_fingerprint": "4:16777216|16711681|0|m,p,a,s",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "accept",
+      "accept-language",
+      "user-agent",
+      "accept-encoding"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":path",
+      ":authority",
+      ":scheme"
+    ],
+    "settings": [
+      [
+        4,
+        16777216
+      ]
+    ],
+    "window_update": 16711681
+  },
+  "OkHttp4_12": {
+    "akamai_fingerprint": "4:16777216|16711681|0|m,p,a,s",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "accept",
+      "accept-language",
+      "user-agent",
+      "accept-encoding"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":path",
+      ":authority",
+      ":scheme"
+    ],
+    "settings": [
+      [
+        4,
+        16777216
+      ]
+    ],
+    "window_update": 16711681
+  },
+  "OkHttp4_9": {
+    "akamai_fingerprint": "4:16777216|16711681|0|m,p,a,s",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "accept",
+      "accept-language",
+      "user-agent",
+      "accept-encoding"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":path",
+      ":authority",
+      ":scheme"
+    ],
+    "settings": [
+      [
+        4,
+        16777216
+      ]
+    ],
+    "window_update": 16711681
+  },
+  "OkHttp5": {
+    "akamai_fingerprint": "4:16777216|16711681|0|m,p,a,s",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "accept",
+      "accept-language",
+      "user-agent",
+      "accept-encoding"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":path",
+      ":authority",
+      ":scheme"
+    ],
+    "settings": [
+      [
+        4,
+        16777216
+      ]
+    ],
+    "window_update": 16711681
+  },
+  "Opera116": {
+    "akamai_fingerprint": "1:65536,2:0,4:6291456,6:262144|15663105|0|m,a,s,p",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "sec-ch-ua",
+      "sec-ch-ua-mobile",
+      "sec-ch-ua-platform",
+      "user-agent",
+      "accept",
+      "accept-encoding",
+      "accept-language",
+      "priority"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":authority",
+      ":scheme",
+      ":path"
+    ],
+    "settings": [
+      [
+        1,
+        65536
+      ],
+      [
+        2,
+        0
+      ],
+      [
+        4,
+        6291456
+      ],
+      [
+        6,
+        262144
+      ]
+    ],
+    "window_update": 15663105
+  },
+  "Opera117": {
+    "akamai_fingerprint": "1:65536,2:0,4:6291456,6:262144|15663105|0|m,a,s,p",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "sec-ch-ua",
+      "sec-ch-ua-mobile",
+      "sec-ch-ua-platform",
+      "user-agent",
+      "accept",
+      "accept-encoding",
+      "accept-language",
+      "priority"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":authority",
+      ":scheme",
+      ":path"
+    ],
+    "settings": [
+      [
+        1,
+        65536
+      ],
+      [
+        2,
+        0
+      ],
+      [
+        4,
+        6291456
+      ],
+      [
+        6,
+        262144
+      ]
+    ],
+    "window_update": 15663105
+  },
+  "Opera118": {
+    "akamai_fingerprint": "1:65536,2:0,4:6291456,6:262144|15663105|0|m,a,s,p",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "sec-ch-ua",
+      "sec-ch-ua-mobile",
+      "sec-ch-ua-platform",
+      "user-agent",
+      "accept",
+      "accept-encoding",
+      "accept-language",
+      "priority"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":authority",
+      ":scheme",
+      ":path"
+    ],
+    "settings": [
+      [
+        1,
+        65536
+      ],
+      [
+        2,
+        0
+      ],
+      [
+        4,
+        6291456
+      ],
+      [
+        6,
+        262144
+      ]
+    ],
+    "window_update": 15663105
+  },
+  "Opera119": {
+    "akamai_fingerprint": "1:65536,2:0,4:6291456,6:262144|15663105|0|m,a,s,p",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "sec-ch-ua",
+      "sec-ch-ua-mobile",
+      "sec-ch-ua-platform",
+      "user-agent",
+      "accept",
+      "accept-encoding",
+      "accept-language",
+      "priority"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":authority",
+      ":scheme",
+      ":path"
+    ],
+    "settings": [
+      [
+        1,
+        65536
+      ],
+      [
+        2,
+        0
+      ],
+      [
+        4,
+        6291456
+      ],
+      [
+        6,
+        262144
+      ]
+    ],
+    "window_update": 15663105
+  },
+  "Opera120": {
+    "akamai_fingerprint": "1:65536,2:0,4:6291456,6:262144|15663105|0|m,a,s,p",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "sec-ch-ua",
+      "sec-ch-ua-mobile",
+      "sec-ch-ua-platform",
+      "user-agent",
+      "accept",
+      "accept-encoding",
+      "accept-language",
+      "priority"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":authority",
+      ":scheme",
+      ":path"
+    ],
+    "settings": [
+      [
+        1,
+        65536
+      ],
+      [
+        2,
+        0
+      ],
+      [
+        4,
+        6291456
+      ],
+      [
+        6,
+        262144
+      ]
+    ],
+    "window_update": 15663105
+  },
+  "Opera121": {
+    "akamai_fingerprint": "1:65536,2:0,4:6291456,6:262144|15663105|0|m,a,s,p",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "sec-ch-ua",
+      "sec-ch-ua-mobile",
+      "sec-ch-ua-platform",
+      "user-agent",
+      "accept",
+      "accept-encoding",
+      "accept-language",
+      "priority"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":authority",
+      ":scheme",
+      ":path"
+    ],
+    "settings": [
+      [
+        1,
+        65536
+      ],
+      [
+        2,
+        0
+      ],
+      [
+        4,
+        6291456
+      ],
+      [
+        6,
+        262144
+      ]
+    ],
+    "window_update": 15663105
+  },
+  "Opera122": {
+    "akamai_fingerprint": "1:65536,2:0,4:6291456,6:262144|15663105|0|m,a,s,p",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "sec-ch-ua",
+      "sec-ch-ua-mobile",
+      "sec-ch-ua-platform",
+      "user-agent",
+      "accept",
+      "accept-encoding",
+      "accept-language",
+      "priority"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":authority",
+      ":scheme",
+      ":path"
+    ],
+    "settings": [
+      [
+        1,
+        65536
+      ],
+      [
+        2,
+        0
+      ],
+      [
+        4,
+        6291456
+      ],
+      [
+        6,
+        262144
+      ]
+    ],
+    "window_update": 15663105
+  },
+  "Opera123": {
+    "akamai_fingerprint": "1:65536,2:0,4:6291456,6:262144|15663105|0|m,a,s,p",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "sec-ch-ua",
+      "sec-ch-ua-mobile",
+      "sec-ch-ua-platform",
+      "user-agent",
+      "accept",
+      "accept-encoding",
+      "accept-language",
+      "priority"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":authority",
+      ":scheme",
+      ":path"
+    ],
+    "settings": [
+      [
+        1,
+        65536
+      ],
+      [
+        2,
+        0
+      ],
+      [
+        4,
+        6291456
+      ],
+      [
+        6,
+        262144
+      ]
+    ],
+    "window_update": 15663105
+  },
+  "Opera124": {
+    "akamai_fingerprint": "1:65536,2:0,4:6291456,6:262144|15663105|0|m,a,s,p",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "sec-ch-ua",
+      "sec-ch-ua-mobile",
+      "sec-ch-ua-platform",
+      "user-agent",
+      "accept",
+      "accept-encoding",
+      "accept-language",
+      "priority"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":authority",
+      ":scheme",
+      ":path"
+    ],
+    "settings": [
+      [
+        1,
+        65536
+      ],
+      [
+        2,
+        0
+      ],
+      [
+        4,
+        6291456
+      ],
+      [
+        6,
+        262144
+      ]
+    ],
+    "window_update": 15663105
+  },
+  "Opera125": {
+    "akamai_fingerprint": "1:65536,2:0,4:6291456,6:262144|15663105|0|m,a,s,p",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "sec-ch-ua",
+      "sec-ch-ua-mobile",
+      "sec-ch-ua-platform",
+      "user-agent",
+      "accept",
+      "accept-encoding",
+      "accept-language",
+      "priority"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":authority",
+      ":scheme",
+      ":path"
+    ],
+    "settings": [
+      [
+        1,
+        65536
+      ],
+      [
+        2,
+        0
+      ],
+      [
+        4,
+        6291456
+      ],
+      [
+        6,
+        262144
+      ]
+    ],
+    "window_update": 15663105
+  },
+  "Opera126": {
+    "akamai_fingerprint": "1:65536,2:0,4:6291456,6:262144|15663105|0|m,a,s,p",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "sec-ch-ua",
+      "sec-ch-ua-mobile",
+      "sec-ch-ua-platform",
+      "user-agent",
+      "accept",
+      "accept-encoding",
+      "accept-language",
+      "priority"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":authority",
+      ":scheme",
+      ":path"
+    ],
+    "settings": [
+      [
+        1,
+        65536
+      ],
+      [
+        2,
+        0
+      ],
+      [
+        4,
+        6291456
+      ],
+      [
+        6,
+        262144
+      ]
+    ],
+    "window_update": 15663105
+  },
+  "Opera127": {
+    "akamai_fingerprint": "1:65536,2:0,4:6291456,6:262144|15663105|0|m,a,s,p",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "sec-ch-ua",
+      "sec-ch-ua-mobile",
+      "sec-ch-ua-platform",
+      "user-agent",
+      "accept",
+      "accept-encoding",
+      "accept-language",
+      "priority"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":authority",
+      ":scheme",
+      ":path"
+    ],
+    "settings": [
+      [
+        1,
+        65536
+      ],
+      [
+        2,
+        0
+      ],
+      [
+        4,
+        6291456
+      ],
+      [
+        6,
+        262144
+      ]
+    ],
+    "window_update": 15663105
+  },
+  "Opera128": {
+    "akamai_fingerprint": "1:65536,2:0,4:6291456,6:262144|15663105|0|m,a,s,p",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "sec-ch-ua",
+      "sec-ch-ua-mobile",
+      "sec-ch-ua-platform",
+      "user-agent",
+      "accept",
+      "accept-encoding",
+      "accept-language",
+      "priority"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":authority",
+      ":scheme",
+      ":path"
+    ],
+    "settings": [
+      [
+        1,
+        65536
+      ],
+      [
+        2,
+        0
+      ],
+      [
+        4,
+        6291456
+      ],
+      [
+        6,
+        262144
+      ]
+    ],
+    "window_update": 15663105
+  },
+  "Opera129": {
+    "akamai_fingerprint": "1:65536,2:0,4:6291456,6:262144|15663105|0|m,a,s,p",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "sec-ch-ua",
+      "sec-ch-ua-mobile",
+      "sec-ch-ua-platform",
+      "user-agent",
+      "accept",
+      "accept-encoding",
+      "accept-language",
+      "priority"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":authority",
+      ":scheme",
+      ":path"
+    ],
+    "settings": [
+      [
+        1,
+        65536
+      ],
+      [
+        2,
+        0
+      ],
+      [
+        4,
+        6291456
+      ],
+      [
+        6,
+        262144
+      ]
+    ],
+    "window_update": 15663105
+  },
+  "Opera130": {
+    "akamai_fingerprint": "1:65536,2:0,4:6291456,6:262144|15663105|0|m,a,s,p",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "sec-ch-ua",
+      "sec-ch-ua-mobile",
+      "sec-ch-ua-platform",
+      "user-agent",
+      "accept",
+      "accept-encoding",
+      "accept-language",
+      "priority"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":authority",
+      ":scheme",
+      ":path"
+    ],
+    "settings": [
+      [
+        1,
+        65536
+      ],
+      [
+        2,
+        0
+      ],
+      [
+        4,
+        6291456
+      ],
+      [
+        6,
+        262144
+      ]
+    ],
+    "window_update": 15663105
+  },
+  "Opera131": {
+    "akamai_fingerprint": "1:65536,2:0,4:6291456,6:262144|15663105|0|m,a,s,p",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "sec-ch-ua",
+      "sec-ch-ua-mobile",
+      "sec-ch-ua-platform",
+      "user-agent",
+      "accept",
+      "accept-encoding",
+      "accept-language",
+      "priority"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":authority",
+      ":scheme",
+      ":path"
+    ],
+    "settings": [
+      [
+        1,
+        65536
+      ],
+      [
+        2,
+        0
+      ],
+      [
+        4,
+        6291456
+      ],
+      [
+        6,
+        262144
+      ]
+    ],
+    "window_update": 15663105
+  },
+  "Safari15_3": {
+    "akamai_fingerprint": "4:4194304,3:100|10485760|0|m,s,p,a",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "user-agent",
+      "accept",
+      "accept-language",
+      "accept-encoding"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":scheme",
+      ":path",
+      ":authority"
+    ],
+    "settings": [
+      [
+        4,
+        4194304
+      ],
+      [
+        3,
+        100
+      ]
+    ],
+    "window_update": 10485760
+  },
+  "Safari15_5": {
+    "akamai_fingerprint": "4:4194304,3:100|10485760|0|m,s,p,a",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "user-agent",
+      "accept",
+      "accept-language",
+      "accept-encoding"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":scheme",
+      ":path",
+      ":authority"
+    ],
+    "settings": [
+      [
+        4,
+        4194304
+      ],
+      [
+        3,
+        100
+      ]
+    ],
+    "window_update": 10485760
+  },
+  "Safari15_6_1": {
+    "akamai_fingerprint": "4:4194304,3:100|10485760|0|m,s,p,a",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "user-agent",
+      "accept",
+      "accept-language",
+      "accept-encoding"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":scheme",
+      ":path",
+      ":authority"
+    ],
+    "settings": [
+      [
+        4,
+        4194304
+      ],
+      [
+        3,
+        100
+      ]
+    ],
+    "window_update": 10485760
+  },
+  "Safari16": {
+    "akamai_fingerprint": "4:4194304,3:100|10485760|0|m,s,p,a",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "accept",
+      "sec-fetch-site",
+      "accept-encoding",
+      "sec-fetch-mode",
+      "user-agent",
+      "accept-language",
+      "sec-fetch-dest"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":scheme",
+      ":path",
+      ":authority"
+    ],
+    "settings": [
+      [
+        4,
+        4194304
+      ],
+      [
+        3,
+        100
+      ]
+    ],
+    "window_update": 10485760
+  },
+  "Safari16_5": {
+    "akamai_fingerprint": "4:4194304,3:100|10485760|0|m,s,p,a",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "accept",
+      "sec-fetch-site",
+      "accept-encoding",
+      "sec-fetch-mode",
+      "user-agent",
+      "accept-language",
+      "sec-fetch-dest"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":scheme",
+      ":path",
+      ":authority"
+    ],
+    "settings": [
+      [
+        4,
+        4194304
+      ],
+      [
+        3,
+        100
+      ]
+    ],
+    "window_update": 10485760
+  },
+  "Safari17_0": {
+    "akamai_fingerprint": "2:0,4:4194304,3:100|10485760|0|m,s,p,a",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "accept",
+      "sec-fetch-site",
+      "accept-encoding",
+      "sec-fetch-mode",
+      "user-agent",
+      "accept-language",
+      "sec-fetch-dest"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":scheme",
+      ":path",
+      ":authority"
+    ],
+    "settings": [
+      [
+        2,
+        0
+      ],
+      [
+        4,
+        4194304
+      ],
+      [
+        3,
+        100
+      ]
+    ],
+    "window_update": 10485760
+  },
+  "Safari17_2_1": {
+    "akamai_fingerprint": "2:0,4:4194304,3:100|10485760|0|m,s,p,a",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "accept",
+      "sec-fetch-site",
+      "accept-encoding",
+      "sec-fetch-mode",
+      "user-agent",
+      "accept-language",
+      "sec-fetch-dest"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":scheme",
+      ":path",
+      ":authority"
+    ],
+    "settings": [
+      [
+        2,
+        0
+      ],
+      [
+        4,
+        4194304
+      ],
+      [
+        3,
+        100
+      ]
+    ],
+    "window_update": 10485760
+  },
+  "Safari17_4_1": {
+    "akamai_fingerprint": "4:4194304,3:100|10485760|0|m,s,p,a",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "accept",
+      "sec-fetch-site",
+      "accept-encoding",
+      "sec-fetch-mode",
+      "user-agent",
+      "accept-language",
+      "sec-fetch-dest"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":scheme",
+      ":path",
+      ":authority"
+    ],
+    "settings": [
+      [
+        4,
+        4194304
+      ],
+      [
+        3,
+        100
+      ]
+    ],
+    "window_update": 10485760
+  },
+  "Safari17_5": {
+    "akamai_fingerprint": "2:0,4:4194304,3:100|10485760|0|m,s,p,a",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "accept",
+      "sec-fetch-site",
+      "accept-encoding",
+      "sec-fetch-mode",
+      "user-agent",
+      "accept-language",
+      "sec-fetch-dest"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":scheme",
+      ":path",
+      ":authority"
+    ],
+    "settings": [
+      [
+        2,
+        0
+      ],
+      [
+        4,
+        4194304
+      ],
+      [
+        3,
+        100
+      ]
+    ],
+    "window_update": 10485760
+  },
+  "Safari17_6": {
+    "akamai_fingerprint": "2:0,4:4194304,3:100|10485760|0|m,s,p,a",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "accept",
+      "sec-fetch-site",
+      "accept-encoding",
+      "sec-fetch-mode",
+      "user-agent",
+      "accept-language",
+      "sec-fetch-dest"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":scheme",
+      ":path",
+      ":authority"
+    ],
+    "settings": [
+      [
+        2,
+        0
+      ],
+      [
+        4,
+        4194304
+      ],
+      [
+        3,
+        100
+      ]
+    ],
+    "window_update": 10485760
+  },
+  "Safari18": {
+    "akamai_fingerprint": "2:0,3:100,4:2097152,8:1,9:1|10420225|0|m,s,a,p",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "sec-fetch-dest",
+      "user-agent",
+      "accept",
+      "sec-fetch-site",
+      "sec-fetch-mode",
+      "accept-language",
+      "priority",
+      "accept-encoding"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":scheme",
+      ":authority",
+      ":path"
+    ],
+    "settings": [
+      [
+        2,
+        0
+      ],
+      [
+        3,
+        100
+      ],
+      [
+        4,
+        2097152
+      ],
+      [
+        8,
+        1
+      ],
+      [
+        9,
+        1
+      ]
+    ],
+    "window_update": 10420225
+  },
+  "Safari18_2": {
+    "akamai_fingerprint": "2:0,3:100,4:2097152,8:1,9:1|10420225|0|m,s,a,p",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "sec-fetch-dest",
+      "user-agent",
+      "accept",
+      "sec-fetch-site",
+      "sec-fetch-mode",
+      "accept-language",
+      "priority",
+      "accept-encoding"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":scheme",
+      ":authority",
+      ":path"
+    ],
+    "settings": [
+      [
+        2,
+        0
+      ],
+      [
+        3,
+        100
+      ],
+      [
+        4,
+        2097152
+      ],
+      [
+        8,
+        1
+      ],
+      [
+        9,
+        1
+      ]
+    ],
+    "window_update": 10420225
+  },
+  "Safari18_3": {
+    "akamai_fingerprint": "2:0,3:100,4:2097152,8:1,9:1|10420225|0|m,s,a,p",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "sec-fetch-dest",
+      "user-agent",
+      "accept",
+      "sec-fetch-site",
+      "sec-fetch-mode",
+      "accept-language",
+      "priority",
+      "accept-encoding"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":scheme",
+      ":authority",
+      ":path"
+    ],
+    "settings": [
+      [
+        2,
+        0
+      ],
+      [
+        3,
+        100
+      ],
+      [
+        4,
+        2097152
+      ],
+      [
+        8,
+        1
+      ],
+      [
+        9,
+        1
+      ]
+    ],
+    "window_update": 10420225
+  },
+  "Safari18_3_1": {
+    "akamai_fingerprint": "2:0,3:100,4:2097152,8:1,9:1|10420225|0|m,s,a,p",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "sec-fetch-dest",
+      "user-agent",
+      "accept",
+      "sec-fetch-site",
+      "sec-fetch-mode",
+      "accept-language",
+      "priority",
+      "accept-encoding"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":scheme",
+      ":authority",
+      ":path"
+    ],
+    "settings": [
+      [
+        2,
+        0
+      ],
+      [
+        3,
+        100
+      ],
+      [
+        4,
+        2097152
+      ],
+      [
+        8,
+        1
+      ],
+      [
+        9,
+        1
+      ]
+    ],
+    "window_update": 10420225
+  },
+  "Safari18_5": {
+    "akamai_fingerprint": "2:0,3:100,4:2097152,9:1|10420225|0|m,s,a,p",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "sec-fetch-dest",
+      "user-agent",
+      "accept",
+      "sec-fetch-site",
+      "sec-fetch-mode",
+      "accept-language",
+      "priority",
+      "accept-encoding"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":scheme",
+      ":authority",
+      ":path"
+    ],
+    "settings": [
+      [
+        2,
+        0
+      ],
+      [
+        3,
+        100
+      ],
+      [
+        4,
+        2097152
+      ],
+      [
+        9,
+        1
+      ]
+    ],
+    "window_update": 10420225
+  },
+  "Safari26": {
+    "akamai_fingerprint": "2:0,3:100,4:2097152,9:1|10420225|0|m,s,a,p",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "sec-fetch-dest",
+      "user-agent",
+      "accept",
+      "sec-fetch-site",
+      "sec-fetch-mode",
+      "accept-language",
+      "priority",
+      "accept-encoding"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":scheme",
+      ":authority",
+      ":path"
+    ],
+    "settings": [
+      [
+        2,
+        0
+      ],
+      [
+        3,
+        100
+      ],
+      [
+        4,
+        2097152
+      ],
+      [
+        9,
+        1
+      ]
+    ],
+    "window_update": 10420225
+  },
+  "Safari26_1": {
+    "akamai_fingerprint": "2:0,3:100,4:2097152,9:1|10420225|0|m,s,a,p",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "sec-fetch-dest",
+      "user-agent",
+      "accept",
+      "sec-fetch-site",
+      "sec-fetch-mode",
+      "accept-language",
+      "priority",
+      "accept-encoding"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":scheme",
+      ":authority",
+      ":path"
+    ],
+    "settings": [
+      [
+        2,
+        0
+      ],
+      [
+        3,
+        100
+      ],
+      [
+        4,
+        2097152
+      ],
+      [
+        9,
+        1
+      ]
+    ],
+    "window_update": 10420225
+  },
+  "Safari26_2": {
+    "akamai_fingerprint": "2:0,3:100,4:2097152,9:1|10420225|0|m,s,a,p",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "sec-fetch-dest",
+      "user-agent",
+      "accept",
+      "sec-fetch-site",
+      "sec-fetch-mode",
+      "accept-language",
+      "priority",
+      "accept-encoding"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":scheme",
+      ":authority",
+      ":path"
+    ],
+    "settings": [
+      [
+        2,
+        0
+      ],
+      [
+        3,
+        100
+      ],
+      [
+        4,
+        2097152
+      ],
+      [
+        9,
+        1
+      ]
+    ],
+    "window_update": 10420225
+  },
+  "Safari26_3": {
+    "akamai_fingerprint": "2:0,3:100,4:2097152,9:1|10420225|0|m,s,a,p",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "sec-fetch-dest",
+      "user-agent",
+      "accept",
+      "sec-fetch-site",
+      "sec-fetch-mode",
+      "accept-language",
+      "priority",
+      "accept-encoding"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":scheme",
+      ":authority",
+      ":path"
+    ],
+    "settings": [
+      [
+        2,
+        0
+      ],
+      [
+        3,
+        100
+      ],
+      [
+        4,
+        2097152
+      ],
+      [
+        9,
+        1
+      ]
+    ],
+    "window_update": 10420225
+  },
+  "Safari26_4": {
+    "akamai_fingerprint": "2:0,3:100,4:2097152,9:1|10420225|0|m,s,a,p",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "sec-fetch-dest",
+      "user-agent",
+      "accept",
+      "sec-fetch-site",
+      "sec-fetch-mode",
+      "accept-language",
+      "priority",
+      "accept-encoding"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":scheme",
+      ":authority",
+      ":path"
+    ],
+    "settings": [
+      [
+        2,
+        0
+      ],
+      [
+        3,
+        100
+      ],
+      [
+        4,
+        2097152
+      ],
+      [
+        9,
+        1
+      ]
+    ],
+    "window_update": 10420225
+  },
+  "SafariIPad18": {
+    "akamai_fingerprint": "2:0,3:100,4:2097152,8:1,9:1|10420225|0|m,s,a,p",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "sec-fetch-dest",
+      "user-agent",
+      "accept",
+      "sec-fetch-site",
+      "sec-fetch-mode",
+      "accept-language",
+      "priority",
+      "accept-encoding"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":scheme",
+      ":authority",
+      ":path"
+    ],
+    "settings": [
+      [
+        2,
+        0
+      ],
+      [
+        3,
+        100
+      ],
+      [
+        4,
+        2097152
+      ],
+      [
+        8,
+        1
+      ],
+      [
+        9,
+        1
+      ]
+    ],
+    "window_update": 10420225
+  },
+  "SafariIPad26": {
+    "akamai_fingerprint": "2:0,3:100,4:2097152,9:1|10420225|0|m,s,a,p",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "sec-fetch-dest",
+      "user-agent",
+      "accept",
+      "sec-fetch-site",
+      "sec-fetch-mode",
+      "accept-language",
+      "priority",
+      "accept-encoding"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":scheme",
+      ":authority",
+      ":path"
+    ],
+    "settings": [
+      [
+        2,
+        0
+      ],
+      [
+        3,
+        100
+      ],
+      [
+        4,
+        2097152
+      ],
+      [
+        9,
+        1
+      ]
+    ],
+    "window_update": 10420225
+  },
+  "SafariIos16_5": {
+    "akamai_fingerprint": "4:2097152,3:100|10485760|0|m,s,p,a",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "accept",
+      "sec-fetch-site",
+      "accept-encoding",
+      "sec-fetch-mode",
+      "user-agent",
+      "accept-language",
+      "sec-fetch-dest"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":scheme",
+      ":path",
+      ":authority"
+    ],
+    "settings": [
+      [
+        4,
+        2097152
+      ],
+      [
+        3,
+        100
+      ]
+    ],
+    "window_update": 10485760
+  },
+  "SafariIos17_2": {
+    "akamai_fingerprint": "2:0,4:2097152,3:100|10485760|0|m,s,p,a",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "accept",
+      "sec-fetch-site",
+      "accept-encoding",
+      "sec-fetch-mode",
+      "user-agent",
+      "accept-language",
+      "sec-fetch-dest"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":scheme",
+      ":path",
+      ":authority"
+    ],
+    "settings": [
+      [
+        2,
+        0
+      ],
+      [
+        4,
+        2097152
+      ],
+      [
+        3,
+        100
+      ]
+    ],
+    "window_update": 10485760
+  },
+  "SafariIos17_4_1": {
+    "akamai_fingerprint": "2:0,4:2097152,3:100|10485760|0|m,s,p,a",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "accept",
+      "sec-fetch-site",
+      "accept-encoding",
+      "sec-fetch-mode",
+      "user-agent",
+      "accept-language",
+      "sec-fetch-dest"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":scheme",
+      ":path",
+      ":authority"
+    ],
+    "settings": [
+      [
+        2,
+        0
+      ],
+      [
+        4,
+        2097152
+      ],
+      [
+        3,
+        100
+      ]
+    ],
+    "window_update": 10485760
+  },
+  "SafariIos18_1_1": {
+    "akamai_fingerprint": "2:0,3:100,4:2097152,8:1,9:1|10420225|0|m,s,a,p",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "sec-fetch-dest",
+      "user-agent",
+      "accept",
+      "sec-fetch-site",
+      "sec-fetch-mode",
+      "accept-language",
+      "priority",
+      "accept-encoding"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":scheme",
+      ":authority",
+      ":path"
+    ],
+    "settings": [
+      [
+        2,
+        0
+      ],
+      [
+        3,
+        100
+      ],
+      [
+        4,
+        2097152
+      ],
+      [
+        8,
+        1
+      ],
+      [
+        9,
+        1
+      ]
+    ],
+    "window_update": 10420225
+  },
+  "SafariIos26": {
+    "akamai_fingerprint": "2:0,3:100,4:2097152,9:1|10420225|0|m,s,a,p",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "sec-fetch-dest",
+      "user-agent",
+      "accept",
+      "sec-fetch-site",
+      "sec-fetch-mode",
+      "accept-language",
+      "priority",
+      "accept-encoding"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":scheme",
+      ":authority",
+      ":path"
+    ],
+    "settings": [
+      [
+        2,
+        0
+      ],
+      [
+        3,
+        100
+      ],
+      [
+        4,
+        2097152
+      ],
+      [
+        9,
+        1
+      ]
+    ],
+    "window_update": 10420225
+  },
+  "SafariIos26_2": {
+    "akamai_fingerprint": "2:0,3:100,4:2097152,9:1|10420225|0|m,s,a,p",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "sec-fetch-dest",
+      "user-agent",
+      "accept",
+      "sec-fetch-site",
+      "sec-fetch-mode",
+      "accept-language",
+      "priority",
+      "accept-encoding"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":scheme",
+      ":authority",
+      ":path"
+    ],
+    "settings": [
+      [
+        2,
+        0
+      ],
+      [
+        3,
+        100
+      ],
+      [
+        4,
+        2097152
+      ],
+      [
+        9,
+        1
+      ]
+    ],
+    "window_update": 10420225
+  },
+  "SafariIpad26_2": {
+    "akamai_fingerprint": "2:0,3:100,4:2097152,9:1|10420225|0|m,s,a,p",
+    "alpn": "h2",
+    "frame_sequence": [
+      "SETTINGS",
+      "WINDOW_UPDATE",
+      "HEADERS"
+    ],
+    "header_order": [
+      "sec-fetch-dest",
+      "user-agent",
+      "accept",
+      "sec-fetch-site",
+      "sec-fetch-mode",
+      "accept-language",
+      "priority",
+      "accept-encoding"
+    ],
+    "priorities": [],
+    "pseudo_header_order": [
+      ":method",
+      ":scheme",
+      ":authority",
+      ":path"
+    ],
+    "settings": [
+      [
+        2,
+        0
+      ],
+      [
+        3,
+        100
+      ],
+      [
+        4,
+        2097152
+      ],
+      [
+        9,
+        1
+      ]
+    ],
+    "window_update": 10420225
+  }
+}

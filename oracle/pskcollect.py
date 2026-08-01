@@ -27,6 +27,7 @@ import time
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from oracle import targets                                    # noqa: E402
+from oracle.goldenio import write_golden              # noqa: E402
 from oracle.clienthello import fingerprint, parse_client_hello  # noqa: E402
 from oracle.tapproxy import TapProxy                          # noqa: E402
 
@@ -118,10 +119,7 @@ def main(argv):
     finally:
         proc.terminate()
 
-    os.makedirs(os.path.dirname(OUT), exist_ok=True)
-    with open(OUT, "w") as f:
-        json.dump(out, f, indent=2, sort_keys=True)
-        f.write("\n")
+    total, _ = write_golden(OUT, out)
     print(f"\n采到 PSK 形态 {len(out)}/{len(wanted)} → {os.path.normpath(OUT)}")
     if no_psk:
         print(f"不做会话恢复的 {len(no_psk)}: {' '.join(no_psk)}")

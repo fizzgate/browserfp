@@ -16,6 +16,7 @@ import time
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from oracle import targets                                    # noqa: E402
+from oracle.goldenio import write_golden              # noqa: E402
 from oracle.clienthello import fingerprint                    # noqa: E402
 from oracle.sniffer import ClientHelloSniffer                 # noqa: E402
 
@@ -89,10 +90,7 @@ def main(argv):
                 print(f"  {t:20s} FAILED {e!r}", file=sys.stderr)
             time.sleep(0.05)
 
-    os.makedirs(os.path.dirname(out_path), exist_ok=True)
-    with open(out_path, "w") as f:
-        json.dump(out, f, indent=2, sort_keys=True)
-        f.write("\n")
+    total, _ = write_golden(out_path, out)
 
     print(f"\ncaptured {len(out)}/{len(wanted)} → {os.path.normpath(out_path)}")
     if failures:

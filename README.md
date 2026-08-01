@@ -12,7 +12,7 @@
 | 唯一指纹 | **74**（来自 307 个 target 名，按 13 个确定性字段去重） |
 | 连接形态 | 首连 59 + 会话恢复 15 |
 | 来源 | 开源表 67 + 真机采集 7 |
-| 含 h2 层 | 50/74 |
+| 含 h2 层 | 55/74 |
 | 重建门禁 | 74/74 |
 | 可用性门禁 | 66/68（34 profile × 2 真实站点） |
 
@@ -96,6 +96,7 @@ python -m spec.test_rebuild            # 数据自洽：profile → 字节 → �
 python -m spec.test_live_handshake     # 真实可用：34 profile × 2 站点，真握手 + h2
 python -m spec.test_match              # 识别器：认得出 + 认不出必须报 unknown
 python -m spec.test_real_stability     # 真机反复连接，每次都须认出（含充分性断言）
+python -m spec.test_collector_merge    # 采集器必须合并写（防止只采子集冲掉其余样本）
 python -m spec.test_cf_discrimination  # 指纹是否被区别对待（三臂对照）
 python -m oracle.coverage              # 开源表对真机的覆盖矩阵
 python -m oracle.srcaudit              # 源码审计：还有哪些扩展我们从没见过
@@ -250,14 +251,15 @@ key_share 那条是有价值的阴性结果：它证明现有 13 字段判据**�
   废弃草案，cryptography 未实现。刻意不加豁免表，让它每次都报出来。
 - **5 个纯 TLS1.2 profile 未覆盖**：cloudscraper / confirmed_android / mesh_android_2 /
   okhttp4_android_7 / okhttp4_android_8。参考实现只做 TLS 1.3。
-- **wreq 的 h2 采不到**：wreq 坚持校验服务端证书，`verify=False` /
-  `danger_accept_invalid_certs` / `cert_store=CertStore.from_pem_stack(ca)` 均无效
-  （前者疑似被静默忽略）。L1 不受影响是因为 sniffer 不完成握手。`wreqh2collect.py`
-  逻辑已就绪，待找到正确的信任配置。
+- ~~wreq 的 h2 采不到~~ **已解**：正确参数是 `tls_verify=False`。`verify` /
+  `danger_accept_invalid_certs` / `cert_verification` 都会被**静默忽略**（构造不报错
+  但仍校验证书），极易误判成"库不支持"。已采齐 133/133。
 - **utls 那批刻意不采 h2**：utls 是纯 TLS 库，profile 里没有 h2 定义。套一个 Go 的
   http2 客户端能采到 SETTINGS，但那是 `golang.org/x/net/http2` 的默认值——**是 Go 的
   指纹不是浏览器的**，入库会污染数据且事后极难发现（它看起来完全合理）。
-- **24 个缺 h2 层**（wreq 与 utls 两源只采了 TLS 层，未采 h2）。原先的 4 个：cloudscraper / mesh_android_2 / mms_ios / mms_ios_2 ——
+- **19 个缺 h2 层**，已分类且都不是遗漏：15 个来自 utls（纯 TLS 库无 h2 定义，
+  刻意不采）；4 个来自 tls_client 且**本来就不走 h2** —— cloudscraper 与
+  mesh_android_2 协商到 http/1.1，mms_ios / mms_ios_2 根本不发 ALPN。原先的 4 个：cloudscraper / mesh_android_2 / mms_ios / mms_ios_2 ——
   **均为非浏览器 app profile，浏览器侧无缺口**（四个真机浏览器全部三层齐全）。
 - **CF 挑战未验证**：claude.ai 根路径本就不设防（三种指纹结果一致、无 `cf-mitigated`），
   要验 managed challenge 需要一个真正会触发的端点。

@@ -43,7 +43,18 @@ def main(argv):
                 failures.append((name, repr(e)))
                 print(f"  {name:26s} FAILED {e!r}", file=sys.stderr)
 
+    # 合并写。只采部分 profile 时直接覆盖会把其余样本清空——本文件曾因此把
+    # 71 条采集结果冲成 0 条。**同类 bug 已在 browsers.py 与 h2collect.py 各修过
+    # 一次，这是第三次**：凡"可按参数只采子集"的采集器都必须合并写。
     os.makedirs(os.path.dirname(OUT), exist_ok=True)
+    if os.path.exists(OUT):
+        try:
+            with open(OUT) as f:
+                existing = json.load(f)
+            existing.update(out)
+            out = existing
+        except (OSError, ValueError):
+            pass
     with open(OUT, "w") as f:
         json.dump(out, f, indent=2, sort_keys=True)
         f.write("\n")

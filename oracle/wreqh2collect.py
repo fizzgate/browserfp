@@ -10,15 +10,10 @@ wreq 不同：它是完整 HTTP 栈，h2 SETTINGS 与伪头顺序都按 profile 
 
 须用 .venv-wreq/bin/python 跑（wreq 要求 Python ≥3.11）。
 
-**当前不可用（已知问题）**：wreq 坚持校验服务端证书，试过
-`verify=False` / `danger_accept_invalid_certs` / `cert_verification=False` /
-`cert_store=CertStore.from_pem_stack(ca)` 均仍报 CERTIFICATE_VERIFY_FAILED
-（前三个疑似被静默忽略，第四个构造成功但不生效）。L1 采集不受影响是因为
-sniffer 不完成握手，L2 必须握手才暴露。
-
-未继续深挖的原因：wreq 的 133 个变体按指纹去重后只贡献 5 个唯一指纹，为它们
-补 h2 的收益小于继续摸索 API 的成本。代码逻辑本身是对的，等找到正确的信任
-配置即可直接跑。
+跳过证书校验的参数是 **`tls_verify=False`**。曾试 `verify` /
+`danger_accept_invalid_certs` / `cert_verification` 均无效——构造不报错但被
+静默忽略，仍报 CERTIFICATE_VERIFY_FAILED，很容易误判成"库不支持"。正确名字
+在包内 `grep -E 'tls_[a-z_]*\s*[:=]'` 可查到。
 """
 
 import json
@@ -27,6 +22,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from oracle.goldenio import write_golden              # noqa: E402
 from oracle.h2probe import H2Probe                            # noqa: E402
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -45,7 +41,9 @@ async def _fire(name, port):
     import wreq
     from wreq import Emulation
 
-    client = wreq.Client(emulation=getattr(Emulation, name), verify=False)
+    # 参数名是 tls_verify —— verify / danger_accept_invalid_certs /
+    # cert_verification 都会被静默忽略（构造不报错但仍校验证书）
+    client = wreq.Client(emulation=getattr(Emulation, name), tls_verify=False)
     try:
         try:
             await client.get(f"https://127.0.0.1:{port}/",
@@ -78,10 +76,7 @@ def main(argv):
                 failed.append((name, repr(e)))
                 print(f"  {name:22s} FAILED {e!r}", file=sys.stderr)
 
-    os.makedirs(os.path.dirname(OUT), exist_ok=True)
-    with open(OUT, "w") as f:
-        json.dump(out, f, indent=2, sort_keys=True)
-        f.write("\n")
+    total, _ = write_golden(OUT, out)
     print(f"\n采到 {len(out)}/{len(wanted)} → {os.path.normpath(OUT)}")
     if failed:
         for n, e in failed[:8]:

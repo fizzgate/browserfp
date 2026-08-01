@@ -24,6 +24,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from oracle.goldenio import write_golden              # noqa: E402
 from oracle.clienthello import fingerprint                    # noqa: E402
 from oracle.sniffer import ClientHelloSniffer                 # noqa: E402
 
@@ -81,10 +82,7 @@ def main(argv):
                 failed.append((name, repr(e)))
                 print(f"  {name:22s} FAILED {e!r}", file=sys.stderr)
 
-    os.makedirs(os.path.dirname(OUT), exist_ok=True)
-    with open(OUT, "w") as f:
-        json.dump(out, f, indent=2, sort_keys=True)
-        f.write("\n")
+    total, _ = write_golden(OUT, out)
     print(f"\n采到 {len(out)}/{len(wanted)} → {os.path.normpath(OUT)}")
     if failed:
         print(f"失败 {len(failed)}:", file=sys.stderr)
