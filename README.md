@@ -462,6 +462,37 @@ iOS 15/16/17/18/26  ↔  桌面同号
 拿 iOS 12 的指纹去服务桌面 Safari 12 的 UA，既没有等价证据、版本号对应也可疑，
 正是本项目一直在防的那种"看起来合理"的替代。**保持缺口比编一个映射诚实**。
 
+而且"桌面 ≡ iOS"本身也不是普遍成立的。库里同版本成对出现的只有三组：
+
+```
+safari 18.0 桌面 vs _ios   同一指纹
+safari 18.4 桌面 vs _ios   同一指纹
+safari 26.0 桌面 vs _ios   ★不同（曲线差 X25519MLKEM768、扩展差 padding、
+                              TLS1.3 三个套件的顺序也不同）
+```
+
+2/3 达不到本项目对"可替代"要求的强证据门槛（见"段内可替代性"）。
+
+**源码路线也走过了，是死路**。Chrome/Firefox 的缺口都靠读源码补上了，Safari
+试过同样的办法：Apple 确实在 opensource.apple.com 公开了 coreTLS，`sslCipherSpecs.c`
+有套件表、`sslHandshakeHello.c` 的 `SSLEncodeClientHello` 有扩展写入顺序，形态
+上正是需要的东西。**但它拿已有真值一比就废了**：
+
+```
+coreTLS-167 推出的扩展序   35, 0, 10, 11, 13, 13172, 16, 5, 18, 23, 21
+实测 utls:IOS_11_1/12_1    65281, 23, 13, 5, 13172, 18, 16, 11, 10
+coreTLS-167 的曲线表       secp256r1/384r1/521r1（无 x25519）
+实测三代 Safari 的曲线     x25519, secp256r1, secp384r1, secp521r1
+```
+
+顺序毫无相似之处，曲线更是缺了实测必有的 x25519 —— 说明早在 iOS 11.1 时
+Apple 就已经不走 coreTLS 了。而实际在用的那套（Network.framework / libnetwork
+里的 BoringSSL 分支）没有开源：`tarballs/boringssl`、`tarballs/libnetwork`
+都是 404，只有 `tarballs/coreTLS` 是 200。
+
+**这一步的做法值得记**：源码表看起来对不等于它就是那个栈，必须先拿它重建一个
+**已有真值**的版本。先验证再使用，这次因此省下了一整套基于错误源码的推断。
+
 **utls 的 iOS 条目命名不带品牌名**（`IOS_11_1` / `IOS_12_1` / `IOS_13` /
 `IOS_14`），别名解析若要求以品牌名开头就会漏掉它们 —— `safari-mobile` 表因此
 一度凭空少了 11–14 四个版本。它们确实是 iOS Safari 的指纹（11/12 还是 TLS 1.2
