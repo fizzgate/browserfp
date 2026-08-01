@@ -46,8 +46,13 @@ NPMM = "https://registry.npmmirror.com/-/binary"
 # 两个目录合起来覆盖 M70..M153；chromedriver 管老版本，chrome-for-testing 管新的
 VERSION_DIRS = ("chromedriver/", "chrome-for-testing/")
 
-# BoringSSL 里决定 ClientHello 的表所在文件
-BSSL_FILES = ("ssl/extensions.cc", "ssl/ssl_privkey.cc")
+# BoringSSL 里决定 ClientHello 的表所在文件。**这些表搬过好几次家**，只能按
+# 候选逐个试、允许 404：
+#   · 2019 年（M78 时代）kExtensions 与 kSignSignatureAlgorithms 都在 t1_lib.cc
+#   · 后来扩展代码拆出 extensions.cc
+#   · 更晚 kSignSignatureAlgorithms 又挪进 ssl_privkey.cc
+# 只查固定一个文件会 404 或静默拿到空表，而空表看起来像"该版本没这张表"。
+BSSL_FILES = ("ssl/extensions.cc", "ssl/t1_lib.cc", "ssl/ssl_privkey.cc")
 
 
 def _get(url, cache_path, timeout=90, attempts=3):
@@ -125,22 +130,73 @@ def boringssl_revision(major):
     raise last_err
 
 
+# curves 的配置点在 Chromium 侧（不在 BoringSSL），且随版本搬过家：
+#   老版本  net/socket/ssl_client_socket_impl.cc 里硬编码 kCurves[]
+#   新版本  net/ssl/ssl_config_service.cc 里 kDefaultSSLSupportedGroups[]，
+#           每项还带 send_key_share —— 决定该 group 是否进 key_share 扩展，
+#           这正是 Chrome 同时发两个 key_share 的来源
+CHROMIUM_CURVE_FILES = ("net/ssl/ssl_config_service.cc",
+                        "net/socket/ssl_client_socket_impl.cc")
+
+
+def chromium_curves(tag):
+    """返回 (supported_groups, key_share_groups)；取不到时抛错而非给空表。"""
+    for f in CHROMIUM_CURVE_FILES:
+        try:
+            d = _get(f"{JSD}/chromium/chromium@{tag}/{f}",
+                     os.path.join(CACHE, tag, os.path.basename(f)))
+        except urllib.error.HTTPError as e:
+            if e.code != 404:
+                raise
+            continue
+
+        m = re.search(r"kDefaultSSLSupportedGroups\[\]\s*=\s*\{(.*?)\};", d, re.S)
+        if m:
+            groups, shares = [], []
+            for item in re.finditer(
+                    r"\.group_id\s*=\s*(\w+).*?\.send_key_share\s*=\s*(true|false)",
+                    m.group(1), re.S):
+                groups.append(item.group(1))
+                if item.group(2) == "true":
+                    shares.append(item.group(1))
+            if groups:
+                return groups, shares
+
+        m = re.search(r"static const int kCurves\[\]\s*=\s*\{(.*?)\};", d, re.S)
+        if m:
+            groups = re.findall(r"NID_\w+", m.group(1))
+            if groups:
+                # 老版本没有 send_key_share 概念，key_share 由 BoringSSL 决定
+                return groups, []
+    raise RuntimeError(f"{tag} 找不到 curves 配置（kDefaultSSLSupportedGroups / "
+                       "kCurves 都没有）—— 配置点可能又搬家了")
+
+
 def extract(major):
     """返回该 Chrome 主版本的 ClientHello 相关表。"""
     tag, rev = boringssl_revision(major)
     src = {}
     for f in BSSL_FILES:
-        src[f] = _get(f"{JSD}/google/boringssl@{rev}/{f}",
-                      os.path.join(CACHE, "bssl", rev, f.replace("/", "_")))
+        try:
+            src[f] = _get(f"{JSD}/google/boringssl@{rev}/{f}",
+                          os.path.join(CACHE, "bssl", rev, f.replace("/", "_")))
+        except urllib.error.HTTPError as e:
+            if e.code != 404:
+                raise
+            continue           # 该 revision 没这个文件，表在别处
 
-    ext_src = src["ssl/extensions.cc"]
     # 扩展只取集合：Chromium 自 110 起随机置换顺序，比顺序毫无意义
-    m = re.search(r"static const struct tls_extension kExtensions\[\]\s*=\s*\{",
-                  ext_src)
     exts = []
-    if m:
-        body = ext_src[m.end():ext_src.index("\n};", m.end())]
-        exts = sorted(set(re.findall(r"TLSEXT_TYPE_(\w+)", body)))
+    for text in src.values():
+        m = re.search(r"static const struct tls_extension kExtensions\[\]\s*=\s*\{",
+                      text)
+        if m:
+            body = text[m.end():text.index("\n};", m.end())]
+            exts = sorted(set(re.findall(r"TLSEXT_TYPE_(\w+)", body)))
+            break
+    if not exts:
+        raise RuntimeError(f"M{major}({rev[:10]}) 在 {list(src)} 里都找不到 "
+                           "kExtensions —— 表可能又搬家了，别当成空集合用")
 
     def _u16_list(text, name):
         mm = re.search(re.escape(name) + r"\[\]\s*=\s*\{(.*?)\};", text, re.S)
@@ -160,9 +216,12 @@ def extract(major):
     if not sign:
         raise RuntimeError(f"M{major}({rev[:10]}) 找不到 kSignSignatureAlgorithms，"
                            "表可能又搬家了——不要当成空列表用")
+    curves, key_shares = chromium_curves(tag)
     return {
         "tag": tag,
         "boringssl": rev,
+        "curves": curves,
+        "key_share_groups": key_shares,
         "extensions_set": exts,
         "sign_sigalgs": sign,
         "verify_sigalgs": verify,
@@ -179,10 +238,11 @@ def main(argv):
         except Exception as e:
             print(f"  M{mj}: 取不到（{type(e).__name__}: {e}）", file=sys.stderr)
 
-    print(f"{'版本':>5}  {'tag':<18} {'boringssl':<12} {'扩展':>4} {'签名算法':>6}")
+    print(f"{'版本':>5}  {'tag':<18} {'boringssl':<12} {'扩展':>4} {'签名':>4}  curves")
     for mj, t in sorted(got.items()):
+        cv = [c.replace("SSL_GROUP_", "").replace("NID_", "") for c in t["curves"]]
         print(f"{mj:>5}  {t['tag']:<18} {t['boringssl'][:10]:<12} "
-              f"{len(t['extensions_set']):>4} {len(t['sign_sigalgs']):>6}")
+              f"{len(t['extensions_set']):>4} {len(t['sign_sigalgs']):>4}  {cv}")
 
     print("\n相邻版本比对：")
     ms = sorted(got)
@@ -199,6 +259,8 @@ def main(argv):
             bits.append(f"扩展移除 {sorted(ea - eb)}")
         if a["sign_sigalgs"] != b["sign_sigalgs"]:
             bits.append("签名算法列表变化")
+        if a["curves"] != b["curves"]:
+            bits.append(f"curves {a['curves']} → {b['curves']}")
         print(f"  M{ms[i]} ↔ M{ms[i+1]}   {'；'.join(bits) or '三表相同（revision 不同但表未变）'}")
     return 0
 
