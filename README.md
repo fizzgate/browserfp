@@ -100,6 +100,8 @@ python -m spec.test_real_stability     # 真机反复连接，每次都须认出
 python -m spec.test_collector_merge    # 采集器必须合并写（防止只采子集冲掉其余样本）
 python -m spec.test_ja4t               # TCP 层 JA4T 解析器（构造向量，不需抓包权限）
 python -m spec.test_golden_orphans     # golden 不得有"采了却没人读"的孤儿文件
+python -m spec.test_c_parity           # C 实现与 Python 逐字符一致
+python -m spec.test_lua_parity         # Lua FFI 绑定与 Python/C 一致
 python -m spec.test_quic               # QUIC：RFC 9001 官方向量 + 真机端到端
 .venv-wreq/bin/python -m spec.test_h3  # HTTP/3：GREASE 剔除 + 跨连接稳定性
 python -m spec.test_cf_discrimination  # 指纹是否被区别对待（三臂对照）
@@ -155,6 +157,35 @@ QUIC 形态作为**独立条目**入库而非 TCP 那条的附加字段：实测
 
 最后一项是真触发一次 HelloRetryRequest 后识别第二个 ClientHello——safari184 正是
 靠 `exact-no-pad` 命中的，padding 容忍在真实场景中确实起了作用。
+
+## C 模块与 OpenResty 集成
+
+```
+csrc/tlsfp.{h,c}      ClientHello 解析 + JA4 计算 + 内置 profile 查表
+csrc/gen_profiles.py  把 spec/profiles.json 编译成 C 静态数组（构建期常量）
+lua/tlsfp.lua         LuaJIT FFI 绑定
+```
+
+**架构约束（集成的前提）**：库内所有函数都是**内存进内存出、非阻塞**的——不做
+socket I/O、不做文件 I/O、不 sleep。网络 I/O 一律由 Lua 侧的 cosocket 承担，
+在等待时 yield 给事件循环。若把阻塞 I/O 放进 FFI，一次调用就会冻死整个 nginx
+worker（实测一个 9s 的阻塞调用能让同 worker 上的并发请求卡住 8.88s）。
+
+profile 编译进只读段而非运行时解析 JSON：数据是构建期常量，这样既快又少一类
+解析漏洞。只编入 76 条默认配置形态。查表**不做近似匹配**，未命中返回 NULL/nil。
+
+**验收标准是四方差分，不是"看起来实现了规范"**。规范的模糊处（GREASE 剔除、
+JA4 各段排序与占位、ja4_c 排除 SNI/ALPN）已在 Python 侧被真机数据与 RFC 官方
+向量校准，C/Lua 照抄其行为：
+
+```
+Python  ←→  C CLI       77/77 一致
+Python  ←→  luajit FFI  77/77 一致
+真实 OpenResty worker 内实测：profiles=76，识别 real:edge 正确
+```
+
+FFI 绑定层有独立的出错空间（结构体布局、字符串所有权、参数传递），不会崩溃只会
+给错结果，所以 Lua 侧单独比一遍，而不是"C 对了 Lua 就一定对"。
 
 ## 关键方法论
 
