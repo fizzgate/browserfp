@@ -316,7 +316,19 @@ key_share 那条是有价值的阴性结果：它证明现有 13 字段判据**�
   这与 TLS 层按 RFC 8701 剔 GREASE 同理。剔除的同时保留 `has_grease_setting`
   布尔——发不发 GREASE 本身是区分点。
 
-  仍缺：Firefox/Safari 的 QUIC 与 H3（需 about:config 预置 prefs，非命令行开关）。
+  **QUIC/H3 目前只覆盖 chromium 系**（chrome/chromium/edge）。Firefox 已尝试三种
+  方式驱动其走 h3，均超时未建立 QUIC 连接：
+
+  ```
+  alt-svc-mapping-for-testing = "127.0.0.1;h3=\":port\""        ❌
+  alt-svc-mapping-for-testing = "127.0.0.1:port;h3=\":port\""   ❌
+  域名方式（network.dns.localDomains + fizztls.test）              ❌
+  ```
+
+  需强调这是**采集侧的限制，不是实现缺失**：`quicprobe`/`h3probe` 处理的是任意
+  客户端的 QUIC，只是"让 Firefox 主动对本地观测点发起 QUIC"这一步没成功
+  （Chromium 有 `--origin-to-force-quic-on`，Firefox 没有等价的命令行开关）。
+  Safari 更无此类入口。真实流量里的 Firefox/Safari QUIC 一样能被解析。
 - **12 个扩展从未观测到**（`srcaudit` 实测）：BoringSSL 声明 31 个，我们见过 19 个。
   其中 `0x002a early_data`（0-RTT）、`0x0039`/`0xffa5`（QUIC）是真实会遇到的，仍是
   识别盲区。`0x002c cookie` 已试图触发：HRR 确实发生了，但 Go 服务端未下发 cookie
