@@ -98,6 +98,7 @@ python -m spec.test_match              # 识别器：认得出 + 认不出必须
 python -m spec.test_real_stability     # 真机反复连接，每次都须认出（含充分性断言）
 python -m spec.test_collector_merge    # 采集器必须合并写（防止只采子集冲掉其余样本）
 python -m spec.test_ja4t               # TCP 层 JA4T 解析器（构造向量，不需抓包权限）
+python -m spec.test_golden_orphans     # golden 不得有"采了却没人读"的孤儿文件
 python -m spec.test_quic               # QUIC：RFC 9001 官方向量 + 真机端到端
 .venv-wreq/bin/python -m spec.test_h3  # HTTP/3：GREASE 剔除 + 跨连接稳定性
 python -m spec.test_cf_discrimination  # 指纹是否被区别对待（三臂对照）
