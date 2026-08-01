@@ -35,7 +35,7 @@ from oracle.uamap import UAMapper, parse_ua                   # noqa: E402
 # 实采锚之后，两侧都能在段内取到同一个最近版本）。现在只剩 chrome 151 一处：
 # 它是 confidence 归类差异（Python 报 same-seg、C 报 exact），profile 本身一致，
 # 不会让任何一侧发出对方拒绝的指纹。
-FULL_RANGE_BASELINE = 1
+FULL_RANGE_BASELINE = 0
 
 
 def _full_range_diff(mapper):

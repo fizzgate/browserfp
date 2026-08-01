@@ -33,7 +33,7 @@ FIXTURES = os.path.join(HERE, "fixtures", "prod_user_agents.json")
 
 # 与 test_c_ua_parity 同一个水位：Lua 直接调 C，两者分歧数应当一致。
 # 若 Lua 的分歧数与 C 不同，那就是 FFI 绑定层自己出了问题。
-FULL_RANGE_BASELINE = 1
+FULL_RANGE_BASELINE = 0
 
 LUA_SCRIPT = """
 package.path = "%s/lua/?.lua;" .. package.path

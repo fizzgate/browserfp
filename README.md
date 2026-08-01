@@ -240,7 +240,13 @@ local r = tlsfp.by_ua("chrome", 150)
 版本正是 split-brain 的来源——UA 说 Chrome 78、TLS 却是 Chrome 83 的形态，比完全
 不伪装更容易被判，因为两者互相矛盾本身就是强信号。要伪装就必须精确。
 
-跨品牌检查有个反直觉之处：**判据必须看条目的全部 aliases，不能只看 id**。注册表按
+**判据必须看条目的全部 aliases，不能只看 id** —— 这条在项目里踩过好几次，最后
+一处是 `versions` 路径：`real:edge` 是本机 Chrome 151 与 Edge 151 的实采，按指纹
+去重后 id 恰为 `real:edge`，而 aliases 里含 `real:chrome`。只从 id 推品牌会让
+chrome 151 进不了 chrome 表，只能绕道段表报 `same-seg` —— 而它明明是直接采到的。
+修完 Python 与 C/Lua 的全版本差分从 1 处降到 **0 处**。
+
+跨品牌检查同理：注册表按
 指纹去重，id 只是众多别名之一——`curl_cffi:tor145` 的 aliases 里含 `wreq:Firefox128`
 （Tor 基于 Firefox ESR，指纹本就相同），`curl_cffi:chrome119` 含 `wreq:Edge122`。
 只看 id 会把这些**正确**的映射误判成跨品牌而拒绝。真正要拒绝的是无同品牌依据的

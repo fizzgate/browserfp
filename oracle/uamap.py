@@ -268,7 +268,20 @@ class UAMapper:
                     if self.by_brand["chrome"][v][0] is rec:
                         self.by_brand.setdefault("edge", {}).setdefault(v, (rec, key))
 
-            # 真机条目的版本号在 versions 里，alias 里没有
+            # 真机条目的版本号在 versions 里，alias 里没有。
+            # **品牌要从全部 aliases 推断，不能只看 id** —— 注册表按指纹去重，
+            # id 只是众多别名之一：real:edge 的 aliases 里含 real:chrome，
+            # 说明这份实采同样服务 chrome。只看 id 会让 chrome 151 进不了
+            # chrome 表，只能绕道段表报 same-seg，而它明明是直接采到的。
+            # 这条判据在别处已经踩过好几次，versions 路径上是最后一处。
+            BRAND_OF = {"chrome": "chrome", "chromium": "chrome", "edge": "edge",
+                        "firefox": "firefox", "safari": "safari"}
+            ver_brands = set()
+            for a in [rec["id"]] + rec.get("aliases", []):
+                head = a.split(":", 1)[1].split("-")[0].lower()
+                b0 = BRAND_OF.get(head)
+                if b0:
+                    ver_brands.add(b0)
             for vs in (rec.get("versions") or []):
                 mm = re.match(r"^(?:\D*?)(\d+)", str(vs))
                 name = rec["id"].split(":", 1)[1]
@@ -281,9 +294,13 @@ class UAMapper:
                 # 一份少了 SCT 的指纹。判据看 id 与 versions 里有没有平台词。
                 if brand and MOBILE_ALIAS.search(f"{name} {vs}"):
                     brand = brand + "-mobile"
+                if mm:
+                    is_mob = brand and brand.endswith("-mobile")
+                    for b0 in (ver_brands or ({brand} if brand else set())):
+                        tgt = b0 + "-mobile" if is_mob else b0
+                        self.by_brand.setdefault(tgt, {}).setdefault(
+                            int(mm.group(1)), (rec, key))
                 if mm and brand:
-                    self.by_brand.setdefault(brand, {}).setdefault(
-                        int(mm.group(1)), (rec, key))
                     # 该条目若**同时**带移动端别名，说明这一份指纹在两个平台都
                     # 被观测到，桌面 versions 里的版本号也该注册给移动端。
                     # 不这么做会出现"同一条记录、同一份指纹，两侧覆盖范围不同"
