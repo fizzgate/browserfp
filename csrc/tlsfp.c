@@ -217,10 +217,18 @@ const tlsfp_profile *tlsfp_lookup_ua(const char *brand, uint16_t version,
 
 /* Chromium 系衍生浏览器：指纹由内核决定，调用方传进来的 version 必须已经是
    UA 里 Chrome/ 的版本号（oracle/uamap.py 的 parse_ua 就是这么解析的）。
-   自家表查不到时回落到 chrome 表 —— Opera 110 的内核是 Chromium 125，而
-   opera 表里不会有 125 这个号。 */
-static int is_chromium_derived(const char *brand) {
-    return strcmp(brand, "edge") == 0 || strcmp(brand, "opera") == 0;
+   自家表查不到时回落到内核表 —— Opera 110 的内核是 Chromium 125，而
+   opera 表里不会有 125 这个号。
+
+   **必须先剥 -mobile 再判**：移动端品牌是 edge-mobile / opera-mobile，
+   拿它去和 "edge" / "opera" 逐字比永远不等，Android 版会一条都认不出来。
+   Python 侧的 chromium_engine() 是同一条规则，两边必须一致。 */
+static const char *chromium_engine(const char *brand) {
+    if (strcmp(brand, "edge") == 0 || strcmp(brand, "opera") == 0)
+        return "chrome";
+    if (strcmp(brand, "edge-mobile") == 0 || strcmp(brand, "opera-mobile") == 0)
+        return "chrome-mobile";
+    return NULL;
 }
 
 const tlsfp_profile *tlsfp_lookup_ua_ex(const char *brand, uint16_t version,
@@ -229,22 +237,47 @@ const tlsfp_profile *tlsfp_lookup_ua_ex(const char *brand, uint16_t version,
     /* 区分"表里没有该品牌"与"有品牌但没有可用版本"：两者都返回 NULL，但
        confidence 不同，好与 Python 侧的命名对齐（差分门禁逐字符比对）。 */
     int brand_seen = 0;
-    const tlsfp_ua_entry *lo = NULL, *hi = NULL;
+    const tlsfp_ua_entry *exact = NULL, *lo = NULL, *hi = NULL;
+    const char *engine = chromium_engine(brand);
 
+    /* Python 侧的语义是"把内核表并进自家表后再统一查"（own 覆盖 engine），
+       不是"自家表查不到再去内核表查一遍"。两者在 lo/hi 跨表时会分歧：
+       自家表只有 100、内核表只有 120，查 110 时合并语义能判 100..120 同段，
+       分两趟查则各自都缺一端而弃权。所以这里在**一趟遍历**里同时收两个
+       品牌的条目，并在版本号撞车时让自家表优先。 */
     for (size_t i = 0; i < TLSFP_UA_COUNT; i++) {
         const tlsfp_ua_entry *e = &tlsfp_ua_table[i];
-        if (strcmp(e->brand, brand) != 0) continue;
-        brand_seen = 1;
+        int own = strcmp(e->brand, brand) == 0;
+        int eng = engine && strcmp(e->brand, engine) == 0;
+        if (!own && !eng) continue;
+        if (own) brand_seen = 1;
+
+        /* 撞车时的取舍：**只有**"当前这条不是自家、新来的是自家"才替换。
+           写成 `own` 就替换会退化成"取最后一条"，而原实现是命中即返回、
+           即"取第一条" —— 同一 (品牌,版本) 在表里出现多次时两者结果不同，
+           实测这么写会让 chrome 120/123、firefox 133 等本来正确的版本翻车。 */
         if (e->version == version) {
-            /* 由源码段表补齐的条目报 same-seg：它是段内替代而非直接采到的，
-               调用方有权知道这个区别。 */
-            if (confidence)
-                *confidence = e->from_seg ? TLSFP_CONF_SAME_SEG
-                                          : TLSFP_CONF_EXACT;
-            return &tlsfp_profiles[e->profile];
+            if (!exact || (own && strcmp(exact->brand, brand) != 0)) exact = e;
+            continue;
         }
-        if (e->version < version && (!lo || e->version > lo->version)) lo = e;
-        if (e->version > version && (!hi || e->version < hi->version)) hi = e;
+        if (e->version < version) {
+            if (!lo || e->version > lo->version) lo = e;
+            else if (e->version == lo->version && own
+                     && strcmp(lo->brand, brand) != 0) lo = e;
+        } else {
+            if (!hi || e->version < hi->version) hi = e;
+            else if (e->version == hi->version && own
+                     && strcmp(hi->brand, brand) != 0) hi = e;
+        }
+    }
+
+    if (exact) {
+        /* 由源码段表补齐的条目报 same-seg：它是段内替代而非直接采到的，
+           调用方有权知道这个区别。 */
+        if (confidence)
+            *confidence = exact->from_seg ? TLSFP_CONF_SAME_SEG
+                                          : TLSFP_CONF_EXACT;
+        return &tlsfp_profiles[exact->profile];
     }
 
     /* same-seg 需两端指纹同组**且**来源库有交集 —— 跨库的"相同"是巧合，
@@ -254,24 +287,10 @@ const tlsfp_profile *tlsfp_lookup_ua_ex(const char *brand, uint16_t version,
         return &tlsfp_profiles[hi->profile];
     }
 
-    /* 自家表没命中：Chromium 系衍生浏览器回落到 chrome 表再查一次。放在这里
-       而不是入口，是为了让自家实采到的条目优先于内核推断。 */
-    if (is_chromium_derived(brand)) {
-        for (size_t i = 0; i < TLSFP_UA_COUNT; i++) {
-            const tlsfp_ua_entry *e = &tlsfp_ua_table[i];
-            if (strcmp(e->brand, "chrome") != 0) continue;
-            if (e->version == version) {
-                if (confidence)
-                    *confidence = e->from_seg ? TLSFP_CONF_SAME_SEG
-                                              : TLSFP_CONF_EXACT;
-                return &tlsfp_profiles[e->profile];
-            }
-        }
-    }
-
     const tlsfp_ua_entry *near = hi ? hi : lo;
     if (!near) {
-        if (confidence) *confidence = brand_seen ? -2 : -1;
+        /* 衍生品牌即便自家表为空，只要内核表在就不该报 no-brand */
+        if (confidence) *confidence = (brand_seen || engine) ? -2 : -1;
         return NULL;
     }
     if (confidence) *confidence = TLSFP_CONF_FALLBACK;

@@ -53,6 +53,16 @@ def c_u16_array(name, values):
 MOBILE_ALIAS = re.compile(r"android|ios|ipad|iphone|mobile", re.I)
 
 
+# 与 oracle/uamap.py 的 ALIAS_BRANDS 必须一致：**不含 opera**。
+# 库里的 opera 别名用的是 OPR 发行号（wreq:Opera116），而查表用的是 UA 里的
+# 内核号（Chrome/），两套编号差十几位；按 OPR 号建表再拿内核号去查，会以
+# exact 置信度返回错版本的指纹。Opera 统一走内核表。
+# 这条规则两侧都要写，因为 C 表由本脚本独立生成 —— 只改 Python 会让三方
+# 一致性门禁立刻报 opera 不符（实测就是这么被抓到的）。
+ALIAS_BRANDS = r"^(chrome|chromium|firefox|safari|edge)"
+ALIAS_BRANDS_T = r"^(chrome|chromium|firefox|safari|edge|tor)"
+
+
 def brand_versions(rec):
     """从 aliases + versions + covers_versions 提取 (brand, version) 对。
 
@@ -81,8 +91,7 @@ def brand_versions(rec):
             # 三种命名形态（safari_ios_15_5 / safari172_ios / FirefoxAndroid135）
             # 先剥平台词再匹配品牌+数字，否则表会稀疏得没用
             base = MOBILE_ALIAS.sub("", name)
-            mm = re.match(r"^(chrome|chromium|firefox|safari|edge|opera)"
-                          r"[-_]*(\d{1,3})", base)
+            mm = re.match(ALIAS_BRANDS + r"[-_]*(\d{1,3})", base)
             if mm:
                 b = "chrome" if mm.group(1) == "chromium" else mm.group(1)
                 v = int(mm.group(2))
@@ -90,8 +99,7 @@ def brand_versions(rec):
                     v //= 10
                 out.add((b + "-mobile", v))
             continue
-        m = re.match(r"^(chrome|chromium|firefox|safari|edge|opera|tor)"
-                     r"[-_]?(\d{2,3})(?!\d)", name)
+        m = re.match(ALIAS_BRANDS_T + r"[-_]?(\d{2,3})(?!\d)", name)
         if m:
             b = "chrome" if m.group(1) == "chromium" else m.group(1)
             v = int(m.group(2))

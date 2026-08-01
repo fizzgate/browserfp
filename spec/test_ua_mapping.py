@@ -20,7 +20,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from oracle.uamap import (MOBILE_ALIAS, UAMapper,               # noqa: E402
+from oracle.uamap import (MOBILE_ALIAS, UAMapper, chromium_engine,               # noqa: E402
                           load_desktop_equivalent)
 from oracle.match import Matcher                              # noqa: E402
 
@@ -83,6 +83,12 @@ def main():
             # chrome99_android 而非 chrome-mobile99
             is_mobile_ua = r["brand"].endswith("-mobile")
             base_brand = r["brand"].replace("-mobile", "")
+            # Chromium 系衍生品牌（edge/opera）按**内核名**比对别名：库里的
+            # 条目叫 chrome124，不会叫 opera124，拿 "opera" 去比必然误报跨
+            # 品牌。判据直接复用 uamap 的 chromium_engine，避免两处各写一份
+            # 规则而漂移 —— 映射语义只能有一个来源。
+            if chromium_engine(r["brand"]):
+                base_brand = "chrome"
             brand_ok = (base_brand in names
                         or (base_brand == "chrome" and "chromium" in names))
             has_mobile_alias = any(MOBILE_ALIAS.search(a) for a in alias_names)

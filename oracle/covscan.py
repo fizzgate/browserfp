@@ -42,6 +42,27 @@ TARGETS = {
     "firefox-mobile": (
         "Mozilla/5.0 (Android 14; Mobile; rv:{v}.0) "
         "Gecko/{v}.0 Firefox/{v}.0", 78, 153),
+    # Edge / Opera：用户点名的主流品牌，此前**一个版本都没扫过** —— uamap
+    # 认得它们不等于覆盖到了。加进来后立刻暴露两个真问题：Android 版全部
+    # no-brand（-mobile 后缀让 CHROMIUM_DERIVED 成员判断永远不命中），
+    # 桌面侧缺 14/18 个版本（段表只按内核品牌建，衍生品牌查不到）。
+    # 版本号一律用 UA 里的 **Chrome/** 内核号，与 uamap 的解析口径一致。
+    "edge": (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+        "(KHTML, like Gecko) Chrome/{v}.0.0.0 Safari/537.36 Edg/{v}.0.0.0",
+        79, 153),          # Chromium 版 Edge 从 79 起
+    "edge-mobile": (
+        "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 "
+        "(KHTML, like Gecko) Chrome/{v}.0.0.0 Mobile Safari/537.36 "
+        "EdgA/{v}.0.0.0", 79, 153),
+    "opera": (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+        "(KHTML, like Gecko) Chrome/{v}.0.0.0 Safari/537.36 OPR/117.0.0.0",
+        70, 153),
+    "opera-mobile": (
+        "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 "
+        "(KHTML, like Gecko) Chrome/{v}.0.0.0 Mobile Safari/537.36 "
+        "OPR/91.0.0.0", 70, 153),
     "safari": (
         "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 "
         "(KHTML, like Gecko) Version/{v}.0 Safari/605.1.15", 12, 27),
@@ -58,7 +79,10 @@ TARGETS = {
 # 扫描上界要跟着已发布版本走：本机 Safari 已是 27.0，上界停在 26 就扫不到它，
 # 那个区间出问题也发现不了。
 NEVER_RELEASED = {
+    # Chrome 82 因疫情取消发布，所有 Chromium 系品牌同样跳过这一号
     "chrome": {82}, "chrome-mobile": {82},
+    "edge": {82}, "edge-mobile": {82},
+    "opera": {82}, "opera-mobile": {82},
     "safari": set(range(19, 26)), "safari-mobile": set(range(19, 26)),
 }
 

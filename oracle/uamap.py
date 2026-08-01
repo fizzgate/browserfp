@@ -122,7 +122,39 @@ UA_RULES = [
 #     版本号去查 chrome 表会张冠李戴
 #   Edge 的 Edg/ 与 Chrome/ 完全一致（150/148/125/126 四种都对得上），所以
 #     此前基于 alias 推断的 Edge↔Chromium 映射在 UA 层面也成立
+# 别名里的品牌名 → 版本表品牌。**opera 不在其中**，这是有意的：
+# 库里的 opera 别名用的是 OPR 发行号（wreq:Opera116、tls_client:opera_89），
+# 而 lookup 拿 UA 解析出来的是内核号（Chrome/），两套编号差十几位。按 OPR 号
+# 建表、再拿内核号去查，会以 exact 置信度返回错版本的指纹 —— 实测查内核 116
+# 会拿到 wreq 标为 "Opera 116"（实际内核 ~102）的那份。
+# 丢掉这张表不损失任何指纹：所有 opera 别名都挂在 chrome 条目上
+# （curl_cffi:chrome131 与 chrome100），两个库都把 Opera 建模成纯 Chromium，
+# 它贡献的独有指纹数为 0。Opera 因此统一走内核表，用 UA 里那个 Chrome/ 版本
+# 查询，语义才对得上。
+# Edge 保留：实测 Edg/ 与 Chrome/ 版本号完全一致，不存在这个错配。
+ALIAS_BRANDS = r"^(chrome|chromium|firefox|safari|edge)"
+
 CHROMIUM_DERIVED = {"edge", "opera"}
+
+
+def chromium_engine(brand):
+    """Chromium 系衍生品牌 → 对应的内核品牌；不是衍生品牌则返回 None。
+
+    **必须先剥 -mobile 再判成员**。`CHROMIUM_DERIVED` 里写的是裸品牌名，
+    而移动端 UA 会被标成 `edge-mobile` / `opera-mobile`，直接拿它去查集合
+    永远不命中 —— Android 版 Edge/Opera 因此一条都认不出来，全部 no-brand。
+    这个 `-mobile` 后缀吃掉判断的形态在本文件里已是第二次出现（另一处是
+    下方按 aliases 判品牌的 `base_brand`），所以抽成函数只写一遍。
+
+    归一到内核是有依据的、不是近似替代：决定 TLS 指纹的是 Chromium 内核，
+    Edge/Opera 的 UA 里本来就写着自己那份 `Chrome/` 版本号；段表也是直接从
+    Chromium 源码推出来的，对同一个内核当然成立。
+    """
+    mobile = brand.endswith("-mobile")
+    base = brand[: -len("-mobile")] if mobile else brand
+    if base not in CHROMIUM_DERIVED:
+        return None
+    return "chrome-mobile" if mobile else "chrome"
 CHROME_VER = re.compile(r"Chrome/(\d+)")
 
 # 移动端与同名桌面版是**两种指纹**，必须分开。品牌名加 -mobile 后缀，这样
@@ -214,8 +246,7 @@ class UAMapper:
                             int(mi.group(1)), (rec, key))
                         continue
                     base = MOBILE_ALIAS.sub("", name)
-                    mm = re.match(r"^(chrome|chromium|firefox|safari|edge|opera)"
-                                  r"[-_]*(\d{1,3})", base)
+                    mm = re.match(ALIAS_BRANDS + r"[-_]*(\d{1,3})", base)
                     if mm:
                         b = "chrome" if mm.group(1) == "chromium" else mm.group(1)
                         v = int(mm.group(2))
@@ -224,8 +255,7 @@ class UAMapper:
                         self.by_brand.setdefault(b + "-mobile", {}).setdefault(
                             v, (rec, key))
                     continue
-                m = re.match(r"^(chrome|chromium|firefox|safari|edge|opera)"
-                             r"[-_]?(\d{2,3})(?!\d)", name)
+                m = re.match(ALIAS_BRANDS + r"[-_]?(\d{2,3})(?!\d)", name)
                 if not m:
                     continue
                 brand = "chrome" if m.group(1) == "chromium" else m.group(1)
@@ -324,12 +354,28 @@ class UAMapper:
                     "version": None, "note": "非浏览器 UA 或无法解析"}
 
         table = self.by_brand.get(brand)
+
+        # Chromium 系归一，一次算好后面都用它：段表与"移动端≡桌面"等价段都
+        # 只按内核品牌建（它们本来就是从 Chromium 源码推出来的），衍生品牌
+        # 必须显式映射过去，否则会跳过 same-seg 直接掉进跨段回退并被拒。
+        engine = chromium_engine(brand)          # chrome / chrome-mobile / None
+        seg_brand = engine or brand
+
+        # 判"要不要走跨平台等价"时，衍生品牌必须把**内核表**也算进已有版本：
+        # edge-mobile 自家表是空的，但 chrome-mobile 99 是实采到的，那就该直接
+        # 用它（与桌面 edge→chrome 报 exact 同一口径），而不是绕去"移动端≡桌面"
+        # 拿桌面那份来报 same-seg。不算进来会让同一条 profile 在 Python 报
+        # same-seg、C 报 exact —— 三方一致性门禁就是这么抓到的。
+        have = table or {}
+        if engine:
+            have = {**(self.by_brand.get(engine) or {}), **have}
+
         # Chromium 系衍生浏览器：version 已经是内核 Chrome 版本，直接查 chrome
         # 表最准。仍先看自家表——若某个衍生版本被实采过，那份数据优先于内核推断。
         # 移动端：自家表没有该版本时，若源码证明该区间与桌面无差异，就用桌面表
-        if brand.endswith("-mobile") and ver not in (table or {}):
-            base = brand[: -len("-mobile")]
-            for lo, hi in self.desktop_equiv.get(brand, []):
+        if brand.endswith("-mobile") and ver not in have:
+            base = seg_brand[: -len("-mobile")]
+            for lo, hi in self.desktop_equiv.get(seg_brand, []):
                 if lo <= ver <= hi:
                     dtbl = self.by_brand.get(base) or {}
                     if ver in dtbl:
@@ -362,16 +408,20 @@ class UAMapper:
                     table = {**dtbl, **(table or {})}
                     break
 
-        if brand in CHROMIUM_DERIVED:
+        # 段表按品牌查。Chromium 系衍生品牌自己没有段表（段表是从 Chromium
+        # 源码推出来的，只按内核建），要显式归一过去，否则 edge/opera 会跳过
+        # same-seg 直接掉到跨段回退并被拒 —— 实测桌面 Edge 因此缺 14 个版本、
+        # Opera 缺 18 个，而同版本的 chrome 全部由 same-seg 正常覆盖。
+        if engine:
             own = table or {}
             if ver not in own:
-                chrome_tbl = self.by_brand.get("chrome") or {}
-                if ver in chrome_tbl:
-                    rec, _ = chrome_tbl[ver]
+                eng_tbl = self.by_brand.get(engine) or {}
+                if ver in eng_tbl:
+                    rec, _ = eng_tbl[ver]
                     return {"profile": rec["id"], "confidence": "exact",
                             "brand": brand, "version": ver,
                             "note": f"按 UA 内核版本 Chrome/{ver} 取指纹"}
-                table = {**chrome_tbl, **own} if own else chrome_tbl
+                table = {**eng_tbl, **own} if own else eng_tbl
         if not table:
             return {"profile": None, "confidence": "no-brand", "brand": brand,
                     "version": ver, "note": f"没有 {brand} 的任何 profile"}
@@ -384,7 +434,7 @@ class UAMapper:
         # 先问源码段表：它直接读产生 ClientHello 的源码，能回答"这两个版本
         # 是否同段"，不受两端分属不同来源库的限制（Firefox 126 此前就卡在
         # 123 与 128 跨库不可比上，只能弃权）。
-        for seg in self.segments.get(brand, []):
+        for seg in self.segments.get(seg_brand, []):
             if not (seg["from"] <= ver <= seg["to"]):
                 continue
             same = sorted((v for v in table if seg["from"] <= v <= seg["to"]),
@@ -429,7 +479,11 @@ class UAMapper:
         # 永远匹配不上（别名里写的是 chrome99_android 而非 chrome-mobile99），
         # 结果所有移动端版本都被判成"条目不含该品牌别名"而拒绝，掩盖了真正的
         # 判定结果。
+        # Chromium 系衍生品牌按内核名比对别名：库里的条目叫 chrome119，
+        # 不会叫 edge119，拿 "edge" 去比对必然判成跨品牌而拒绝。
         base_brand = brand.replace("-mobile", "")
+        if engine:
+            base_brand = "chrome"
         if base_brand not in names and not (base_brand == "chrome"
                                             and "chromium" in names):
             return {"profile": None, "confidence": "no-version", "brand": brand,
