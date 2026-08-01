@@ -230,8 +230,8 @@ local r = tlsfp.by_ua("chrome", 150)
 14026 次请求），这是唯一能回答"库够不够用"的口径：
 
 ```
-exact       82.8%
-same-seg     9.4%     ← 可安全伪装合计 92.2%
+exact       82.3%
+same-seg     9.9%     ← 可安全伪装合计 92.2%
 fallback     0.0%     ← 主流品牌缺口已全部清零
 unparsed     7.8%     ← 非浏览器 UA（扫描器、UC 浏览器、残缺 UA 等）
 ```

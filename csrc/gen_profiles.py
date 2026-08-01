@@ -71,6 +71,13 @@ def brand_versions(rec):
         if "private" in name:
             continue
         if MOBILE_ALIAS.search(name):
+            # utls 的 IOS_11_1 / IOS_13 命名里根本不出现品牌名，但 iOS 上所有
+            # 浏览器都是系统 WebKit，那就是 iOS Safari 的指纹。与 uamap 同一条
+            # 判据 —— 少了它 safari-mobile 表会缺 11-14 四个版本。
+            mi = re.match(r"^ios[_-]?(\d{1,2})", name)
+            if mi:
+                out.add(("safari-mobile", int(mi.group(1))))
+                continue
             # 三种命名形态（safari_ios_15_5 / safari172_ios / FirefoxAndroid135）
             # 先剥平台词再匹配品牌+数字，否则表会稀疏得没用
             base = MOBILE_ALIAS.sub("", name)
@@ -179,21 +186,36 @@ def main():
         if not mb.endswith("-mobile"):
             continue
         base = mb[: -len("-mobile")]
+        # 桌面段表：same_as_desktop 只说明"两平台同形态"，还得那个桌面段本身
+        # 可替代才能用。Python 侧回落时走的是桌面段表（只认 substitutable 的
+        # 段），C 侧若只看 same_as_desktop 就会比 Python 宽松 —— 实测
+        # firefox-mobile 111/119/121/122 上 C 给出了 profile 而 Python 拒绝，
+        # 那几个版本所在的桌面段是 1:1 平局、本就不该用。
+        desk_ok = set()
+        desk_path = os.path.join(SEGMENTS_DIR, f"{base}.json")
+        if os.path.exists(desk_path):
+            with open(desk_path) as df:
+                for ds in json.load(df)["segments"]:
+                    if ds.get("substitutable"):
+                        desk_ok.update(range(ds["from"], ds["to"] + 1))
+
         for seg in data["segments"]:
             if not seg.get("same_as_desktop"):
                 continue
             have = sorted(v for (b, v) in direct
-                          if b == base and seg["from"] <= v <= seg["to"])
+                          if b == base and seg["from"] <= v <= seg["to"]
+                          and v in desk_ok)
             if not have:
                 continue
             for ver in range(seg["from"], seg["to"] + 1):
-                if (mb, ver) in direct:
+                if (mb, ver) in direct or ver not in desk_ok:
                     continue
                 near = min(have, key=lambda x: abs(x - ver))
                 i = direct[(base, near)]
                 direct[(mb, ver)] = i
-                ua_rows.append((mb, ver, i, fp_group[i], src_mask[i],
-                                0 if ver == near else 1))
+                # 跨平台替代一律标 from_seg=1 —— 即便桌面表里正好有同号版本，
+                # 那也是桌面采到的指纹，不是这个移动端版本被观测过。
+                ua_rows.append((mb, ver, i, fp_group[i], src_mask[i], 1))
 
     # 按源码段表补齐：段内没有直接 profile 的版本，用同段最近者。第 6 列标 1
     # 表示"来自段表"，C 侧据此报 same-seg 而不是 exact——这个区分必须保留，

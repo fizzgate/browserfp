@@ -271,9 +271,16 @@ class UAMapper:
             # 真机条目的版本号在 versions 里，alias 里没有
             for vs in (rec.get("versions") or []):
                 mm = re.match(r"^(?:\D*?)(\d+)", str(vs))
+                name = rec["id"].split(":", 1)[1]
                 brand = {"chrome": "chrome", "chromium": "chrome", "edge": "edge",
                          "firefox": "firefox", "safari": "safari"}.get(
-                             rec["id"].split(":", 1)[1].split("-")[0])
+                             name.split("-")[0])
+                # **移动端派生条目不能进桌面表**。它的 id 形如
+                # derived:firefox-mobile-153，按 "-" 切第一段得到 "firefox"，
+                # 于是移动端的形态被注册成桌面 firefox 153 —— 桌面查询会命中
+                # 一份少了 SCT 的指纹。判据看 id 与 versions 里有没有平台词。
+                if brand and MOBILE_ALIAS.search(f"{name} {vs}"):
+                    brand = brand + "-mobile"
                 if mm and brand:
                     self.by_brand.setdefault(brand, {}).setdefault(
                         int(mm.group(1)), (rec, key))
@@ -300,7 +307,11 @@ class UAMapper:
                     dtbl = self.by_brand.get(base) or {}
                     if ver in dtbl:
                         rec, _ = dtbl[ver]
-                        return {"profile": rec["id"], "confidence": "exact",
+                        # **报 same-seg 而非 exact**：这是跨平台替代，用的是
+                        # 桌面实采的那份指纹，不是该移动端版本被直接采到过。
+                        # 调用方有权从 confidence 看出这个区别；C 侧也是这么
+                        # 标的（from_seg=1），两边语义必须一致。
+                        return {"profile": rec["id"], "confidence": "same-seg",
                                 "brand": brand, "version": ver,
                                 "note": f"源码证明 {lo}-{hi} 段移动端与桌面同形态"}
                     # 桌面表本身也常常不含该版本号 —— 桌面那边同样靠段表覆盖
