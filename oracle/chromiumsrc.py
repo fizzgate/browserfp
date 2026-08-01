@@ -498,6 +498,15 @@ def chrome_ech(tag, platform="desktop"):
 
     **feature 消失当成 True 是有前提的**：仅当该扩展在更早版本已翻成 ENABLED。
     若一个 feature 从未 ENABLED 过就消失，那是功能被删而非转正，不能这么判。
+
+    **Chrome 的 ECH 也受 Finch 影响，这个源码结论只是默认值**。实测 wreq 的
+    Chrome 105 与 116 发了 ECH，而 106-114 全都没发 —— 105 有、106-114 无、
+    116 又有，不符合任何版本演进规律，只能是抓包时各自落在不同的 Finch 实验组。
+    与 kUseNewAlpsCodepointHttp2 同类（源码 DISABLED 而实采已启用）。
+
+    所以这个维度用于判段时：curl_cffi 的 chrome99_android(无 ECH) 与
+    chrome131_android(有 ECH) 是自洽的一对，据此切分 chrome-mobile 段可靠；
+    但拿它去解释 wreq 内部 105/116 那种跳跃就会失败，那属于该库的数据离群。
     """
     try:
         d = _get(f"{JSD}/chromium/chromium@{tag}/net/base/features.cc",
