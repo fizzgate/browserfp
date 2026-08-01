@@ -15,8 +15,15 @@ UA。出站代理浏览器流量时，需要按 UA 挑一个匹配的指纹去�
 映射因此分三档，并且**永远显式告知用的是哪一档**：
 
     exact     该主版本有直接对应的 profile
-    same-seg  落在同一指纹段内的相邻版本（段内指纹一致，可安全替代）
-    fallback  只能跨段取最近 —— 有 split-brain 风险，调用方应记录并考虑放弃伪装
+    same-seg  落在同一指纹段内的相邻版本（同库两端指纹一致，可安全替代）
+    fallback  只能跨段取最近 —— **默认不返回 profile**
+
+**默认严格模式**：fallback 档一律返回 profile=None。拿最近版本的指纹去冒充另一个
+版本，正是 split-brain 的来源——UA 说 Chrome 78、TLS 却是 Chrome 83 的形态，比
+完全不伪装更容易被判。要伪装就必须精确。
+
+调用方拿到 profile=None 时应放弃伪装（或走其他策略），并记录 nearest 以便补录。
+`strict=False` 仅供覆盖率分析使用，不要在生产开启。
 
 真实流量验证见 spec/test_ua_mapping.py，测试集取自生产 access.log。
 """
@@ -118,8 +125,12 @@ class UAMapper:
                     self.by_brand.setdefault(brand, {}).setdefault(
                         int(mm.group(1)), (rec, key))
 
-    def lookup(self, ua):
-        """返回 {profile, confidence, brand, version, note}；无法映射时 profile=None。"""
+    def lookup(self, ua, strict=True):
+        """返回 {profile, confidence, brand, version, note}；无法映射时 profile=None。
+
+        strict=True（默认）时 fallback 档不返回 profile，只在 nearest 里给出
+        最接近者供补录参考。
+        """
         brand, ver = parse_ua(ua)
         if not brand:
             return {"profile": None, "confidence": "unparsed", "brand": None,
@@ -167,9 +178,11 @@ class UAMapper:
             return {"profile": None, "confidence": "no-version", "brand": brand,
                     "version": ver,
                     "note": f"最近版本 {near} 的条目不含 {brand} 别名，拒绝套用"}
-        return {"profile": rec["id"], "confidence": "fallback",
-                "brand": brand, "version": ver,
-                "note": f"跨指纹段取最近版本 {near}，有 split-brain 风险"}
+        return {"profile": None if strict else rec["id"],
+                "confidence": "fallback",
+                "brand": brand, "version": ver, "nearest": rec["id"],
+                "note": f"无 {brand} {ver} 的精确指纹；最近版本 {near}"
+                        f"（{rec['id']}）跨指纹段，严格模式下不使用"}
 
 
 def main(argv):
@@ -184,7 +197,7 @@ def main(argv):
     stats, total = {}, 0
     detail = []
     for row in rows:
-        r = mapper.lookup(row["ua"])
+        r = mapper.lookup(row["ua"])          # 默认严格：fallback 不给 profile
         stats[r["confidence"]] = stats.get(r["confidence"], 0) + row["count"]
         total += row["count"]
         detail.append((row["count"], r, row["ua"]))
@@ -195,13 +208,14 @@ def main(argv):
         if n:
             print(f"  {conf:12s} {n:>6} 次  {n * 100 / total:5.1f}%")
 
-    risky = [(c, r, u) for c, r, u in detail
-             if r["confidence"] in ("fallback", "no-version", "no-brand")]
-    if risky:
-        print("\n有 split-brain 风险的（按请求数排序）：")
-        for c, r, u in sorted(risky, key=lambda x: -x[0])[:8]:
-            print(f"  {c:>5} 次  {r['brand']} {r['version']}  → {r['profile']}"
-                  f"  {r['note']}")
+    gaps = {}
+    for c, r, u in detail:
+        if r["confidence"] in ("fallback", "no-version", "no-brand"):
+            gaps[(r["brand"], r["version"])] = gaps.get((r["brand"], r["version"]), 0) + c
+    if gaps:
+        print("\n严格模式下无法伪装的版本（补齐这些即可全精确，按请求数排序）：")
+        for (b, v), c in sorted(gaps.items(), key=lambda x: -x[1]):
+            print(f"  {c:>5} 次  {b} {v}")
     return 0
 
 

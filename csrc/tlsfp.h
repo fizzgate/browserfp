@@ -42,14 +42,22 @@ typedef struct {
 #define TLSFP_CONF_FALLBACK  2
 
 /* UA → profile。生产在 CDN 之后拿不到 ClientHello，只能按 UA 选指纹伪装。
- * confidence 输出三档之一，调用方**必须**据此决策：
+ * **默认严格**：只在 exact / same-seg 命中时返回 profile。拿最近版本的指纹去
+ * 冒充另一个版本正是 split-brain 的来源——UA 说 Chrome 78、TLS 却是 Chrome 83
+ * 的形态，比完全不伪装更容易被判。要伪装就必须精确。
+ *
+ * confidence 输出：
  *   0 exact     该主版本有直接对应的 profile
  *   1 same-seg  同一来源库内相邻版本指纹一致，可安全替代
- *   2 fallback  跨指纹段取最近 —— 有 split-brain 风险，宜记录并考虑放弃伪装
- * 未命中返回 NULL。判"同段"要求两端出自同一来源库：实测同一版本在不同库里
- * 指纹就不同（29 个多库收录版本中 17 个有分歧），跨库比较没有意义。 */
+ *   2 fallback  只有跨段的最近版本 —— **返回 NULL**，调用方应放弃伪装
+ * 判"同段"要求两端出自同一来源库：实测同一版本在不同库里指纹就不同
+ * （29 个多库收录版本中 17 个有分歧），跨库比较没有意义。
+ *
+ * relaxed 非 0 时才在 fallback 档返回最近的 profile，仅供覆盖率分析，勿在生产使用。 */
 const tlsfp_profile *tlsfp_lookup_ua(const char *brand, uint16_t version,
                                      int *confidence);
+const tlsfp_profile *tlsfp_lookup_ua_ex(const char *brand, uint16_t version,
+                                        int *confidence, int relaxed);
 
 /* 按 JA4 查内置 profile；未命中返回 NULL（**不做近似匹配** —— 把陌生指纹
  * 归到最近的已知 profile 会让盲区永远不可见）。 */

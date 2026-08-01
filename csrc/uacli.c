@@ -12,8 +12,11 @@ int main(void) {
         int conf = -1;
         const tlsfp_profile *p = tlsfp_lookup_ua(brand, (uint16_t)ver, &conf);
         static const char *names[] = {"exact", "same-seg", "fallback"};
-        if (p) printf("%s\t%s\n", p->id, conf >= 0 && conf <= 2 ? names[conf] : "?");
-        else   printf("-\tnone\n");
+        /* profile 为 NULL 时 confidence 仍要如实上报：fallback（存在跨段的
+           最近版本，只是不许用）与 none（该品牌根本没有可比版本）是两件事，
+           前者进补录清单、后者不进。合并成 "none" 会让清单凭空少掉一批。 */
+        const char *cname = (conf >= 0 && conf <= 2) ? names[conf] : "none";
+        printf("%s\t%s\n", p ? p->id : "-", cname);
     }
     return 0;
 }

@@ -212,6 +212,11 @@ int tlsfp_ja4(const tlsfp_hello *h, char transport, char *out, size_t outlen) {
 /* UA → profile。语义与 Python 侧 oracle/uamap.py 完全一致（由差分门禁保证）。 */
 const tlsfp_profile *tlsfp_lookup_ua(const char *brand, uint16_t version,
                                      int *confidence) {
+    return tlsfp_lookup_ua_ex(brand, version, confidence, 0);
+}
+
+const tlsfp_profile *tlsfp_lookup_ua_ex(const char *brand, uint16_t version,
+                                        int *confidence, int relaxed) {
     if (!brand) return NULL;
     const tlsfp_ua_entry *lo = NULL, *hi = NULL;
 
@@ -236,5 +241,7 @@ const tlsfp_profile *tlsfp_lookup_ua(const char *brand, uint16_t version,
     const tlsfp_ua_entry *near = hi ? hi : lo;
     if (!near) return NULL;
     if (confidence) *confidence = TLSFP_CONF_FALLBACK;
-    return &tlsfp_profiles[near->profile];
+    /* 严格模式（默认）：跨指纹段的最近版本**不返回** —— 用它伪装等于制造
+     * split-brain。调用方据 confidence 得知存在最近版本，但拿不到 profile。 */
+    return relaxed ? &tlsfp_profiles[near->profile] : NULL;
 }

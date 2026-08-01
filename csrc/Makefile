@@ -3,7 +3,10 @@ OPENSSL_PREFIX ?= $(shell brew --prefix openssl@3 2>/dev/null || echo /usr)
 CFLAGS  ?= -O2 -Wall -Wextra -fPIC -I$(OPENSSL_PREFIX)/include
 LDFLAGS ?= -L$(OPENSSL_PREFIX)/lib -lcrypto
 
-all: ja4cli libtlsfp.so
+# **每个门禁用到的二进制都必须在 all 里**。uacli / lookup_test 曾经不在，
+# 结果 `make` 从不重建它们，门禁跑的是上一次手工编译的陈旧二进制——改了
+# tlsfp.c 的行为，门禁却报旧行为，既能假绿也能假红。
+all: ja4cli uacli lookup_test libtlsfp.so
 
 profiles.inc: ../spec/profiles.json gen_profiles.py
 	python3 gen_profiles.py > $@
@@ -19,7 +22,13 @@ libtlsfp.so: tlsfp.o
 ja4cli: tlsfp.o ja4cli.c
 	$(CC) $(CFLAGS) -o $@ ja4cli.c tlsfp.o $(LDFLAGS)
 
+uacli: tlsfp.o uacli.c
+	$(CC) $(CFLAGS) -o $@ uacli.c tlsfp.o $(LDFLAGS)
+
+lookup_test: tlsfp.o lookup_test.c
+	$(CC) $(CFLAGS) -o $@ lookup_test.c tlsfp.o $(LDFLAGS)
+
 clean:
-	rm -f *.o ja4cli lookup_test libtlsfp.so profiles.inc
+	rm -f *.o ja4cli uacli lookup_test libtlsfp.so profiles.inc
 
 .PHONY: all clean

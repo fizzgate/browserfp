@@ -7,9 +7,20 @@
 
 不用 headless：headless Chrome 的 TLS 栈配置与有头版本可能不同，采出来的不是
 用户真实流量的形态。用独立 user-data-dir，不碰用户正在用的 profile。
+
+**两套启动方式，因为把域名指向本地的机制不同**：
+  Chromium 系  --host-resolver-rules=MAP <sni> 127.0.0.1
+  Firefox 系   profile 里 user_pref("network.dns.localDomains", "<sni>")
+两者都不改 /etc/hosts（要 sudo，且会影响本机其他进程）。SNI 必须是真域名，
+否则 JA4 的 SNI 标志位会从 d 变成 i，跟 golden 不可比。
+
+用 -p 指定任意路径可采**历史版本**：本机只装了最新版，而生产 UA 里还有大量
+旧版本，它们的指纹与最新版不同（实测 Firefox 123↔128 差 3 个字段），只能把
+对应版本下下来实采，不能拿相邻版本顶。
 """
 
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -37,13 +48,34 @@ def browser_version(path):
         return f"(unknown: {e})"
 
 
-def capture(browser="chrome", sni="example.com", timeout=30):
+def _is_firefox(path):
+    return "firefox" in os.path.basename(path).lower()
+
+
+def _firefox_argv(path, profile, sni, url):
+    """Firefox 没有 --host-resolver-rules；用 localDomains 把 SNI 指向本地。
+
+    关掉首次运行页与遥测，否则浏览器起来先打 Mozilla 自家域名，虽然不会连到
+    我们的观测端口，但会拖慢首个 ClientHello。
+    """
+    with open(os.path.join(profile, "user.js"), "w") as f:
+        f.write(f'user_pref("network.dns.localDomains", "{sni}");\n')
+        for k, v in [("browser.shell.checkDefaultBrowser", "false"),
+                     ("toolkit.telemetry.enabled", "false"),
+                     ("datareporting.policy.dataSubmissionEnabled", "false"),
+                     ("browser.startup.homepage_override.mstone", '"ignore"'),
+                     ("app.normandy.first_run", "false"),
+                     ("network.dns.disablePrefetch", "true")]:
+            f.write(f'user_pref("{k}", {v});\n')
+    return [path, "-profile", profile, "-no-remote", "-new-instance", url]
+
+
+def capture(browser="chrome", sni="example.com", timeout=30, path=None):
     """启一次浏览器打观测点，返回 (version, fingerprint)。
 
-    --host-resolver-rules 把 SNI 域名映射到本地：SNI 必须是真域名，否则 JA4 的
-    SNI 标志位会从 d 变成 i，跟 curl_cffi golden 不可比。
+    path 可直接给二进制路径，用来采本机没装的历史版本。
     """
-    path = BROWSERS.get(browser)
+    path = path or BROWSERS.get(browser)
     if not path or not os.path.exists(path):
         raise FileNotFoundError(f"{browser} not found at {path}")
 
@@ -53,14 +85,17 @@ def capture(browser="chrome", sni="example.com", timeout=30):
     try:
         with ClientHelloSniffer() as sniffer:
             url = f"https://{sni}:{sniffer.port}/"
-            proc = subprocess.Popen(
-                [path,
-                 f"--host-resolver-rules=MAP {sni} 127.0.0.1",
-                 f"--user-data-dir={profile}",
-                 "--no-first-run", "--no-default-browser-check",
-                 "--disable-background-networking",
-                 url],
-                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            if _is_firefox(path):
+                argv = _firefox_argv(path, profile, sni, url)
+            else:
+                argv = [path,
+                        f"--host-resolver-rules=MAP {sni} 127.0.0.1",
+                        f"--user-data-dir={profile}",
+                        "--no-first-run", "--no-default-browser-check",
+                        "--disable-background-networking",
+                        url]
+            proc = subprocess.Popen(argv, stdout=subprocess.DEVNULL,
+                                    stderr=subprocess.DEVNULL)
             record = sniffer.pop(timeout=timeout)
             return version, fingerprint(record)
     finally:
@@ -92,7 +127,9 @@ def main(argv):
     import json
 
     browser = argv[1] if len(argv) > 1 else "chrome"
-    version, fp = capture(browser)
+    # 第二个参数给二进制路径 → 采历史版本；不给则用 BROWSERS 里本机装的那个
+    path = argv[2] if len(argv) > 2 else None
+    version, fp = capture(browser, path=path)
     print(f"browser : {version}")
     print(f"ja4     : {fp['ja4']}")
     print(f"ciphers : {len(fp['ciphers'])}  extensions: {len(fp['extensions_ordered'])}")
@@ -116,7 +153,10 @@ def main(argv):
         for field, g, r in compare(fp, golden[best_t]):
             print(f"  {field}:\n    golden({best_t}): {g}\n    真机            : {r}")
 
-    out = os.path.join(os.path.dirname(golden_path), f"real_{browser}.json")
+    # 文件名带版本号：采多个历史版本时不能互相覆盖（此前采集器覆盖式落盘
+    # 已经毁过一次 golden，见 goldenio.write_golden 的注释）
+    tag = re.sub(r"[^\w.]+", "_", version).strip("_") or browser
+    out = os.path.join(os.path.dirname(golden_path), f"real_{tag}.json")
     with open(out, "w") as f:
         json.dump({"version": version, "fingerprint": fp}, f, indent=2, sort_keys=True)
         f.write("\n")

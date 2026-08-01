@@ -122,11 +122,10 @@ local conf_names = { [0] = "exact", [1] = "same-seg", [2] = "fallback" }
 local conf_buf = ffi.new("int[1]")
 
 --- 按 UA 的品牌与主版本选出该用的指纹（生产主入口）。
--- 网关在 CDN 之后拿不到 ClientHello，只能按 UA 选。**必须检查 confidence**：
---   exact / same-seg  可安全伪装
---   fallback          跨指纹段取的最近版本，有 split-brain 风险，
---                     调用方应记录日志并考虑放弃伪装而非静默使用
--- @return table{id, ja4, h2, confidence} 或 nil
+-- 网关在 CDN 之后拿不到 ClientHello，只能按 UA 选。
+-- **默认严格**：只有 exact / same-seg 才返回 profile；没有精确指纹时返回 nil，
+-- 调用方应放弃伪装。拿最近版本的指纹冒充另一个版本正是 split-brain 的来源。
+-- @return table{id, ja4, h2, confidence} 或 nil, err
 function _M.by_ua(brand, version)
     if not lib then return nil, "libtlsfp.so 未加载" end
     if type(brand) ~= "string" or type(version) ~= "number" then
