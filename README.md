@@ -187,6 +187,47 @@ Python  ←→  luajit FFI  77/77 一致
 FFI 绑定层有独立的出错空间（结构体布局、字符串所有权、参数传递），不会崩溃只会
 给错结果，所以 Lua 侧单独比一遍，而不是"C 对了 Lua 就一定对"。
 
+## UA → profile 映射（生产实际用法）
+
+网关在 CDN 之后**拿不到客户端的 ClientHello**，只能看到 UA。所以出站代理浏览器
+流量时，是按 UA 挑一个匹配的指纹去伪装——挑错就成了"UA 说是 Chrome 150、TLS 却
+是别的形态"的 split-brain，比不伪装更容易被判。
+
+`oracle/uamap.py` 分三档并**永远显式告知用的是哪一档**：
+
+| 档位 | 含义 |
+|---|---|
+| `exact` | 该主版本有直接对应的 profile |
+| `same-seg` | 落在同一指纹段内的相邻版本（段内指纹一致，可安全替代）|
+| `fallback` | 只能跨段取最近 —— 有 split-brain 风险，调用方应记录并考虑放弃伪装 |
+
+跨品牌一律**拒绝套用**而不是勉强返回：曾出现 `firefox 126 → tor145`（Tor 基于
+Firefox，名字里的数字被当成版本号）与 `edge 125 → chrome124`，这种错配比没有指纹更糟。
+
+### 真实流量验证
+
+测试集取自生产 access.log（`spec/fixtures/prod_user_agents.json`，60 种 UA /
+14026 次请求），这是唯一能回答"库够不够用"的口径：
+
+```
+exact       81.0%
+same-seg     3.1%     ← 可安全伪装合计 84.1%
+fallback     4.0%
+no-version   3.4%
+unparsed     8.5%     ← 非浏览器 UA（扫描器等）
+```
+
+顺带厘清了流量构成：**浏览器只占全部请求的 4.9%**（Codex 47%、claude-cli 15.6%、
+OpenAI SDK 12.2%、Go client 10.9%）。只有浏览器流量需要 TLS 指纹伪装，其余不需要
+——这个边界决定了本项目的服务范围。
+
+### covers_versions：用已验证的等价关系，而不是造样本
+
+生产第一大浏览器 UA 是 Chrome 150，而我们只实采了 151。**没有**为此往库里塞推导
+样本，而是记录"这条实采指纹经验证同时适用哪些版本"：surf 源码写明
+`HelloChrome_150 = HelloChrome_144 + 前置 ML-DSA`，据此推导的 Chrome150 与真机
+Chrome151 实测 **13 字段差异为 0**。该标注只在有硬证据时添加。
+
 ## 关键方法论
 
 **判据不能用 JA4。** 14 个 chrome target 只产生 4 个不同的 JA4，safari170 与

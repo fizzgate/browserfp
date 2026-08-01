@@ -5208,6 +5208,9 @@
       "real:chrome",
       "real:edge"
     ],
+    "covers_versions": [
+      150
+    ],
     "default_config": true,
     "h2": {
       "akamai_fingerprint": "1:65536,2:0,4:6291456,6:262144|15663105|0|m,a,s,p",

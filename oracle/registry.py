@@ -27,6 +27,19 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 G = os.path.join(HERE, "..", "spec", "golden")
 OUT = os.path.join(HERE, "..", "spec", "profiles.json")
 
+# 某条**实采**指纹经验证同时适用的其他主版本。
+# 只在有硬证据时添加，并写明依据——这不是"猜测相邻版本相同"，而是把已验证的
+# 等价关系记下来，避免为此往库里塞推导出来的假样本。
+COVERS = {
+    # surf 源码写明 HelloChrome_150 = HelloChrome_144 + 前置 ML-DSA；据此推导的
+    # Chrome150 指纹与真机 Chrome151 实测 13 字段差异为 0。生产 UA 里 Chrome 150
+    # 是第一大浏览器版本，必须能命中。
+    # 注意：Chrome151 与 Edge151 指纹相同，去重后合并为一条，id 可能是任一别名。
+    # 故这里按**当前实际 id** 写，且 uamap 会从全部 aliases 推断它服务哪些品牌。
+    "real:edge": [150],
+
+}
+
 # (来源标签, TLS golden, h2 golden, provenance, mode)
 #
 # mode=resumed 是会话恢复形态（ClientHello 带 pre_shared_key）。它**必须单列**
@@ -124,6 +137,13 @@ def build():
 def main():
     registry = build()
     out = sorted(registry.values(), key=lambda r: r["id"])
+
+    # 必须在写盘之前标注 —— 先前放在 json.dump 之后，导致 profiles.json 里
+    # 一条 covers_versions 都没有，而终端输出看起来一切正常。
+    for rec in out:
+        extra = COVERS.get(rec["id"])
+        if extra:
+            rec["covers_versions"] = extra
 
     with open(OUT, "w") as f:
         json.dump(out, f, indent=2, sort_keys=True)
