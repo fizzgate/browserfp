@@ -87,6 +87,44 @@ BOOL_PREFS = {
 
 PREFS = {**NUM_PREFS, **BOOL_PREFS}
 
+# 同一个 pref 在不同年代有**两套名字、两个文件**：
+#   Firefox 100 起  StaticPrefList.yaml   network.http.http2.*
+#   Firefox 78-99   all.js                network.http.spdy.*
+# 只查 StaticPrefList 的 http2 名字，78-99 整段都推不出来（实测缺 22 个版本）。
+# 顺序：先 StaticPrefList 后 all.js，先 http2 名后 spdy 名。
+def _prefs_js_value(text, name):
+    """读 all.js 里的 `pref("name", value);`。
+
+    **不能拿 StaticPrefList 的解析器去读它** —— 那是 YAML（`- name:` / `value:`），
+    而 all.js 是 JS 调用，语法完全不同。混用的表现是"文件取到了、值恒为 None"，
+    看起来像"这个版本没有这个 pref"。
+    """
+    m = re.search(r'pref\(\s*"' + re.escape(name) + r'"\s*,\s*([^\)]+)\)', text)
+    return m.group(1).strip() if m else None
+
+
+def _lookup_pref(version, name, platform):
+    http2_name = name
+    spdy_name = name.replace(".http2.", ".spdy.")
+    # StaticPrefList（YAML，带平台条件）优先，再退到 all.js（JS，无平台条件）
+    try:
+        text = nss.fetch(version, "staticprefs")
+        for n in (http2_name, spdy_name):
+            v = nss.pref_value(text, n, platform)
+            if v is not None:
+                return v
+    except Exception:
+        pass
+    try:
+        text = nss.fetch(version, "prefs")
+        for n in (http2_name, spdy_name):
+            v = _prefs_js_value(text, n)
+            if v is not None:
+                return v
+    except Exception:
+        pass
+    return None
+
 
 def _android_overrides(version):
     """geckoview-prefs.js 里对 http2 pref 的覆盖。取不到就返回空表。
@@ -142,23 +180,126 @@ def _referenced_prefs(src):
             for m in re.finditer(r"StaticPrefs::network_http_(\w+)\(\)", body)}
 
 
-def _push_branch(src):
-    """SendHello 里 `if (!…allow_push())` 那个分支的函数体。"""
-    i = src.find("Http2Session::SendHello")
-    j = src.find("allow_push()", i)
-    if i < 0 or j < 0:
+def _brace_block(src, start):
+    """从 start 之后的第一个 { 起，按配对括号取到闭合处。"""
+    k = src.find("{", start)
+    if k < 0:
         return ""
-    k = src.find("{", j)
-    depth, end = 0, k
-    for pos in range(k, min(len(src), k + 4000)):
+    depth = 0
+    for pos in range(k, len(src)):
         if src[pos] == "{":
             depth += 1
         elif src[pos] == "}":
             depth -= 1
             if depth == 0:
-                end = pos
-                break
-    return src[k:end]
+                return src[k:pos]
+    return src[k:]
+
+
+def _sendhello_body(src):
+    """SendHello 的函数体。**按配对括号取，不能按"下一个 void Http2Session::"切**
+    —— 后者会把后面几个函数一起圈进来，于是在 128 上把收帧那边出现的
+    SETTINGS_NO_RFC7540_PRIORITIES 当成"SendHello 会发它"，进而要求一个那时
+    还不存在的 pref。"""
+    i = src.find("Http2Session::SendHello")
+    return _brace_block(src, i) if i >= 0 else ""
+
+
+def _push_branch(src):
+    """SendHello 里"不支持推送"那个分支的函数体。
+
+    **两种写法都要认**：新版本是 `StaticPrefs::network_http_http2_allow_push()`，
+    78-99 是 `gHttpHandler->AllowPush()`。只认前者会让老版本的分支体取成空，
+    于是 allow_push 被判成假、给 78-99 错发 ENABLE_PUSH=0 —— 而那些版本的
+    allow-push 默认恰恰是 true。
+    """
+    body = _sendhello_body(src)
+    for pat in ("allow_push()", "AllowPush()"):
+        j = body.find(pat)
+        if j >= 0:
+            return _brace_block(body, j)
+    return ""
+
+
+def _pref_name_for_symbol(version, symbol):
+    """StaticPrefs 符号 → 真实 pref 名。
+
+    符号是把 pref 名里的 `.` 与 `-` 一律换成 `_` 得到的，反过来推不回去
+    （network.http.priority_header.enabled 两种分隔符都有）。所以正向来：
+    把文件里出现的每个 pref 名归一后与符号比。
+    """
+    def norm(x):
+        return x.replace(".", "_").replace("-", "_")
+    for src_name, pat in (("staticprefs", r"name:\s*([\w\.\-]+)"),
+                          ("prefs", r'pref\(\s*"([\w\.\-]+)"')):
+        try:
+            text = nss.fetch(version, src_name)
+        except Exception:
+            continue
+        for m in re.finditer(pat, text):
+            if norm(m.group(1)) == symbol:
+                return m.group(1)
+    return None
+
+
+def _disable_rfc7540(src, version, platform):
+    """求值源码里那句 `bool disableRFC7540Priorities = …;`。
+
+    **表达式本身随版本变**，不能写死：132 起是
+    `!enabled_deps() || !CriticalRequestPrioritization()`，128 还多一项
+    `|| priority_header_enabled()`。写死任何一版都会在别的版本上算错 ——
+    而这个布尔同时决定发不发 PRIORITY、以及 NO_RFC7540 那项的值。
+
+    只处理 `||` 与前缀 `!`：源码里就是这个形状。出现别的运算符宁可抛错，
+    也不要猜 —— 猜错的代价是整段版本的 h2 指纹都错。
+    """
+    body = _sendhello_body(src)
+    m = re.search(r"bool\s+disableRFC7540Priorities\s*=\s*([^;]+);", body)
+    if not m:
+        return None                      # 这一版没有这个概念
+    expr = " ".join(m.group(1).split())
+    if "&&" in expr:
+        raise LookupError(f"disableRFC7540Priorities 出现了 && ：{expr}")
+    result = False
+    for term in expr.split("||"):
+        term = term.strip()
+        neg = term.startswith("!")
+        term = term.lstrip("!").strip()
+        pm = re.match(r"StaticPrefs::(\w+)\(\)", term)
+        if pm:
+            # **不能从符号反推 pref 名**：符号把 `.` 和 `_` 都压成 `_`，
+            # 而 network.http.priority_header.enabled 两种都有，怎么还原都
+            # 猜不对。改成正向匹配 —— 把文件里的 pref 名归一后与符号比。
+            name = _pref_name_for_symbol(version, pm.group(1))
+            if name is None:
+                raise LookupError(f"disableRFC7540Priorities 用到符号 "
+                                  f"{pm.group(1)}，在 pref 文件里找不到对应项")
+            val = _lookup_pref(version, name, platform)
+            if val is None:
+                raise LookupError(f"disableRFC7540Priorities 用到 {name} "
+                                  "却取不到默认值")
+            v = _as_bool(val)
+        elif term.startswith("gHttpHandler->"):
+            # 处理器上的访问器（CriticalRequestPrioritization 等）：没有独立
+            # pref，默认开。它只在与别的项 || 时出现，取默认不影响结论。
+            v = True
+        else:
+            raise LookupError(f"disableRFC7540Priorities 里有看不懂的项：{term}")
+        result = result or ((not v) if neg else v)
+    return result
+
+
+def _no_rfc_write(src):
+    """SendHello 里 NO_RFC7540_PRIORITIES 的写入形态。
+
+    与 MAX_CONCURRENT 同一个模式：先无条件写（128），后来才包进
+    send_NO_RFC7540_PRI（132+）。返回 "absent" / "always" / "gated"。
+    """
+    b = _sendhello_body(src)
+    i = b.find("SETTINGS_NO_RFC7540_PRIORITIES")
+    if i < 0:
+        return "absent"
+    return "gated" if "send_NO_RFC7540_PRI" in b[:i] else "always"
 
 
 def _emits_max_concurrent(src):
@@ -183,7 +324,7 @@ def firefox_h2(version, platform="desktop"):
     src = nss.fetch(version, "h2session")
 
     referenced = _referenced_prefs(src)
-    vals = {k: nss.pref_value(prefs_text, name, platform)
+    vals = {k: _lookup_pref(version, name, platform)
             for k, name in PREFS.items()}
 
     if platform == "android":
@@ -204,12 +345,27 @@ def firefox_h2(version, platform="desktop"):
     missing = [n for k, n in NUM_PREFS.items() if vals[k] is None]
     if missing:
         raise LookupError(f"Firefox {version}/{platform} 取不到数值 pref：{missing}")
-    # 布尔开关：源码没引用的说明那段代码在这个版本还不存在，当假
+
+    # 布尔开关：判据取**源码结构**而不是"SendHello 有没有 StaticPrefs:: 引用"。
+    # 老版本读 pref 走的是 gHttpHandler->AllowPush() 这类访问器，压根不出现
+    # StaticPrefs:: —— 按引用判会把 allow_push 判成假，于是给 78-99 错发
+    # ENABLE_PUSH=0。改成看那条设置在源码里能不能被写出来：
+    #   写不出来 → 与 pref 无关，恒不发
+    #   写得出来 → 用 pref 决定，pref 取不到就弃权
+    body = _push_branch(src)
+    emits = {
+        "allow_push": bool(body),                       # 有 !push 分支才谈得上
+        "send_maxconc": _emits_max_concurrent(src) and _gated_by_maxconc_pref(src),
+        # **只在 SendHello 体内找**：这个常量在文件别处也会出现（收帧那边要认
+        # 它），扫全文会在 128 上判成"会发"，进而要求一个那时还不存在的 pref。
+        "send_no_rfc": _no_rfc_write(src) == "gated",
+        "deps": True,                                   # UseH2Deps 一直都在
+    }
     for k, name in BOOL_PREFS.items():
-        if _norm(name) not in ref_norm:
+        if not emits[k]:
             vals[k] = False
         elif vals[k] is None:
-            raise LookupError(f"Firefox {version}/{platform} 引用了 {name} "
+            raise LookupError(f"Firefox {version}/{platform} 会用到 {name} "
                               "却取不到它的默认值")
 
     max_frame = _const(src, "kMaxFrameData")
@@ -236,11 +392,16 @@ def firefox_h2(version, platform="desktop"):
     settings.append((4, int(vals["push_allowance"])))
     settings.append((5, max_frame))
 
-    # UseH2Deps() 为假时不发 PRIORITY，也就是 SETTINGS_NO_RFC7540_PRIORITIES
-    # 那条分支成立的时候。CriticalRequestPrioritization() 是运行期取值，
-    # 默认跟 enabled.deps 走。
-    disable_deps = not _as_bool(vals["deps"])
-    if disable_deps and _as_bool(vals["send_no_rfc"]):
+    # 发不发 PRIORITY、以及 NO_RFC7540 那项的值，都由源码里那句
+    # disableRFC7540Priorities 决定。它在老版本里不存在，那时按 deps 走。
+    disable_deps = _disable_rfc7540(src, version, platform)
+    if disable_deps is None:
+        disable_deps = not _as_bool(vals["deps"])
+
+    mode = _no_rfc_write(src)
+    if mode == "always":
+        settings.append((9, 1 if disable_deps else 0))
+    elif mode == "gated" and disable_deps and _as_bool(vals["send_no_rfc"]):
         settings.append((9, 1))
 
     priorities = [] if disable_deps else [

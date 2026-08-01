@@ -313,7 +313,7 @@ unparsed     7.8%     ← 非浏览器 UA（扫描器、UC 浏览器、残缺 UA
 
 ### h2 层：伪装是分层的，覆盖率也得分层算
 
-TLS 层覆盖 99.5%，**h2 层 91.5%**（650 个组合里 55 个没有 h2 数据）。
+TLS 层覆盖 99.5%，**h2 层 98.3%**（650 个组合里只剩 11 个 Safari 没有 h2 数据）。
 把两层合成一个数字会把后者藏起来，而"TLS 像 Chrome、h2 不像任何浏览器"恰恰是
 最容易被判的组合 —— 它显示出一个现实中不存在的形态，比不伪装更可疑。
 
@@ -452,8 +452,31 @@ TLS 那边的 `nsssrc.py` 用平台构建标记就够了，h2 这边不够 —�
 分组。`uamap` 建版本表时早就排除 tor / private 了，这里同理。排除表本身也有断言：
 它必须真的排除到东西，否则说明命名或分组变了、规则已失效。
 
-剩余 55 个缺口：Firefox 22/76（取不到源码的老版本）×2 平台，Safari 6/9 与
-5/9（闭源，只能靠库与实采）。
+**Firefox 78-99 那段的 pref 换过名字也换过文件**：
+
+```
+Firefox 100 起   StaticPrefList.yaml   network.http.http2.*
+Firefox 78-99    all.js                network.http.spdy.*
+```
+
+只查 StaticPrefList 的 `http2` 名字，这 22 个版本整段推不出来。而且两个文件的
+语法完全不同（YAML 的 `- name:` / `value:` vs JS 的 `pref("name", value);`），
+拿 StaticPrefList 的解析器去读 all.js 的表现是"文件取到了、值恒为 None" ——
+看起来像"这个版本没有这个 pref"。
+
+**布尔开关的判据必须取源码结构，不能取"有没有 StaticPrefs:: 引用"**。78-99 读
+pref 走的是 `gHttpHandler->AllowPush()` 这类访问器，压根不出现 `StaticPrefs::`；
+按引用判会把 `allow_push` 判成假，于是给那段版本错发 `ENABLE_PUSH=0` —— 而它们
+的 allow-push 默认恰恰是 `true`。
+
+**`disableRFC7540Priorities` 那句表达式本身随版本变**，不能写死：132 起是
+`!enabled_deps() || !CriticalRequestPrioritization()`，128 还多一项
+`|| priority_header_enabled()`。它同时决定发不发 PRIORITY、以及 `9:` 那项的值，
+所以是从源码里把表达式抠出来求值的。顺带一个反推不回去的坑：StaticPrefs 符号把
+pref 名里的 `.` 和 `-` 一律压成 `_`，而 `network.http.priority_header.enabled`
+两种分隔符都有 —— 只能正向匹配（把文件里的 pref 名归一后与符号比）。
+
+剩余 11 个缺口全是 Safari（6/9 与 5/9）：闭源，只能靠库与实采。
 
 ### 扫描范围本身也会过期
 
