@@ -7,7 +7,9 @@ pcap 到位时，解析这一环是已经验过的。
 向量取自各 OS 典型 SYN（FoxIO JA4T 文档中的常见形态）：
     Linux    window 64240, options MSS,SACKOK,TS,NOP,WS, MSS 1460, wscale 7
     Windows  window 64240, options MSS,NOP,WS,NOP,NOP,SACKOK, MSS 1460, wscale 8
-    macOS    window 65535, options MSS,NOP,WS,NOP,NOP,TS,SACKOK,EOL
+
+占位规则与参考实现 0x676e67/pingly (src/tcp/fingerprint.rs) 逐条核对过：
+空 options / MSS 缺失 / window scale 缺失或为 0，一律记 "00" 而非 "0"。
 
 跑：python -m spec.test_ja4t
 """
@@ -55,7 +57,9 @@ CASES = [
      "64240_2-4-8-1-3_1460_7"),
     ("Windows 典型", 64240, opt_mss(1460) + NOP + opt_ws(8) + NOP + NOP + SACKOK,
      "64240_2-1-3-1-1-4_1460_8"),
-    ("无 MSS 无 WS", 65535, SACKOK + NOP + NOP, "65535_4-1-1_0_0"),
+    ("无 MSS 无 WS", 65535, SACKOK + NOP + NOP, "65535_4-1-1_00_00"),
+    # wscale=0 必须记 00 而不是 0 —— 与 pingly 的 filter(|v| *v != 0) 对齐
+    ("WS 值为 0", 64240, opt_mss(1460) + opt_ws(0) + NOP, "64240_2-3-1_1460_00"),
 ]
 
 

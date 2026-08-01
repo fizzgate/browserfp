@@ -102,11 +102,24 @@ def _parse_tcp(packet, o):
 
 
 def ja4t(parsed):
-    """按 FoxIO 规范拼 JA4T 串。缺失的 MSS / window scale 记 0。"""
-    opts = "-".join(str(k) for k in parsed["options"]) or "0"
+    """按 FoxIO 规范拼 JA4T 串。
+
+    三处占位规则与参考实现（0x676e67/pingly src/tcp/fingerprint.rs）对齐，初版
+    曾全部写错，会产出与其他工具对不上的 JA4T：
+      · 空 options   → "00"（不是 "0"）
+      · MSS 缺失     → "00"
+      · window scale 缺失**或等于 0** → "00"
+        —— pingly 用 `.filter(|value| *value != 0)`，即 wscale=0 与缺失同等对待。
+           这条最隐蔽：SYN 里确实带 WS 选项但值为 0 时，仍记 "00"。
+    EOL 不计入 options（NOP 计入，它是区分点）。
+    """
+    ids = [k for k in parsed["options"] if k != OPT_EOL]
+    opts = "-".join(str(k) for k in ids) if ids else "00"
+    mss = parsed["mss"]
+    ws = parsed["window_scale"]
     return (f'{parsed["window_size"]}_{opts}_'
-            f'{parsed["mss"] if parsed["mss"] is not None else 0}_'
-            f'{parsed["window_scale"] if parsed["window_scale"] is not None else 0}')
+            f'{mss if mss is not None else "00"}_'
+            f'{ws if ws else "00"}')
 
 
 def from_syn(packet, link_offset=None):

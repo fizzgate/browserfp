@@ -276,6 +276,15 @@ key_share 那条是有价值的阴性结果：它证明现有 13 字段判据**�
      路径**（MTU、中间设备 MSS clamping），本地造不出来。
 
   故正确落点是在生产入口用 tcpdump/pcap 采 SYN 包再喂给解析器，而不是本地补。
+
+  占位规则与参考实现 `0x676e67/pingly` 的 `src/tcp/fingerprint.rs` **逐条核对过**
+  ——初版三处全写错（空 options / MSS 缺失 / window scale 缺失都写成 `0`，规范是
+  `00`；且 **wscale 等于 0 也要当缺失处理**，pingly 用 `.filter(|v| *v != 0)`）。
+  这类偏差不会报错，只会产出与其他工具对不上的 JA4T。**先查开源实现再动手，比
+  自己照规范文字实现可靠。**
+
+  pingly 另有三个我们尚未实现的 TCP 层维度：`SatoriFingerprint`（含 quirks）、
+  `NetworkEstimate`（TTL 推断跳数）、`LinkEstimate`（MTU 估计）。
 - **HTTP/3 与 QUIC 整层缺失**：现有观测点只做 TCP 上的 TLS，QUIC 走 UDP 且 TLS
   握手内嵌在 QUIC 帧里，需要另一套观测点。`srcaudit` 报出的 `0x0039`/`0xffa5`
   （quic_transport_parameters）盲区即源于此。
