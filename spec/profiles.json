@@ -5174,12 +5174,13 @@
   },
   {
     "aliases": [
-      "linux:firefox-78-linux"
+      "linux:firefox-78-linux",
+      "linux:firefox-83-linux"
     ],
     "default_config": true,
     "h2": null,
     "h3": null,
-    "id": "linux:firefox-78-linux",
+    "id": "linux:firefox-83-linux",
     "mode": "initial",
     "provenance": "real-capture",
     "tls": {
@@ -5318,7 +5319,8 @@
       ]
     },
     "versions": [
-      "Mozilla Firefox 78.0"
+      "Mozilla Firefox 78.0",
+      "Mozilla Firefox 83.0"
     ]
   },
   {
