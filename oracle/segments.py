@@ -52,7 +52,18 @@ MAX_WORKERS = 5          # 对方是公共服务器，别打太狠
 #              当"不同则不同段"用
 KEYS_BY_BRAND = {
     "firefox": ("ciphers", "sig_algs", "extensions", "curves", "sct"),
-    "chrome": ("curves", "key_share_groups", "sign_sigalgs"),
+    # 用 verify_* 而非 sign_*：ClientHello 里发的 signature_algorithms 表示
+    # "我能验证哪些签名"。verify_prefs 是 Chromium 的硬编码覆盖（有它就压过
+    # BoringSSL 默认），cipher_excludes 是 :!3DES 这类排除项。补上这两项之前，
+    # Chrome 72 与 78 会被判成不同段，而它们其实逐项相同。
+    #
+    # **ext_order 刻意不在此列**。它和 extensions_set 同病：kExtensions 是
+    # "实现了的"而非"会发的"，表里多一个扩展不代表 ClientHello 变了。实测把
+    # 它纳入后，70-96 区间凭空多出 8 个边界（87 起 0x0022、88 起 0x4469、
+    # 89 起 0xfe09…），而这些扩展是否真发根本没有依据。要用它必须先按实采
+    # 学到的发送集合过滤，那已经依赖 golden 而不是纯源码推导了。
+    "chrome": ("curves", "key_share_groups", "verify_sigalgs", "verify_prefs",
+               "cipher_excludes"),
 }
 KEYS = KEYS_BY_BRAND["firefox"]
 

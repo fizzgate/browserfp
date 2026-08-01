@@ -212,10 +212,47 @@ def feature_default(tag, name):
                  os.path.join(CACHE, tag, "features.cc"))
     except Exception:
         return None
+    # **两种声明语法都要认**。老版本写
+    #     const base::Feature kPostQuantumCECPQ2{"...", FEATURE_DISABLED_BY_DEFAULT};
+    # 新版本改成 BASE_FEATURE(kX, "...", ...)。只认新语法会让老版本一律返回
+    # None，退回"保守当作生效"，于是 CECPQ2 这类默认关闭的实验被当成真会发，
+    # 段表凭空多出边界（实测 74-77、80-81 因此被切出来，而 golden 证明这些
+    # 版本根本没发 CECPQ2）。
     m = re.search(r"BASE_FEATURE\(\s*" + re.escape(name) + r"\s*,(.*?)\);", d, re.S)
+    if not m:
+        m = re.search(r"(?:const\s+)?base::Feature\s+" + re.escape(name)
+                      + r"\s*(?:\{|=\s*\{)(.*?)\};", d, re.S)
     if not m:
         return None
     return "FEATURE_ENABLED_BY_DEFAULT" in m.group(1)
+
+
+def _is_experiment_only(text, pos, tag):
+    """判断这处 curves 配置是否只在 Finch 实验下才生效。
+
+    **不判这个会把实验分支当成默认行为**，整个 CECPQ2 时代都会抽错：M78 的
+    kCurves 包在
+        const std::string post_quantum_group = kPostQuantumGroup.Get();
+        if (post_quantum_group == "CECPQ2") { ... kCurves ... }
+    里，Finch 参数默认是空串，所以默认根本不配置 curves。实采可证：golden 里
+    Chrome 58-123 的 curves 全是 [0x1d,0x17,0x18]，没有 CECPQ2；后量子组直到
+    124 才真正出现（0x6399），131 起换成 0x11ec。
+
+    判据有两种形态，都要覆盖：
+      a) Finch 参数取值 + 字符串比较（M78 的 kPostQuantumGroup.Get() == "CECPQ2"）
+      b) feature 开关（M83 的 FeatureList::IsEnabled(features::kPostQuantumCECPQ2)）
+         —— 这类要真的去查该 feature 的默认值，DISABLED 才算实验分支
+    """
+    head = text[max(0, pos - 700):pos]
+    if re.search(r"\.Get\(\)", head) and re.search(r'==\s*"', head):
+        return True
+    m = re.search(r"IsEnabled\(\s*features::(\w+)\s*\)", head)
+    if m:
+        on = feature_default(tag, m.group(1))
+        # 查不到默认值时保守当作"生效"——宁可多切一个段，也不要把实际会发的
+        # 配置当成不存在
+        return on is False
+    return False
 
 
 def chromium_curves(tag):
@@ -245,6 +282,10 @@ def chromium_curves(tag):
         # 且首项可能是个由 feature flag 决定的三元表达式
         m = re.search(r"(?:static\s+)?const\s+(?:int|uint16_t)\s+"
                       r"k(?:Curves|Groups)\[\]\s*=\s*\{(.*?)\};", d, re.S)
+        if m and _is_experiment_only(d, m.start(), tag):
+            # 判定为实验分支：默认不生效，用 BoringSSL 默认组。直接返回而不是
+            # 继续往下找——否则会掉进"有配置调用却抽不出数组"的错误分支。
+            return ["boringssl-default"], []
         if m:
             body = m.group(1)
             groups = re.findall(r"(?:NID_|SSL_GROUP_)\w+", body)
@@ -279,6 +320,61 @@ def chromium_curves(tag):
     if impl is not None and not re.search(r"SSL_set1_(?:curves|group_ids)\s*\(", impl):
         return ["boringssl-default"], []
     raise RuntimeError(f"{tag} 有 curves 配置调用但抽不出数组 —— 配置点可能又搬家了")
+
+
+def chromium_sig_and_cipher(tag):
+    """Chromium 侧对签名算法与 cipher 的**覆盖**，这两处决定了 ClientHello。
+
+    只读 BoringSSL 会漏掉它们，而它们正是 Chrome 72↔83 差异的全部来源：
+      · kVerifyPrefs —— Chromium 硬编码的 signature_algorithms 列表，有它就
+        完全覆盖 BoringSSL 默认（M83 有，M72/78 没有）
+      · command.append(":!XXX") —— cipher 排除项，M83 起加了 :!3DES
+    客户端 ClientHello 里发的是"我能验证哪些签名"，所以对应 kVerify* 而非
+    kSign*——用错会把两个不同的版本判成同段。
+    """
+    try:
+        d = _get(f"{JSD}/chromium/chromium@{tag}/net/socket/ssl_client_socket_impl.cc",
+                 os.path.join(CACHE, tag, "ssl_client_socket_impl.cc"))
+    except Exception:
+        return None, []
+    prefs = None
+    m = re.search(r"kVerifyPrefs\[\]\s*=\s*\{(.*?)\};", d, re.S)
+    if m:
+        prefs = re.findall(r"SSL_SIGN_\w+", m.group(1))
+    excludes = sorted(set(re.findall(r'command\.append\("?:!(\w+)"?\)', d)))
+    return prefs, excludes
+
+
+def ordered_extensions(rev):
+    """BoringSSL kExtensions 的**有序**列表（数值）。
+
+    只对 Chrome <110 有指纹意义——110 起随机置换，顺序不再是稳定特征。但表
+    本身的变化在任何版本都值得记录，所以这里照抽，由调用方决定用不用。
+    """
+    src = None
+    for f in ("ssl/extensions.cc", "ssl/t1_lib.cc"):
+        try:
+            t = _get(f"{JSD}/google/boringssl@{rev}/{f}",
+                     os.path.join(CACHE, "bssl", rev, f.replace("/", "_")))
+            if "kExtensions[]" in t:
+                src = t
+                break
+        except Exception:
+            continue
+    if not src:
+        return []
+    m = re.search(r"static const struct tls_extension kExtensions\[\]\s*=\s*\{", src)
+    if not m:
+        return []
+    names = re.findall(r"TLSEXT_TYPE_(\w+)", src[m.end():src.index("\n};", m.end())])
+    try:
+        hdr = _get(f"{JSD}/google/boringssl@{rev}/include/openssl/tls1.h",
+                   os.path.join(CACHE, "bssl", rev, "tls1.h"))
+    except Exception:
+        return []
+    vals = {mm.group(1): int(mm.group(2), 0) for mm in
+            re.finditer(r"#define TLSEXT_TYPE_(\w+)\s+(0x[0-9a-fA-F]+|\d+)", hdr)}
+    return [vals[n] for n in names if n in vals]
 
 
 def extract(major):
@@ -326,7 +422,13 @@ def extract(major):
         raise RuntimeError(f"M{major}({rev[:10]}) 找不到 kSignSignatureAlgorithms，"
                            "表可能又搬家了——不要当成空列表用")
     curves, key_shares = chromium_curves(tag)
+    verify_prefs, cipher_excludes = chromium_sig_and_cipher(tag)
+    # Chrome 自 110 起随机置换扩展顺序，届时顺序不再是指纹特征
+    ext_order = ordered_extensions(rev) if major < 110 else []
     return {
+        "verify_prefs": verify_prefs,
+        "cipher_excludes": cipher_excludes,
+        "ext_order": ext_order,
         "tag": tag,
         "boringssl": rev,
         "curves": curves,
