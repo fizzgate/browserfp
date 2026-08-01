@@ -73,6 +73,26 @@ def _load_sources():
     return out
 
 
+def _minor_of(who):
+    """从库条目名里取小版本号元组，取不到返回 None。
+
+    三家写法都要认：curl_cffi 的 `safari184`（18.4）与 `safari170`（17.0）把
+    小版本并进数字里；wreq 的 `Safari17_4_1`、tls_client 的 `safari_ios_18_5`
+    用下划线分段。认不出就返回 None —— 那会让上面的"是不是干净分界"判据直接
+    弃权，而不是拿一个错的顺序去排。
+    """
+    name = who.split(":", 1)[1] if ":" in who else who
+    m = re.search(r"(\d+(?:[._]\d+)+)$", name)
+    if m:
+        return tuple(int(x) for x in re.split(r"[._]", m.group(1)))
+    # safari184 / safari170 这种：主版本两位 + 小版本一位
+    m = re.search(r"safari[a-z_]*(\d{3})(?!\d)", name, re.I)
+    if m:
+        d = m.group(1)
+        return (int(d[:2]), int(d[2]))
+    return None
+
+
 def _parse_name(name):
     """条目名 → (品牌, 版本)；认不出返回 None。
 
@@ -118,8 +138,48 @@ def _tor_aliases():
     return out
 
 
+def _real_captures():
+    """本项目自己的实采，也是 h2 的来源之一。
+
+    **此前漏了这一块**：observed() 只读 spec/golden/h2_*.json 那几个库文件，
+    而 profiles.json 里 real:* / linux:* 那些真机采集同样带 h2，还带着确切的
+    版本号（real:safari 的 versions 是 ['27.0']，就是本机 macOS 27 上采的
+    Safari 27）。漏掉的后果是 safari 27 被判成"无库条目且源码取不到"，而那份
+    数据一直躺在库里 —— 实采本该是最硬的来源，却排在最外面。
+    """
+    path = os.path.join(HERE, "..", "spec", "profiles.json")
+    try:
+        with open(path) as f:
+            registry = json.load(f)
+    except Exception:
+        return {}
+    out = {}
+    for rec in registry:
+        src = rec["id"].split(":", 1)[0]
+        if src not in ("real", "linux") or not rec.get("h2"):
+            continue
+        for ver in rec.get("versions") or []:
+            m = re.search(r"(\d+)(?:\.\d+)*\s*$", str(ver).strip())
+            if not m:
+                continue
+            major = int(m.group(1))
+            # 品牌从 id 里取：real:safari / linux:firefox-121-linux
+            name = rec["id"].split(":", 1)[1].lower()
+            brand = None
+            for b in ("chrome", "chromium", "firefox", "safari", "edge", "opera"):
+                if name.startswith(b):
+                    brand = "chrome" if b == "chromium" else b
+                    break
+            if not brand:
+                continue
+            if MOBILE_ALIAS.search(name):
+                brand += "-mobile"
+            out.setdefault((brand, major), {})[rec["id"]] = rec["h2"]
+    return out
+
+
 def observed(sources=None):
-    """{(brand, ver): {lib: akamai}} —— 各库对每个版本自报的 h2。"""
+    """{(brand, ver): {lib: akamai}} —— 各库与本项目实采对每个版本自报的 h2。"""
     sources = sources or _load_sources()
     tor = _tor_aliases()
     out = {}
@@ -133,6 +193,8 @@ def observed(sources=None):
             if not key:
                 continue
             out.setdefault(key, {})[f"{lib}:{name}"] = val
+    for key, rows in _real_captures().items():
+        out.setdefault(key, {}).update(rows)
     return out
 
 
@@ -179,6 +241,34 @@ def resolve(brand, ver, obs=None, allow_source=True):
             derived = None
 
     if len(fps) > 1:
+        # 先看这些分歧是不是**同一主版本内的小版本演进**。库里的条目名带小
+        # 版本号（safari184 = 18.4、Safari17_4_1 = 17.4.1、safari_ios_18_5），
+        # 主版本这一层的表只能存一份，得决定存哪份。
+        #
+        # 两种形态要分开处理，判据是"按小版本排序后，各形态是否连续成段"：
+        #   干净分界（如 18.0/18.1/18.2/18.3 一种，18.4/18.5 另一种）
+        #       → 取**末尾**那种。本项目对 Chromium 早有同样的规则：同一主版本
+        #         取最后一个 patch，那是用户实际跑得最多的形态。
+        #   交错（如 17.0/17.2 一种，17.4.1 另一种，17.5/17.6 又回到第一种）
+        #       → 不是演进，是离群。按多数取，且要求票数明显（≥2 倍）。
+        by_minor = {}
+        for fp, rows in fps.items():
+            for who, _val in rows:
+                mv = _minor_of(who)
+                if mv is not None:
+                    by_minor.setdefault(fp, []).append(mv)
+        if len(by_minor) == len(fps) and all(by_minor.values()):
+            ordered = sorted(fps, key=lambda f: max(by_minor[f]))
+            clean = all(max(by_minor[a]) < min(by_minor[b])
+                        for a, b in zip(ordered, ordered[1:]))
+            if clean:
+                fp = ordered[-1]
+                return fps[fp][0][1], (f"同主版本内小版本演进，取末尾形态"
+                                       f"（{len(fps)} 种）")
+            counts = sorted(((len(v), f) for f, v in fps.items()), reverse=True)
+            if counts[0][0] >= 2 * counts[1][0]:
+                return fps[counts[0][1]][0][1], (
+                    f"小版本交错，按多数取（{counts[0][0]}:{counts[1][0]}）")
         # 库之间冲突：交给源码裁决。裁决不了就弃权 —— 猜一个等于随机挑一个
         # 浏览器的 h2 配上另一个浏览器的 TLS。
         if derived and derived[0] in fps:

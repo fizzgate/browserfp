@@ -48,7 +48,8 @@ H2_BASELINE = {
     # Gecko 也全覆盖了（oracle/geckoh2.py），含 78-99 那段 —— 那时 pref 还在
     # all.js 里叫 network.http.spdy.*。只剩 Safari：闭源，只能靠库与实采。
     "firefox": 0, "firefox-mobile": 0,
-    "safari": 6, "safari-mobile": 5,
+    # 只剩 safari 12-14 —— 与 TLS 层的缺口是同一批，已证无路径（见 README）
+    "safari": 3, "safari-mobile": 3,
 }
 
 

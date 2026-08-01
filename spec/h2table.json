@@ -1331,7 +1331,7 @@
      262144
     ]
    ],
-   "why": "1 个库一致",
+   "why": "2 个库一致",
    "window_update": 15663105
   },
   "143": {
@@ -6593,7 +6593,7 @@
      262144
     ]
    ],
-   "why": "源码推导",
+   "why": "1 个库一致",
    "window_update": 15663105
   },
   "152": {
@@ -10269,7 +10269,7 @@
      16384
     ]
    ],
-   "why": "源码推导",
+   "why": "1 个库一致",
    "window_update": 12517377
   },
   "112": {
@@ -10899,7 +10899,7 @@
      16384
     ]
    ],
-   "why": "源码推导",
+   "why": "1 个库一致",
    "window_update": 12517377
   },
   "122": {
@@ -12052,7 +12052,7 @@
      16384
     ]
    ],
-   "why": "1 个库一致",
+   "why": "2 个库一致",
    "window_update": 12517377
   },
   "150": {
@@ -22642,6 +22642,62 @@
    "why": "3 个库一致",
    "window_update": 10485760
   },
+  "17": {
+   "akamai_fingerprint": "2:0,4:4194304,3:100|10485760|0|m,s,p,a",
+   "priorities": [],
+   "pseudo_header_order": [
+    ":method",
+    ":scheme",
+    ":path",
+    ":authority"
+   ],
+   "settings": [
+    [
+     2,
+     0
+    ],
+    [
+     4,
+     4194304
+    ],
+    [
+     3,
+     100
+    ]
+   ],
+   "why": "小版本交错，按多数取（5:1）",
+   "window_update": 10485760
+  },
+  "18": {
+   "akamai_fingerprint": "2:0,3:100,4:2097152,9:1|10420225|0|m,s,a,p",
+   "priorities": [],
+   "pseudo_header_order": [
+    ":method",
+    ":scheme",
+    ":authority",
+    ":path"
+   ],
+   "settings": [
+    [
+     2,
+     0
+    ],
+    [
+     3,
+     100
+    ],
+    [
+     4,
+     2097152
+    ],
+    [
+     9,
+     1
+    ]
+   ],
+   "why": "同主版本内小版本演进，取末尾形态（2 种）",
+   "window_update": 10420225
+  },
   "26": {
    "akamai_fingerprint": "2:0,3:100,4:2097152,9:1|10420225|0|m,s,a,p",
    "priorities": [],
@@ -22670,6 +22726,36 @@
     ]
    ],
    "why": "6 个库一致",
+   "window_update": 10420225
+  },
+  "27": {
+   "akamai_fingerprint": "2:0,3:100,4:2097152,9:1|10420225|0|m,s,a,p",
+   "priorities": [],
+   "pseudo_header_order": [
+    ":method",
+    ":scheme",
+    ":authority",
+    ":path"
+   ],
+   "settings": [
+    [
+     2,
+     0
+    ],
+    [
+     3,
+     100
+    ],
+    [
+     4,
+     2097152
+    ],
+    [
+     9,
+     1
+    ]
+   ],
+   "why": "1 个库一致",
    "window_update": 10420225
   }
  },
@@ -22744,6 +22830,36 @@
    "why": "4 个库一致",
    "window_update": 10485760
   },
+  "18": {
+   "akamai_fingerprint": "2:0,3:100,4:2097152,9:1|10420225|0|m,s,a,p",
+   "priorities": [],
+   "pseudo_header_order": [
+    ":method",
+    ":scheme",
+    ":authority",
+    ":path"
+   ],
+   "settings": [
+    [
+     2,
+     0
+    ],
+    [
+     3,
+     100
+    ],
+    [
+     4,
+     2097152
+    ],
+    [
+     9,
+     1
+    ]
+   ],
+   "why": "同主版本内小版本演进，取末尾形态（2 种）",
+   "window_update": 10420225
+  },
   "26": {
    "akamai_fingerprint": "2:0,3:100,4:2097152,9:1|10420225|0|m,s,a,p",
    "priorities": [],
@@ -22772,6 +22888,36 @@
     ]
    ],
    "why": "6 个库一致",
+   "window_update": 10420225
+  },
+  "27": {
+   "akamai_fingerprint": "2:0,3:100,4:2097152,9:1|10420225|0|m,s,a,p",
+   "priorities": [],
+   "pseudo_header_order": [
+    ":method",
+    ":scheme",
+    ":authority",
+    ":path"
+   ],
+   "settings": [
+    [
+     2,
+     0
+    ],
+    [
+     3,
+     100
+    ],
+    [
+     4,
+     2097152
+    ],
+    [
+     9,
+     1
+    ]
+   ],
+   "why": "移动端取同版本桌面（1 个库一致）",
    "window_update": 10420225
   }
  }
