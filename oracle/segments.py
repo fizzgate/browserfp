@@ -316,6 +316,36 @@ def main(argv):
         #            curves/sigalgs 这类硬编码表变了则**必定**不同段。
         golden = golden_by_version(brand)
         seg_flags = [segment_substitutable(s, golden) for s in segs]
+        # 移动端段：逐段判该区间的移动端形态与桌面**是否完全相同**。相同的话
+        # 该段可以直接用桌面 profile —— 这不是合成，是源码给出的结论：平台
+        # 差异全部来自 ANDROID/IS_ANDROID 分支，那些分支在某些版本区间根本
+        # 不产生差异（如 Firefox 115 时 SCT 与 MLKEM 都还没启用，Chrome 134
+        # 时 kPostQuantumKyber 两平台都是 True）。
+        # 派生规则本身在有 golden 的版本上验证过：桌面 Firefox 135 减去 SCT
+        # 与 MLKEM 后，与实采的 FirefoxAndroid135 逐字段一致。
+        same_as_desktop = []
+        if brand.endswith("-mobile"):
+            base = brand[: -len("-mobile")]
+            base_ex = EXTRACTORS.get(base)
+            # **必须逐版本判，不能只探段起点**。移动端段常常跨越桌面的多个段
+            # ——Android 不启用 SCT/MLKEM，所以桌面在 132、135 的边界在移动端
+            # 侧根本不存在。只看起点会把 firefox-mobile 段 124-144 判成"与桌面
+            # 全同"，而实采的 FirefoxAndroid135 与桌面 135 明明不同。
+            for seg in segs:
+                same = True
+                for v in range(seg["from"], seg["to"] + 1):
+                    try:
+                        dt = base_ex(str(v) if base == "firefox" else v)
+                    except Exception:
+                        same = False
+                        break
+                    if any(seg["tables"].get(k) != dt.get(k)
+                           for k in keys_for(brand)):
+                        same = False
+                        break
+                same_as_desktop.append(same)
+        else:
+            same_as_desktop = [False] * len(segs)
         n_ok = sum(1 for ok, _ in seg_flags if ok)
         substitutable = brand == "firefox"
         payload = {
@@ -334,8 +364,10 @@ def main(argv):
             "unavailable": sorted(failed, key=int),
             "segments": [{"from": s["from"], "to": s["to"],
                           "tables": s["tables"],
-                          "substitutable": ok, "substitution_reason": why}
-                         for s, (ok, why) in zip(segs, seg_flags)],
+                          "substitutable": ok, "substitution_reason": why,
+                          "same_as_desktop": sd}
+                         for s, (ok, why), sd
+                         in zip(segs, seg_flags, same_as_desktop)],
         }
         with open(path, "w") as f:
             json.dump(payload, f, indent=2, sort_keys=True)

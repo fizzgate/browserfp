@@ -20,7 +20,8 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from oracle.uamap import MOBILE_ALIAS, UAMapper                # noqa: E402
+from oracle.uamap import (MOBILE_ALIAS, UAMapper,               # noqa: E402
+                          load_desktop_equivalent)
 from oracle.match import Matcher                              # noqa: E402
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -66,6 +67,7 @@ def main():
     # 去重，Chrome151 与 Edge151 同指纹被并成一条、id 恰为 real:edge，
     # 它服务 Chrome UA 是正确的。只看 id 会把这种正常映射误报成跨品牌。
     reg = {r["id"]: r for r in Matcher().registry}
+    desktop_equiv = load_desktop_equivalent()
     stats, total, violations = {}, 0, []
     for row in rows:
         r = mapper.lookup(row["ua"])
@@ -88,8 +90,13 @@ def main():
             if not brand_ok:
                 violations.append(("跨品牌", row["ua"][:60], pid))
             elif is_mobile_ua and not has_mobile_alias:
-                # 移动端 UA 命中纯桌面 profile —— 正是 split-brain
-                violations.append(("移动端→桌面", row["ua"][:60], pid))
+                # 移动端 UA 命中纯桌面 profile —— 默认是 split-brain，**除非**
+                # 源码证明该版本区间里移动端与桌面同形态（平台分支在那些版本
+                # 上不产生差异）。豁免要有据可查，所以判据取自段表产物的
+                # same_as_desktop 字段，而不是在这里放宽成"移动端随便命中"。
+                spans = desktop_equiv.get(r["brand"], [])
+                if not any(lo <= r["version"] <= hi for lo, hi in spans):
+                    violations.append(("移动端→桌面", row["ua"][:60], pid))
             elif not is_mobile_ua and all_derived:
                 violations.append(("桌面→衍生/移动端", row["ua"][:60], pid))
 

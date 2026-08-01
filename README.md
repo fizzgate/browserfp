@@ -230,13 +230,14 @@ local r = tlsfp.by_ua("chrome", 150)
 14026 次请求），这是唯一能回答"库够不够用"的口径：
 
 ```
-exact       82.3%
-same-seg     9.2%     ← 可安全伪装合计 91.5%
-fallback     0.8%     ← 严格模式下不伪装，**全部是移动端**
+exact       82.8%
+same-seg     9.4%     ← 可安全伪装合计 92.2%
+fallback     0.0%     ← 主流品牌缺口已全部清零
 unparsed     7.8%     ← 非浏览器 UA（扫描器、UC 浏览器、残缺 UA 等）
 ```
 
-**桌面缺口已清零**，剩余 2.6% 全是移动端（见下方"移动端数据密度"）。
+**主流品牌（Chrome / Firefox / Safari / Edge / Opera，含移动端）已无缺口**。剩余
+7.8% 是非浏览器 UA，按设计就该返回无指纹。
 
 **服务范围：只覆盖主流品牌**（Chrome / Firefox / Safari / Edge / Opera，含各自的
 移动端），其余一律返回"无指纹"而不是找个近似的顶上。OkHttp 栈、UC 浏览器、各类

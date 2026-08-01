@@ -70,6 +70,34 @@ def load_segments():
             out[data["brand"]] = usable
     return out
 
+
+def load_desktop_equivalent():
+    """{移动端品牌: [(from, to), ...]} —— 该区间的移动端形态与桌面完全相同。
+
+    平台差异全部来自源码里的 ANDROID / IS_ANDROID 分支，而那些分支在某些版本
+    区间根本不产生差异：Firefox 115 时 SCT 与 MLKEM 都还没启用，Chrome 134 时
+    kPostQuantumKyber 在两个平台都是 True。这类区间可以直接用桌面 profile。
+
+    **这不是合成样本**：派生规则在有 golden 的版本上验证过 —— 桌面 Firefox 135
+    减去 SCT 与 MLKEM 后，与实采的 wreq:FirefoxAndroid135 逐字段一致。这里用的
+    是同一条规则的退化情形（差异为空）。
+    """
+    out = {}
+    if not os.path.isdir(SEGMENTS_DIR):
+        return out
+    for name in sorted(os.listdir(SEGMENTS_DIR)):
+        if not name.endswith(".json"):
+            continue
+        with open(os.path.join(SEGMENTS_DIR, name)) as f:
+            data = json.load(f)
+        if not data["brand"].endswith("-mobile"):
+            continue
+        spans = [(s["from"], s["to"]) for s in data["segments"]
+                 if s.get("same_as_desktop")]
+        if spans:
+            out[data["brand"]] = spans
+    return out
+
 # iOS 上**所有**浏览器都被 App Store 政策强制使用系统 WKWebView，自己不带
 # TLS 栈。所以 FxiOS(Firefox)、EdgiOS(Edge)、CriOS(Chrome)、OPiOS(Opera) 发出的
 # ClientHello 就是 iOS Safari 的，版本也该按 **iOS 版本**取而不是它们自己的版本
@@ -147,6 +175,7 @@ class UAMapper:
         with open(registry_path) as f:
             registry = json.load(f)
         self.segments = load_segments()
+        self.desktop_equiv = load_desktop_equivalent()
 
         # 只用默认配置的首连形态：需 feature flag 才出现的变体不是正常用户行为，
         # 会话恢复/QUIC 形态由连接阶段决定，不该按 UA 选。
@@ -254,6 +283,38 @@ class UAMapper:
         table = self.by_brand.get(brand)
         # Chromium 系衍生浏览器：version 已经是内核 Chrome 版本，直接查 chrome
         # 表最准。仍先看自家表——若某个衍生版本被实采过，那份数据优先于内核推断。
+        # 移动端：自家表没有该版本时，若源码证明该区间与桌面无差异，就用桌面表
+        if brand.endswith("-mobile") and ver not in (table or {}):
+            base = brand[: -len("-mobile")]
+            for lo, hi in self.desktop_equiv.get(brand, []):
+                if lo <= ver <= hi:
+                    dtbl = self.by_brand.get(base) or {}
+                    if ver in dtbl:
+                        rec, _ = dtbl[ver]
+                        return {"profile": rec["id"], "confidence": "exact",
+                                "brand": brand, "version": ver,
+                                "note": f"源码证明 {lo}-{hi} 段移动端与桌面同形态"}
+                    # 桌面表本身也常常不含该版本号 —— 桌面那边同样靠段表覆盖
+                    # （firefox 表里只有 108/109/110/117/120/123，115 是段
+                    # 112-118 给覆盖的）。所以回落必须连桌面段表一起走，只查
+                    # 桌面表会白白落空。
+                    for seg in self.segments.get(base, []):
+                        if not (seg["from"] <= ver <= seg["to"]):
+                            continue
+                        near = sorted((v for v in dtbl
+                                       if seg["from"] <= v <= seg["to"]),
+                                      key=lambda x: abs(x - ver))
+                        if near:
+                            rec = dtbl[near[0]][0]
+                            return {"profile": rec["id"], "confidence": "same-seg",
+                                    "brand": brand, "version": ver,
+                                    "note": f"源码证明 {lo}-{hi} 段移动端与桌面"
+                                            f"同形态，取桌面段 {seg['from']}-"
+                                            f"{seg['to']} 内的 {near[0]}"}
+                        break
+                    table = {**dtbl, **(table or {})}
+                    break
+
         if brand in CHROMIUM_DERIVED:
             own = table or {}
             if ver not in own:

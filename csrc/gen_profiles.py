@@ -166,6 +166,35 @@ def main():
                 direct[("edge", v)] = i
                 ua_rows.append(("edge", v, i, fp_group[i], src_mask[i], 0))
 
+    # 移动端与桌面同形态的段：直接把桌面条目也注册给移动端品牌。源码证明这些
+    # 区间里平台分支不产生差异（Firefox 115 时 SCT 与 MLKEM 都还没启用、
+    # Chrome 134 时 kPostQuantumKyber 两平台都是 True）。与 oracle/uamap.py 的
+    # load_desktop_equivalent 同一份数据、同一条判据。
+    for name in sorted(os.listdir(SEGMENTS_DIR)) if os.path.isdir(SEGMENTS_DIR) else []:
+        if not name.endswith(".json"):
+            continue
+        with open(os.path.join(SEGMENTS_DIR, name)) as f:
+            data = json.load(f)
+        mb = data["brand"]
+        if not mb.endswith("-mobile"):
+            continue
+        base = mb[: -len("-mobile")]
+        for seg in data["segments"]:
+            if not seg.get("same_as_desktop"):
+                continue
+            have = sorted(v for (b, v) in direct
+                          if b == base and seg["from"] <= v <= seg["to"])
+            if not have:
+                continue
+            for ver in range(seg["from"], seg["to"] + 1):
+                if (mb, ver) in direct:
+                    continue
+                near = min(have, key=lambda x: abs(x - ver))
+                i = direct[(base, near)]
+                direct[(mb, ver)] = i
+                ua_rows.append((mb, ver, i, fp_group[i], src_mask[i],
+                                0 if ver == near else 1))
+
     # 按源码段表补齐：段内没有直接 profile 的版本，用同段最近者。第 6 列标 1
     # 表示"来自段表"，C 侧据此报 same-seg 而不是 exact——这个区分必须保留，
     # 调用方有权知道用的是直接采到的还是段内替代的。

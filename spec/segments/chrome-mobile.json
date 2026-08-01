@@ -7,6 +7,7 @@
   "segments": [
     {
       "from": 95,
+      "same_as_desktop": true,
       "substitutable": false,
       "substitution_reason": "\u6bb5\u5185\u65e0\u5b9e\u91c7 golden",
       "tables": {
@@ -117,6 +118,7 @@
     },
     {
       "from": 97,
+      "same_as_desktop": true,
       "substitutable": true,
       "substitution_reason": "['curl_cffi'] \u5404\u81ea\u5185\u90e8\u4e00\u81f4\uff08\u5171 1 \u4e2a\u7248\u672c\uff09",
       "tables": {
@@ -224,6 +226,7 @@
     },
     {
       "from": 119,
+      "same_as_desktop": false,
       "substitutable": true,
       "substitution_reason": "['curl_cffi'] \u5404\u81ea\u5185\u90e8\u4e00\u81f4\uff08\u5171 1 \u4e2a\u7248\u672c\uff09",
       "tables": {
@@ -307,6 +310,7 @@
     },
     {
       "from": 133,
+      "same_as_desktop": true,
       "substitutable": false,
       "substitution_reason": "\u6bb5\u5185\u65e0\u5b9e\u91c7 golden",
       "tables": {
@@ -394,6 +398,7 @@
     },
     {
       "from": 141,
+      "same_as_desktop": true,
       "substitutable": false,
       "substitution_reason": "\u6bb5\u5185\u65e0\u5b9e\u91c7 golden",
       "tables": {
@@ -483,6 +488,7 @@
     },
     {
       "from": 142,
+      "same_as_desktop": true,
       "substitutable": false,
       "substitution_reason": "\u6bb5\u5185\u65e0\u5b9e\u91c7 golden",
       "tables": {
@@ -575,6 +581,7 @@
     },
     {
       "from": 153,
+      "same_as_desktop": true,
       "substitutable": false,
       "substitution_reason": "\u6bb5\u5185\u65e0\u5b9e\u91c7 golden",
       "tables": {
