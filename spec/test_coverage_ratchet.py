@@ -25,8 +25,8 @@ from oracle.uamap import UAMapper                              # noqa: E402
 # 当前水位：每个品牌允许的最大缺漏版本数。
 # 降下来后手动改小，这样"覆盖变好"是一次显式的决定而不是自动漂移。
 BASELINE = {
-    "chrome": 2,             # 71, 153 —— 段内无实采 golden
-    "chrome-mobile": 2,      # 同上
+    "chrome": 1,             # 71 —— 2018 年版本，段内无实采 golden 且二进制源不可达
+    "chrome-mobile": 1,      # 同上（153 已由 Chrome for Testing 实采补上）
     "firefox": 0,            # 已全覆盖（78/83/111/121 四份 Linux 容器实采作锚）
     "firefox-mobile": 0,     # 同上（桌面等价回落 + 145-153 派生）
     "safari": 3,             # 12-14 —— 闭源无段表，桌面侧无数据
