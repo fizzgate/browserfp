@@ -199,7 +199,60 @@ def norm_curve(name):
     return CURVE_ALIASES.get(name, f"?{name}")
 
 
-def feature_default(tag, name):
+# BASE_FEATURE 的默认值可能包在平台条件里，必须按目标平台求值。实测
+# kPostQuantumKyber：
+#     #if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_IOS)
+#       FEATURE_DISABLED_BY_DEFAULT   ← 移动端默认关
+#     #else
+#       FEATURE_ENABLED_BY_DEFAULT
+# 这正是 Android Chrome 131 不发 MLKEM 的原因（curl_cffi:chrome131_android 的
+# curves 里确实没有 0x11ec，而桌面 131 有）。不按平台求值就会把移动端推导成
+# 与桌面一样。
+PLATFORM_BUILDFLAGS = {
+    "desktop": {"IS_ANDROID": False, "IS_IOS": False, "IS_CHROMEOS": False,
+                "IS_WIN": False, "IS_MAC": True, "IS_LINUX": False},
+    "android": {"IS_ANDROID": True, "IS_IOS": False, "IS_CHROMEOS": False,
+                "IS_WIN": False, "IS_MAC": False, "IS_LINUX": False},
+}
+
+
+def _buildflag_holds(expr, platform):
+    """求值 BUILDFLAG(X) 组成的条件（只支持 || && ! 与 BUILDFLAG）。"""
+    flags = PLATFORM_BUILDFLAGS.get(platform, PLATFORM_BUILDFLAGS["desktop"])
+    e = expr
+    for name, val in flags.items():
+        e = e.replace(f"BUILDFLAG({name})", "True" if val else "False")
+    e = re.sub(r"BUILDFLAG\(\w+\)", "False", e)      # 未知平台标志一律当假
+    e = e.replace("||", " or ").replace("&&", " and ").replace("!", " not ")
+    try:
+        return bool(eval(e, {"__builtins__": {}}, {"True": True, "False": False}))
+    except Exception:
+        return False
+
+
+def _resolve_platform_block(body, platform):
+    """在 BASE_FEATURE 的默认值块里按平台挑出生效的那一行。"""
+    if "#if" not in body:
+        return body
+    active, taken, out = True, False, []
+    for line in body.splitlines():
+        t = line.strip()
+        if t.startswith("#if "):
+            active = _buildflag_holds(t[4:], platform)
+            taken = active
+        elif t.startswith("#elif "):
+            active = (not taken) and _buildflag_holds(t[6:], platform)
+            taken = taken or active
+        elif t.startswith("#else"):
+            active = not taken
+        elif t.startswith("#endif"):
+            active, taken = True, False
+        elif active:
+            out.append(line)
+    return "\n".join(out)
+
+
+def feature_default(tag, name, platform="desktop"):
     """取某个 base::Feature 的默认状态。
 
     与 Firefox 那边的 pref 求值同构：源码里写的是三元表达式，真正发什么取决于
@@ -218,16 +271,41 @@ def feature_default(tag, name):
     # None，退回"保守当作生效"，于是 CECPQ2 这类默认关闭的实验被当成真会发，
     # 段表凭空多出边界（实测 74-77、80-81 因此被切出来，而 golden 证明这些
     # 版本根本没发 CECPQ2）。
-    m = re.search(r"BASE_FEATURE\(\s*" + re.escape(name) + r"\s*,(.*?)\);", d, re.S)
-    if not m:
+    # **块内含 #if 时不能按第一个 `);` 收尾**：源码里每个平台分支各自带 `);`
+    #     #if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_IOS)
+    #                  base::FEATURE_DISABLED_BY_DEFAULT);
+    #     #else
+    #                  base::FEATURE_ENABLED_BY_DEFAULT);
+    #     #endif
+    # 按 `);` 截断只会拿到第一个分支，#else 永远读不到 —— 实测因此把桌面的
+    # kPostQuantumKyber 判成 DISABLED，与实采相反。
+    body = None
+    anchor = re.search(r"BASE_FEATURE\(\s*" + re.escape(name) + r"\s*,", d)
+    if anchor:
+        seg = d[anchor.end():anchor.end() + 800]
+        first_end = seg.find(");")
+        head = seg[:first_end] if first_end >= 0 else seg
+        # 判据只看第一个 `);` 之前有没有 #if：有才是平台分支写法，需扩到
+        # #endif；没有就是单行定义，扩过去只会读进后面别的 feature 的分支
+        # （实测 M120 因此被误判成 Android 上 ENABLED，而它根本没有平台分支）。
+        if "#if" in head:
+            stop = seg.find("#endif")
+            body = seg[:stop] if stop >= 0 else head
+        else:
+            body = head
+    if body is None:
         m = re.search(r"(?:const\s+)?base::Feature\s+" + re.escape(name)
                       + r"\s*(?:\{|=\s*\{)(.*?)\};", d, re.S)
-    if not m:
+        if not m:
+            return None
+        body = m.group(1)
+    m = type("M", (), {"group": lambda self, i: body})()
+    if not body:
         return None
-    return "FEATURE_ENABLED_BY_DEFAULT" in m.group(1)
+    return "FEATURE_ENABLED_BY_DEFAULT" in _resolve_platform_block(m.group(1), platform)
 
 
-def _is_experiment_only(text, pos, tag):
+def _is_experiment_only(text, pos, tag, platform="desktop"):
     """判断这处 curves 配置是否只在 Finch 实验下才生效。
 
     **不判这个会把实验分支当成默认行为**，整个 CECPQ2 时代都会抽错：M78 的
@@ -246,16 +324,22 @@ def _is_experiment_only(text, pos, tag):
     head = text[max(0, pos - 700):pos]
     if re.search(r"\.Get\(\)", head) and re.search(r'==\s*"', head):
         return True
+    # PostQuantumKeyAgreementEnabled() 的实现就是 IsEnabled(kPostQuantumKyber)
+    # （见 net/ssl/ssl_config_service.cc），而该 feature 在 Android/iOS 上默认
+    # 关闭。不把这层展开就判不出移动端不发后量子组。
+    if "PostQuantumKeyAgreementEnabled()" in head:
+        on = feature_default(tag, "kPostQuantumKyber", platform)
+        return on is False
     m = re.search(r"IsEnabled\(\s*features::(\w+)\s*\)", head)
     if m:
-        on = feature_default(tag, m.group(1))
+        on = feature_default(tag, m.group(1), platform)
         # 查不到默认值时保守当作"生效"——宁可多切一个段，也不要把实际会发的
         # 配置当成不存在
         return on is False
     return False
 
 
-def chromium_curves(tag):
+def chromium_curves(tag, platform="desktop"):
     """返回 (supported_groups, key_share_groups)；取不到时抛错而非给空表。"""
     for f in CHROMIUM_CURVE_FILES:
         try:
@@ -282,7 +366,7 @@ def chromium_curves(tag):
         # 且首项可能是个由 feature flag 决定的三元表达式
         m = re.search(r"(?:static\s+)?const\s+(?:int|uint16_t)\s+"
                       r"k(?:Curves|Groups)\[\]\s*=\s*\{(.*?)\};", d, re.S)
-        if m and _is_experiment_only(d, m.start(), tag):
+        if m and _is_experiment_only(d, m.start(), tag, platform):
             # 判定为实验分支：默认不生效，用 BoringSSL 默认组。直接返回而不是
             # 继续往下找——否则会掉进"有配置调用却抽不出数组"的错误分支。
             return ["boringssl-default"], []
@@ -295,7 +379,7 @@ def chromium_curves(tag):
                     r"postquantum_group\s*=\s*.*?IsEnabled\(\s*features::(\w+)\s*\)"
                     r"\s*\?\s*(\w+)\s*:\s*(\w+)", d, re.S)
                 if tern:
-                    on = feature_default(tag, tern.group(1))
+                    on = feature_default(tag, tern.group(1), platform)
                     pq = tern.group(2) if on else tern.group(3)
                     if on is None:
                         raise RuntimeError(
@@ -404,8 +488,14 @@ def alps_enabled(tag):
     return bool(feature_default(tag, "kAlpsForHttp2"))
 
 
-def extract(major):
-    """返回该 Chrome 主版本的 ClientHello 相关表。"""
+def extract(major, platform="desktop"):
+    """返回该 Chrome 主版本在指定平台下的 ClientHello 相关表。
+
+    platform="android" 时按 Android 构建求值。实测差异集中在后量子密钥交换：
+    kPostQuantumKyber 在 `#if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_IOS)` 下
+    默认关闭，所以 Android Chrome 131 的 curves 里没有 0x11ec，而桌面有
+    （curl_cffi:chrome131_android 与 chrome131 因此是两条不同记录）。
+    """
     tag, rev = boringssl_revision(major)
     src = {}
     for f in BSSL_FILES:
@@ -448,7 +538,7 @@ def extract(major):
     if not sign:
         raise RuntimeError(f"M{major}({rev[:10]}) 找不到 kSignSignatureAlgorithms，"
                            "表可能又搬家了——不要当成空列表用")
-    curves, key_shares = chromium_curves(tag)
+    curves, key_shares = chromium_curves(tag, platform)
     verify_prefs, cipher_excludes, channel_id = chromium_sig_and_cipher(tag)
     # Chrome 自 110 起随机置换扩展顺序，届时顺序不再是指纹特征
     ext_order = ordered_extensions(rev) if major < 110 else []

@@ -59,7 +59,7 @@ def golden_by_version(brand):
     MOB = re.compile(r"android|ios|ipad|iphone|mobile", re.I)
     if brand == "chrome":
         pat = r"^(\w+):(?:[Cc]hrome|[Cc]hromium)[-_]?(\d+)$"
-    elif brand == "firefox-mobile":
+    elif brand in ("firefox-mobile", "chrome-mobile"):
         pat = None            # 走下面的移动端分支
     else:
         pat = r"^(\w+):[Ff]irefox[-_]?(\d+)$"
@@ -70,11 +70,13 @@ def golden_by_version(brand):
             continue
         for alias in [rec["id"]] + rec.get("aliases", []):
             src, name = alias.split(":", 1)
-            if brand == "firefox-mobile":
+            if brand in ("firefox-mobile", "chrome-mobile"):
                 if not MOB.search(name):
                     continue
                 base = MOB.sub("", name.lower())
-                m = re.match(r"^firefox[-_]*(\d{1,3})", base)
+                want = ("firefox" if brand == "firefox-mobile"
+                        else "(?:chrome|chromium)")
+                m = re.match(r"^" + want + r"[-_]*(\d{1,3})", base)
                 if m:
                     out.setdefault(int(m.group(1)), []).append(
                         (src, _fp_key(rec["tls"])))
@@ -176,6 +178,11 @@ KEYS_BY_BRAND = {
     # 学到的发送集合过滤，那已经依赖 golden 而不是纯源码推导了。
     "chrome": ("curves", "key_share_groups", "verify_sigalgs", "verify_prefs",
                "cipher_excludes", "channel_id", "alps"),
+    # Android Chrome 与桌面同源，差异集中在后量子密钥交换（kPostQuantumKyber
+    # 在 #if BUILDFLAG(IS_ANDROID) 下默认关闭），判段字段与桌面相同，只是按
+    # android 平台求值。
+    "chrome-mobile": ("curves", "key_share_groups", "verify_sigalgs",
+                      "verify_prefs", "cipher_excludes", "channel_id", "alps"),
 }
 KEYS = KEYS_BY_BRAND["firefox"]
 
@@ -190,7 +197,8 @@ def _key(tables, brand="firefox"):
 
 EXTRACTORS = {"firefox": ff_extract,
               "firefox-mobile": lambda v: ff_extract(v, "android"),
-              "chrome": lambda v: cr_extract(int(v))}
+              "chrome": lambda v: cr_extract(int(v)),
+              "chrome-mobile": lambda v: cr_extract(int(v), "android")}
 
 
 def scan(brand, lo, hi):
@@ -269,7 +277,7 @@ def main(argv):
         span = f"{s['from']}" if s["from"] == s["to"] else f"{s['from']}–{s['to']}"
         n = s["to"] - s["from"] + 1
         t = s["tables"]
-        if brand == "chrome":
+        if brand.startswith("chrome"):
             desc = f"curves={t['curves']}  sig={len(t['sign_sigalgs'])}"
         else:
             desc = (f"ciphers={len(t['ciphers']):2d} sig={len(t['sig_algs']):2d} "
