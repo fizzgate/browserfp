@@ -41,6 +41,10 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 HERE = os.path.dirname(os.path.abspath(__file__))
 CACHE = os.path.join(HERE, "..", "spec", "cache", "chromium")
 
+# Chrome 82 从未发布：2020 年因疫情直接从 81 跳到 83。把它当成"取不到"会在
+# 段表里留一个假缺口，还会把本该连续的段切断。
+SKIPPED_MILESTONES = {82}
+
 JSD = "https://cdn.jsdelivr.net/gh"
 NPMM = "https://registry.npmmirror.com/-/binary"
 # 两个目录合起来覆盖 M70..M153；chromedriver 管老版本，chrome-for-testing 管新的
@@ -112,6 +116,8 @@ def boringssl_revision(major):
     更新，停在早期 patch 的很少）。
     """
     index = version_index()
+    if major in SKIPPED_MILESTONES:
+        raise LookupError(f"Chrome M{major} 从未发布（2020 年疫情期间跳过）")
     if major not in index:
         raise KeyError(f"M{major} 不在版本索引里（覆盖 {min(index)}..{max(index)}）")
 
@@ -124,9 +130,19 @@ def boringssl_revision(major):
             last_err = e
             continue
         m = re.search(r"boringssl_revision'?\s*:\s*'([0-9a-f]{40})'", deps)
-        if m:
-            return tag, m.group(1)
-        last_err = RuntimeError(f"{tag} 的 DEPS 里没有 boringssl_revision")
+        if not m:
+            last_err = RuntimeError(f"{tag} 的 DEPS 里没有 boringssl_revision")
+            continue
+        # curves 配置也必须在这个 tag 上能取到 —— 同一主版本的不同 patch，
+        # 文件内容可能不同（M79 的末尾 patch 就抽不到 curves，靠前的能）。
+        # 只按 DEPS 能否取到来选 tag，会让 curves 抽取在一个本可用的主版本上
+        # 整体失败，进而在段表里留下假缺口、切断本该连续的段。
+        try:
+            chromium_curves(tag)
+        except Exception as e:
+            last_err = e
+            continue
+        return tag, m.group(1)
     raise last_err
 
 
@@ -233,8 +249,21 @@ def chromium_curves(tag):
             if groups:
                 # 老版本没有 send_key_share 概念，key_share 由 BoringSSL 决定
                 return [norm_curve(g) for g in groups], []
-    raise RuntimeError(f"{tag} 找不到 curves 配置（kDefaultSSLSupportedGroups / "
-                       "kCurves 都没有）—— 配置点可能又搬家了")
+    # 走到这里有两种可能，**必须分清**：
+    #   a) Chromium 这个版本根本不配置 curves，用 BoringSSL 默认值
+    #   b) 配置点又搬家了，我们没找到
+    # 判据是有没有 SSL_set1_curves / SSL_set1_group_ids 的调用。混为一谈的话，
+    # (a) 会被当成抽取失败而在段表里留假缺口（M79 就是这种：它没有任何配置
+    # 调用，只有读取用的 SSL_get_curve_id），(b) 会被当成"没配置"而静默用错值。
+    impl = None
+    try:
+        impl = _get(f"{JSD}/chromium/chromium@{tag}/net/socket/ssl_client_socket_impl.cc",
+                    os.path.join(CACHE, tag, "ssl_client_socket_impl.cc"))
+    except Exception:
+        pass
+    if impl is not None and not re.search(r"SSL_set1_(?:curves|group_ids)\s*\(", impl):
+        return ["boringssl-default"], []
+    raise RuntimeError(f"{tag} 有 curves 配置调用但抽不出数组 —— 配置点可能又搬家了")
 
 
 def extract(major):
