@@ -20,6 +20,7 @@ import os
 import subprocess
 import sys
 import tempfile
+import time
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -128,6 +129,13 @@ def main(argv):
         print("=" * 62)
         # 结果必须并进 failed —— 只往 bad 计数会让返回码对、结尾却打印
         # "所有已跑的验证均通过"。撞过一次：第 3 层红着，总览是绿的。
+        # 第 3 层的网络门禁**共用同几个上游站点**：test_live_handshake 先打
+        # 132 次握手，紧接着 build_live 又上，容易把对方的限速窗口撞满 ——
+        # 实测出现过 build_live 报 2 个组合网络失败、单独重跑却 12/12。
+        # 这不是掩盖问题：分档判据已经能把"服务端拒绝"和"这一跳没走通"分开，
+        # 冷却只是让测量落在对方不丢包的区间里，与 build_live 内部的 PACE 同理。
+        COOLDOWN = 15
+
         for mod, label, tmo in (
                 ("spec.test_live_handshake", "对真实站点逐 profile 握手", 1800),
                 ("spec.test_build_live", "C 构造的伪装握手", 900),
@@ -135,6 +143,7 @@ def main(argv):
                 ("spec.test_version_ceiling", "扫描上限 vs 上游最新版", 300)):
             ok, tail = _run(mod, timeout=tmo)
             print(f"  {'✅' if ok else '❌'} {label}：{tail}")
+            time.sleep(COOLDOWN)
             if not ok:
                 bad += 1
                 failed.append((mod.split(".")[-1], tail))
