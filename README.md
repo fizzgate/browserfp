@@ -230,12 +230,22 @@ local r = tlsfp.by_ua("chrome", 150)
 14026 次请求），这是唯一能回答"库够不够用"的口径：
 
 ```
-exact       80.9%
-same-seg     7.3%     ← 可安全伪装合计 88.2%
+exact       82.0%
+same-seg     7.3%     ← 可安全伪装合计 89.3%
 fallback     2.9%     ← 严格模式下不伪装
-no-brand     0.3%
-unparsed     8.5%     ← 非浏览器 UA（扫描器等）
+unparsed     7.8%     ← 非浏览器 UA（扫描器、UC 浏览器、残缺 UA 等）
 ```
+
+**服务范围：只覆盖主流品牌**（Chrome / Firefox / Safari / Edge / Opera，含各自的
+移动端），其余一律返回"无指纹"而不是找个近似的顶上。OkHttp 栈、UC 浏览器、各类
+扫描器都属此列 —— 库里虽有 okhttp4_android_*、nike_android_mobile 这些条目（对
+**入站识别**有用），但它们不参与出站的 UA→profile 映射。
+
+**iOS 上的第三方浏览器按 Safari 处理**。App Store 政策强制所有 iOS 浏览器使用
+系统 WKWebView，自己不带 TLS 栈，所以 FxiOS / EdgiOS / CriOS / OPiOS 发出的
+ClientHello 就是 iOS Safari 的。版本要按 **iOS 版本**取而非它们自己的版本号——
+生产里有 `FxiOS/128.4` 跑在 iOS 15 上，用 128 去查 safari 表只会张冠李戴。
+这一条覆盖了 147 次请求。
 
 **移动端与桌面分开计**。生产里 569 次（4.1%）是移动端 UA，其中 287 次曾被映射到
 纯桌面 profile —— UA 说 Android Firefox 115、TLS 却是桌面 Firefox 102 的形态，

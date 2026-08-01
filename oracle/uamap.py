@@ -70,6 +70,13 @@ def load_segments():
             out[data["brand"]] = usable
     return out
 
+# iOS 上**所有**浏览器都被 App Store 政策强制使用系统 WKWebView，自己不带
+# TLS 栈。所以 FxiOS(Firefox)、EdgiOS(Edge)、CriOS(Chrome)、OPiOS(Opera) 发出的
+# ClientHello 就是 iOS Safari 的，版本也该按 **iOS 版本**取而不是它们自己的版本
+# 号——UA 里 FxiOS/128.4 跑在 iOS 15 上，用 128 去查 safari 表只会张冠李戴。
+IOS_THIRD_PARTY = re.compile(r"\b(?:CriOS|FxiOS|EdgiOS|OPiOS|YaBrowser)/")
+IOS_VERSION = re.compile(r"CPU (?:iPhone )?OS (\d+)[_.]")
+
 # 顺序有意义：Edge/Opera 的 UA 里也含 "Chrome/"，必须先匹配更具体的标记。
 UA_RULES = [
     ("edge",    re.compile(r"Edg(?:e|A|iOS)?/(\d+)")),
@@ -111,6 +118,12 @@ def parse_ua(ua):
     if not ua or not ua.startswith("Mozilla/"):
         return None, None
     mobile = bool(MOBILE_UA.search(ua))
+    # iOS 第三方浏览器：壳不同、TLS 栈同为系统 WebKit，一律按 iOS Safari 处理
+    if IOS_THIRD_PARTY.search(ua):
+        m = IOS_VERSION.search(ua)
+        if m:
+            return "safari-mobile", int(m.group(1))
+        return None, None
     for brand, pat in UA_RULES:
         m = pat.search(ua)
         if m:
