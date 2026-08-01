@@ -95,13 +95,39 @@ def _parse_name(name):
     return brand, ver
 
 
+def _tor_aliases():
+    """名字写成 FirefoxNNN、其实是 Tor Browser 的库条目。
+
+    **不能按名字判**：wreq 把 Tor 的指纹登记成 `Firefox128`，名字里没有 tor。
+    判据取注册表分组 —— 与带 tor 别名的条目同属一条 profile 就是同一份指纹。
+    Tor 会关掉 `network.http.http2.allow-push`，发出的 SETTINGS 与原版
+    Firefox 128 完全不同；不排除的话，firefox 128 那一格会被填成 Tor 的形态。
+    uamap 建版本表时早就排除 tor / private 了，这里同理。
+    """
+    path = os.path.join(HERE, "..", "spec", "profiles.json")
+    try:
+        with open(path) as f:
+            registry = json.load(f)
+    except Exception:
+        return set()
+    out = set()
+    for rec in registry:
+        names = [rec["id"]] + rec.get("aliases", [])
+        if any("tor" in n.split(":", 1)[1].lower() for n in names):
+            out.update(names)
+    return out
+
+
 def observed(sources=None):
     """{(brand, ver): {lib: akamai}} —— 各库对每个版本自报的 h2。"""
     sources = sources or _load_sources()
+    tor = _tor_aliases()
     out = {}
     for lib, entries in sources.items():
         for name, val in entries.items():
             if not isinstance(val, dict) or not val.get("akamai_fingerprint"):
+                continue
+            if f"{lib}:{name}" in tor:
                 continue
             key = _parse_name(name)
             if not key:
@@ -140,6 +166,17 @@ def resolve(brand, ver, obs=None, allow_source=True):
             derived = (akamai(rec), rec)
         except Exception:
             derived = None
+    elif allow_source and engine == "firefox":
+        # Gecko 有自己的推导，且**平台必须分开**：Android 的两个关键 pref 在
+        # mobile/android/app/geckoview-prefs.js 里覆盖，不是 StaticPrefList
+        # 的平台分支 —— 按平台分支求值会得出"两端一样"的错结论。
+        try:
+            from oracle.geckoh2 import akamai as gakamai, firefox_h2
+            plat = "android" if brand.endswith("-mobile") else "desktop"
+            rec = firefox_h2(ver, plat)
+            derived = (gakamai(rec), rec)
+        except Exception:
+            derived = None
 
     if len(fps) > 1:
         # 库之间冲突：交给源码裁决。裁决不了就弃权 —— 猜一个等于随机挑一个
@@ -156,7 +193,13 @@ def resolve(brand, ver, obs=None, allow_source=True):
             "akamai_fingerprint": fp,
             "settings": [list(x) for x in rec["settings"]],
             "window_update": rec["window_update"],
-            "priorities": [],
+            # **不能写死空表**。这里原来是 `[]` —— 当时只有 Chromium 推导，
+            # 而 Chrome 从不发 PRIORITY，看起来没问题。接上 Gecko 推导后
+            # Firefox 的六条分组帧被这行悄悄丢掉，而 akamai 字符串里还带着
+            # 它们，于是记录自相矛盾：字符串说有、结构化字段说没有。
+            # 表面征状是 C 侧一条 PRIORITY 都不发，
+            # 由 test_h2_build 的结构化重算抓到（akamai 比对抓不到）。
+            "priorities": [list(x) for x in (rec.get("priorities") or [])],
             "pseudo_header_order": rec["pseudo_header_order"],
         }, "源码推导"
     return None, "无库条目且源码取不到"

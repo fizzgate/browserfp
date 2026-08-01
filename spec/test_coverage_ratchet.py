@@ -45,10 +45,9 @@ H2_BASELINE = {
     "chrome": 0, "chrome-mobile": 0,
     "edge": 0, "edge-mobile": 0,
     "opera": 0, "opera-mobile": 0,
-    # 剩余缺口集中在 Gecko 与 Safari：Gecko 的 h2 参数在
-    # netwerk/protocol/http/ 与 StaticPrefList.yaml 里，还没做推导；
+    # Gecko 也做了源码推导（oracle/geckoh2.py），剩下的是取不到源码的老版本。
     # Safari 闭源，只能靠库与实采。
-    "firefox": 50, "firefox-mobile": 75,
+    "firefox": 22, "firefox-mobile": 22,
     "safari": 6, "safari-mobile": 5,
 }
 

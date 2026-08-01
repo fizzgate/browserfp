@@ -313,7 +313,7 @@ unparsed     7.8%     ← 非浏览器 UA（扫描器、UC 浏览器、残缺 UA
 
 ### h2 层：伪装是分层的，覆盖率也得分层算
 
-TLS 层覆盖 99.5%，**h2 层 79.1%**（650 个组合里 136 个没有 h2 数据）。
+TLS 层覆盖 99.5%，**h2 层 91.5%**（650 个组合里 55 个没有 h2 数据）。
 把两层合成一个数字会把后者藏起来，而"TLS 像 Chrome、h2 不像任何浏览器"恰恰是
 最容易被判的组合 —— 它显示出一个现实中不存在的形态，比不伪装更可疑。
 
@@ -406,9 +406,54 @@ M117+    {1,2,4,6}      不再发 MAX_CONCURRENT_STREAMS
 按 Safari coreTLS 那次立下的规矩先验证再使用：`test_chromium_h2` 拿各库对每个
 版本自报的 h2 当基准，**44/44 逐字节吻合**。
 
-剩余缺口集中在 Gecko（firefox 50/76、firefox-mobile 75/76）与 Safari（6/9、5/9）。
-Gecko 的 h2 参数在 `netwerk/protocol/http/` 与 `StaticPrefList.yaml` 里，路子和
-`nsssrc.py` 一样，还没做；Safari 闭源，只能靠库与实采。
+#### 从 Gecko 源码推 h2
+
+同样的办法在 Firefox 上也走通了，而且判据更完整 —— 连 PRIORITY 树都是写死的：
+
+```
+Http2Session::SendHello()   SETTINGS 按**源码书写顺序**写（不是 std::map 升序）
+  1 HEADER_TABLE_SIZE = pref default-hpack-buffer
+  if !allow-push:  2 ENABLE_PUSH = 0
+                   3 MAX_CONCURRENT = 0     ← 门是后加的，见下
+  4 INITIAL_WINDOW  = pref push-allowance
+  5 MAX_FRAME_SIZE  = kMaxFrameData = 0x4000
+  if disableRFC7540Priorities && send_NO_RFC7540_PRI:  9 = 1
+WINDOW_UPDATE = pref pull-allowance - 65535
+PRIORITY：CreatePriorityNode 的六个固定分组，只在 UseH2Deps() 时发
+```
+
+两处非平凡的判据：
+
+**MAX_CONCURRENT 的门是后加的**。128 的源码在 `!allow_push` 分支里**无条件**写
+它，132 之后才包进 `send-push-max-concurrent-frame`。所以不能只看 pref ——
+pref 不存在时按"关"处理会让 128 少发一项。判据取源码结构：分支里有没有这条
+写入、写入是不是被 pref 包着。
+
+**Android 的差异不在 StaticPrefList 里**。实测 `FirefoxAndroid135` 与
+`Firefox135` 差两处（HEADER_TABLE_SIZE 4096 vs 65536、INITIAL_WINDOW 32768 vs
+131072），而 StaticPrefList 里这两个 pref 的桌面与 Android 求值**完全相同** ——
+差异在 `mobile/android/app/geckoview-prefs.js` 的覆盖里：
+
+```
+pref("network.http.http2.default-hpack-buffer", 4096);
+pref("network.http.http2.push-allowance", 32768);
+```
+
+TLS 那边的 `nsssrc.py` 用平台构建标记就够了，h2 这边不够 —— 同一套基础设施，
+不同的坑。门禁因此**必须两个平台都验**：只验桌面的话，Android 推错了也全绿。
+
+验证 28/28 吻合，其中 12 条带 PRIORITY 树（本项目的 `linux:firefox-111-linux`
+实采是唯一能验到那棵树的样本）。
+
+**wreq 的 `Firefox128` 其实是 Tor Browser**，必须排除。它在注册表里与
+`curl_cffi:tor145` 同属一条 profile；Tor 会关掉 `allow-push`，于是发出
+`ENABLE_PUSH=0` 与 `MAX_CONCURRENT=0`，而原版 Firefox 128 的 allow-push 默认是
+`true`，那个分支根本不执行。**不能按名字判** —— 名字里没有 tor，判据得取注册表
+分组。`uamap` 建版本表时早就排除 tor / private 了，这里同理。排除表本身也有断言：
+它必须真的排除到东西，否则说明命名或分组变了、规则已失效。
+
+剩余 55 个缺口：Firefox 22/76（取不到源码的老版本）×2 平台，Safari 6/9 与
+5/9（闭源，只能靠库与实采）。
 
 ### 扫描范围本身也会过期
 
