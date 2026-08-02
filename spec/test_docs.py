@@ -109,6 +109,10 @@ def check_numbers(text):
         # 悄悄过期** —— 现状表刚被发现写着 132/132（早就变成 104/104 了），
         # 而下面的正文全是新的。凡是能由代码算出来的，就锚定住。
         "变异条数": _count_mutants(),
+        # 三方差分的条数 = 能重建出 ClientHello 的 profile 数。这条**又烂过一次**
+        # （库涨到 82 之后 README 还写着 77/77），而且是在"凡是能算的都要有门禁查"
+        # 这句话被写进 README **之后** —— 当时只改了数字，没加锚定。
+        "三方差分条数": len(registry),
     }
     # 每个事实锚定到 README 里唯一的一处表述，改动那处才会被抓到。
     for label, value in cov.items():
@@ -125,6 +129,7 @@ def check_numbers(text):
         "重建条数": r"\|\s*重建闭环（全部 profile）\s*\|\s*{v}/{v}\s*\|",
         "构造比对条数": r"\|\s*构造器比对（默认配置）\s*\|\s*{v}/{v}\s*\|",
         "变异条数": r"三份构造器互比 \+ {v} 条代码变异",
+        "三方差分条数": r"Python  ←→  C CLI       {v}/{v} 一致",
     }
     bad = []
     for label, value in facts.items():
