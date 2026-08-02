@@ -390,6 +390,14 @@ const char *tlsfp_header_order(const char *brand, int *attested) {
     return NULL;
 }
 
+const tlsfp_h2 *tlsfp_identify_h2(const char *akamai) {
+    if (!akamai) return NULL;
+    for (size_t i = 0; i < TLSFP_H2_RECORD_COUNT; i++)
+        if (strcmp(tlsfp_h2_records[i].akamai, akamai) == 0)
+            return &tlsfp_h2_records[i];
+    return NULL;
+}
+
 const char *tlsfp_h2_pseudo(const tlsfp_h2 *h) {
     return h ? h->pseudo : NULL;
 }

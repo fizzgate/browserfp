@@ -59,7 +59,13 @@ def _h2_tables():
     with open(path) as f:
         table = json.load(f)
 
+    def engine_of(brand):
+        base = brand.split("-")[0]
+        return ("chromium" if base in ("chrome", "chromium", "edge", "opera")
+                else "gecko" if base == "firefox" else "webkit")
+
     recs, index = {}, []
+    span = {}                       # akamai → (引擎集合, 最小版本, 最大版本)
     for brand in sorted(table):
         for ver in sorted(table[brand], key=int):
             r = table[brand][ver]
@@ -67,6 +73,16 @@ def _h2_tables():
             if key not in recs:
                 recs[key] = (len(recs), r)
             index.append((brand, int(ver), recs[key][0]))
+            engs, lo, hi = span.get(key, (set(), 9999, 0))
+            engs.add(engine_of(brand))
+            span[key] = (engs, min(lo, int(ver)), max(hi, int(ver)))
+
+    # **每个 akamai 只对应一个引擎** —— 这是反查有意义的前提。实测 644 个
+    # 组合归成 19 个指纹，没有一个跨引擎。哪天跨了，反查就只能报"不确定"，
+    # 而不是继续给一个引擎名。
+    mixed = {k: sorted(v[0]) for k, v in span.items() if len(v[0]) > 1}
+    if mixed:
+        raise SystemExit(f"有 akamai 跨引擎，反查不成立：{list(mixed.items())[:2]}")
 
     lines = []
     for key, (i, r) in sorted(recs.items(), key=lambda kv: kv[1][0]):
@@ -79,11 +95,12 @@ def _h2_tables():
     lines.append("static const tlsfp_h2 tlsfp_h2_records[] = {")
     for key, (i, r) in sorted(recs.items(), key=lambda kv: kv[1][0]):
         pseudo = ",".join(k[1] for k in (r.get("pseudo_header_order") or []))
+        engs, lo, hi = span[key]
         lines.append(
             f'    {{h2r{i}_set, {len(r.get("settings") or [])}, '
             f'{r.get("window_update") or 0}, '
             f'h2r{i}_prio, {len(r.get("priorities") or [])}, '
-            f'"{pseudo}", "{key}"}},')
+            f'"{pseudo}", "{key}", "{next(iter(engs))}", {lo}, {hi}}},')
     lines.append("};")
     lines.append(f"#define TLSFP_H2_RECORD_COUNT {len(recs)}")
     lines.append("")

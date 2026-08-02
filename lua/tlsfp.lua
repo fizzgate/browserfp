@@ -61,9 +61,12 @@ typedef struct {
     const uint32_t *prio;     size_t n_prio;
     const char     *pseudo;
     const char     *akamai;
+    const char     *engine;
+    uint16_t        ver_lo, ver_hi;
 } tlsfp_h2;
 
 const tlsfp_h2 *tlsfp_lookup_h2(const char *brand, uint16_t version);
+const tlsfp_h2 *tlsfp_identify_h2(const char *akamai);
 int  tlsfp_build_h2_preface(const tlsfp_h2 *h, uint8_t *out, size_t outlen);
 const char *tlsfp_h2_pseudo(const tlsfp_h2 *h);
 const char *tlsfp_header_order(const char *brand, int *attested);
@@ -319,6 +322,22 @@ function _M.ua_platform(ua)
     if type(ua) ~= "string" then return nil, "ua 必须是字符串" end
     if lib.tlsfp_ua_platform(ua, plat_buf, mob_buf) == 0 then return nil end
     return ffi.string(plat_buf[0]), ffi.string(mob_buf[0])
+end
+
+-- 按观测到的 akamai 指纹反查（入站识别）。
+--
+-- **认得出引擎，认不出版本**：实测 644 个 (品牌,版本) 只归成 19 个 akamai，
+-- 最常见的一个覆盖 223 个组合。但没有一个 akamai 跨引擎，所以 engine 是确定的；
+-- ver_lo/ver_hi 只是该指纹覆盖的版本范围，不要当成"就是这个版本"。
+--
+-- @return table{engine, ver_lo, ver_hi, akamai} 或 nil
+function _M.identify_h2(akamai)
+    if not lib then return nil, "libtlsfp.so 未加载" end
+    if type(akamai) ~= "string" then return nil, "akamai 必须是字符串" end
+    local h = lib.tlsfp_identify_h2(akamai)
+    if h == nil then return nil end
+    return {engine = ffi.string(h.engine), ver_lo = h.ver_lo,
+            ver_hi = h.ver_hi, akamai = ffi.string(h.akamai)}
 end
 
 function _M.profile_count()

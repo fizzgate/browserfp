@@ -13,6 +13,7 @@ csrc/h2cli
 csrc/hdrcli
 csrc/uachcli
 csrc/platcli
+csrc/idcli
 csrc/uacli
 csrc/snitest
 csrc/profiles.inc

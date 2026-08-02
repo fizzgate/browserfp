@@ -29,6 +29,12 @@ typedef struct {
     const uint32_t *prio;     size_t n_prio;       /* 扁平四元组 */
     const char     *pseudo;                        /* 伪头序，如 "m,a,s,p" */
     const char     *akamai;
+    /* 反查用。**h2 指纹认得出引擎，认不出版本**：实测 644 个 (品牌,版本)
+       只归成 19 个 akamai，最常见的一个覆盖 223 个组合 —— 但没有一个 akamai
+       跨引擎，所以引擎这一层是确定的。lo/hi 是该指纹覆盖的版本区间，跨品牌
+       取并集，只能当范围看，不能当"就是这个版本"。 */
+    const char     *engine;                        /* chromium / gecko / webkit */
+    uint16_t        ver_lo, ver_hi;
 } tlsfp_h2;
 
 typedef struct {
@@ -119,6 +125,11 @@ int tlsfp_build_h2_preface(const tlsfp_h2 *h, uint8_t *out, size_t outlen);
 /* (品牌, 版本) → h2 记录；没有该版本的 h2 数据时返回 NULL。
  * 版本口径与 tlsfp_lookup_ua 一致：Chromium 系衍生浏览器传内核 Chrome 版本。 */
 const tlsfp_h2 *tlsfp_lookup_h2(const char *brand, uint16_t version);
+
+/* akamai 指纹 → h2 记录（反查，用于入站识别）。认不出返回 NULL。
+ * 返回值里的 engine 是确定的，ver_lo/ver_hi 只是范围 —— 这一层的熵不足以
+ * 定位版本，调用方不该拿 ver_lo 当"就是这个版本"用。 */
+const tlsfp_h2 *tlsfp_identify_h2(const char *akamai);
 
 /* 伪头序（缩写形式，如 "m,a,s,p"）。做成函数而不是让调用方直接读结构体字段：
  * Lua 侧的 ffi.cdef 里结构体是截断声明，按偏移读后面的字段会读到垃圾。 */
