@@ -105,6 +105,15 @@ def main(argv):
     # Kyber768Draft00(0x6399) 而不含 MLKEM 的 profile，服务器会选 0x6399，
     # 我们算不出共享密钥。这是**参考实现能力不足**，与"该 profile 不可用"
     # 是两回事，混报会让口径失真——但也不能静默跳过，否则这一类会无声增长。
+    # **会话恢复态按它自己的形态验不了**：里面那张 pre_shared_key 是采集当时的
+    # 票据，我们既没有有效票据、也算不出 binder（它是对整段 transcript 的 HMAC）。
+    #
+    # 旧行为是"把 PSK 扩展整个丢掉再握手"，于是这 15 条一直是绿的 —— 但那验的
+    # 不是这条 profile，是一个被改过的形态。构造器现在会明确拒绝（注入了
+    # key_share = 真要握手），所以这里改成显式跳过并说明理由，而不是让它抛错。
+    psk = [r for r in rest if 0x0029 in (r["tls"].get("raw_extensions") or [])]
+    rest = [r for r in rest if r not in psk]
+
     KYBER, MLKEM = 0x6399, 0x11EC
     unsupported_kx = [r for r in rest
                       if KYBER in (r["tls"].get("curves") or [])
@@ -113,7 +122,7 @@ def main(argv):
 
     print(f"注册表 {len(registry)} 条：实测 {len(tls13)} 条 × {len(hosts)} 站点"
           f"；跳过 纯TLS1.2 {len(tls12)} / QUIC形态 {len(quic)} / "
-          f"参考实现缺密钥交换 {len(unsupported_kx)}\n")
+          f"会话恢复态 {len(psk)} / 参考实现缺密钥交换 {len(unsupported_kx)}\n")
 
     failures = []
     for rec in tls13:
@@ -135,6 +144,10 @@ def main(argv):
         print("\n失败：")
         for pid, host, detail in failures:
             print(f"  {pid:32s} @{host:18s} {detail}")
+    if psk:
+        print(f"\n跳过的会话恢复态（{len(psk)}）—— 没有有效票据，按它自己的形态"
+              "验不了；旧行为是丢掉 PSK 扩展再握手，那验的不是这条 profile：")
+        print("  " + " ".join(r["id"] for r in psk))
     if quic:
         print(f"\n跳过的 QUIC 形态（{len(quic)}，TCP 测试不适用）："
               + " ".join(r["id"] for r in quic))
