@@ -648,6 +648,41 @@ int tlsfp_build_client_hello_ex(const tlsfp_profile *p, const char *sni,
         if (blen) { memcpy(ext + e, body, blen); e += blen; }
     }
 
+    /* **padding（0x0015）按实际长度重算**：BoringSSL 把 ClientHello 补齐到
+       512 字节（含 4 字节握手头），超过就整个不发。照抄 profile 的后果实测过：
+       我们发的 chrome119 在对端眼里是 17 个扩展，curl_cffi 本尊是 16 个 ——
+       多出来的正是这条不该发的 padding。推导见 oracle/chbuild.py 的同名说明。 */
+    {
+        size_t no_pad = 0;
+        for (size_t i = 0; i + 4 <= e; ) {
+            uint16_t id2 = (uint16_t)((ext[i] << 8) | ext[i + 1]);
+            uint16_t n2 = (uint16_t)((ext[i + 2] << 8) | ext[i + 3]);
+            if (id2 != 0x0015) no_pad += 4 + n2;
+            i += 4 + n2;
+        }
+        if (no_pad != e) {                       /* profile 里确实有 padding */
+            size_t fixed = 4 + 2 + 32 + 1 + p->session_id_len
+                         + 2 + p->n_rawciph * 2 + 2 + 2 + no_pad;
+            uint8_t tmp[sizeof(ext)];
+            size_t o = 0;
+            for (size_t i = 0; i + 4 <= e; ) {
+                uint16_t id2 = (uint16_t)((ext[i] << 8) | ext[i + 1]);
+                uint16_t n2 = (uint16_t)((ext[i + 2] << 8) | ext[i + 3]);
+                if (id2 != 0x0015) { memcpy(tmp + o, ext + i, 4 + n2); o += 4 + n2; }
+                i += 4 + n2;
+            }
+            if (fixed + 4 <= 512) {
+                size_t need = 512 - fixed - 4;
+                if (o + 4 + need > sizeof(tmp)) return -1;
+                o += put_u16(tmp + o, 0x0015);
+                o += put_u16(tmp + o, (uint16_t)need);
+                memset(tmp + o, 0, need); o += need;
+            }
+            memcpy(ext, tmp, o);
+            e = o;
+        }
+    }
+
     size_t body_len = 2 + 32 + 1 + p->session_id_len
                     + 2 + p->n_rawciph * 2 + 2 + 2 + e;
     size_t total = 5 + 4 + body_len;

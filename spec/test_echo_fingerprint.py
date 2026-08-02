@@ -63,6 +63,9 @@ DEFAULT_PER_ENGINE = 5
 # 不对全部再打一遍，是对公开服务的克制；但**必须覆盖到每个引擎**，
 # 否则"生产那条路"只在一族浏览器上验过。
 C_PATH_PER_ENGINE = 2
+
+# 与被模仿者 A/B 的条数上限 —— 每条要额外打一次回显服务，对公开服务克制些。
+AB_LIMIT = 6
 PACE = 2.5
 
 # 这一层能验到几条、覆盖几个引擎，本身要有下限：回显服务挂掉时"0 条全绿"
@@ -204,6 +207,35 @@ def akamai_diff(want, got):
         return f"PRIORITY 不同（已按 RFC 7540 扣回线上值）：{a[2]} vs {b[2]}"
     if a[3] != b[3]:
         return f"伪头序不同：{a[3]} vs {b[3]}"
+    return None
+
+
+def curl_cffi_echo(target, host):
+    """让 **curl_cffi 本尊**打同一个回显端点，返回它的 JSON。
+
+    这一档回答的是最直白的那个问题：**我们照着某个库建模的 profile，发出去之后
+    在对端眼里跟那个库本尊是不是同一个指纹**。前面几档都是"我们与我们自己算的
+    一致"，只有这一档是"我们与被模仿者一致"。
+
+    不同于其它档，这里连字节都不是我们发的 —— curl_cffi 自己发。所以它同时验了
+    两件事：语料里那条 profile 记得对不对，以及我们的构造器复现得对不对。
+    """
+    try:
+        from curl_cffi import requests as creq
+    except ImportError:
+        return None
+    # **这一档也要重试**。实测做阴性对照时它偶发取不到，结果那次对照报成"网络档"
+    # —— 比较根本没发生，却看着像验过了。网络档不算失败是对的，但一条会偶发
+    # 消失的判据等于没有判据。
+    for attempt in range(3):
+        try:
+            r = creq.get(f"https://{host}{ECHO_PATH}", impersonate=target,
+                         timeout=25)
+            if r.status_code == 200:
+                return r.json()
+        except Exception:
+            pass
+        time.sleep(PACE)
     return None
 
 
@@ -420,6 +452,41 @@ def main(argv):
     if c_ok and len(c_engines) < MIN_ENGINES:
         bad.append(f"C 路径只覆盖了 {sorted(c_engines)} —— "
                    "生产那条路必须每个引擎都验到")
+
+    # —— 第三档：与**被模仿者本尊**比 ——
+    #
+    # 前两档都是"我们与我们自己算的一致"。这一档换个问法：同一个 target，
+    # 我们发的字节与 **curl_cffi 本尊**发的字节，在对端眼里是不是同一个指纹。
+    # 它同时验两件事：语料里那条 profile 记得对不对，我们的构造器复现得对不对。
+    # 前两档全绿而这一档红，说明我们"自洽地错着"。
+    ab_ok, ab_n = 0, 0
+    for rec in cases:
+        target = next((a.split(":", 1)[1] for a in
+                       [rec["id"]] + list(rec.get("aliases") or [])
+                       if a.startswith("curl_cffi:")), None)
+        if not target or rec["id"] not in peer_seen:
+            continue
+        if ab_n >= AB_LIMIT:
+            break
+        ab_n += 1
+        time.sleep(PACE)
+        d = curl_cffi_echo(target, host)
+        if d is None:
+            netbad.append(f"{rec['id']}: curl_cffi[{target}] 取不到回显")
+            print(f"  ⚠️ A/B  {rec['id']:16s} curl_cffi 取不到回显")
+            continue
+        theirs = (d.get("tls") or {}).get("ja4")
+        if theirs == peer_seen[rec["id"]]:
+            ab_ok += 1
+            print(f"  A/B✅            {rec['id']:16s} 与 curl_cffi[{target}] 同一指纹")
+        else:
+            bad.append(f"{rec['id']}: **与被模仿者不是同一个指纹**\n"
+                       f"      我们        {peer_seen[rec['id']]}\n"
+                       f"      curl_cffi   {theirs}\n"
+                       "      （两者都由对端计算，所以不是记法问题）")
+    print(f"\n与被模仿者 A/B  {ab_ok}/{ab_n} 条同一指纹")
+    if ab_n and ab_ok == 0:
+        bad.append("A/B 一条都没对上 —— 要么语料错了，要么构造器错了")
 
     print(f"\n{n}/{len(cases)} 条完成回显比对，覆盖引擎 {sorted(seen_engines)}")
     for b in bad:

@@ -147,6 +147,30 @@ def _build_key_share(golden_body, key_shares=None):
 # 拒绝。区分信号就是调用方有没有注入 key_share —— 注入了就说明它真要握手。
 PSK_EXT = 0x0029
 
+# padding：补齐到 512 字节（含 4 字节握手头）。见 build_client_hello 里的推导。
+PADDING_EXT = 0x0015
+PAD_TO = 512
+
+
+def ext_bytes_wo_padding(ext_bytes):
+    """从已拼好的扩展块里摘掉 padding 那一条。"""
+    out, i = b"", 0
+    while i + 4 <= len(ext_bytes):
+        eid = int.from_bytes(ext_bytes[i:i + 2], "big")
+        n = int.from_bytes(ext_bytes[i + 2:i + 4], "big")
+        if eid != PADDING_EXT:
+            out += ext_bytes[i:i + 4 + n]
+        i += 4 + n
+    return out
+
+
+def _hello_len(profile, ext_bytes):
+    """握手消息长度（含 4 字节头），用来算 padding 要补多少。"""
+    return (4 + 2 + 32 + 1 + (profile.get("session_id_len", 32) or 0)
+            + 2 + len(profile["raw_ciphers"]) * 2
+            + 1 + len(profile.get("compression", [0]))
+            + 2 + len(ext_bytes))
+
 
 def build_client_hello(profile, sni=None, key_shares=None):
     """按 profile 组装一条完整的 TLS record（含 5 字节 record 头）。
@@ -198,6 +222,31 @@ def build_client_hello(profile, sni=None, key_shares=None):
         else:
             body = bodies.get(ext_id, b"")
         ext_bytes += _u16(ext_id) + _vec(body, 2)
+
+    # **padding（0x0015）必须按实际长度重算，不能照抄 golden。**
+    #
+    # 它不是固定成分：BoringSSL 把 ClientHello 补齐到 **512 字节**（含 4 字节
+    # 握手头），超过就整个不发。本项目自己的语料就是证据 —— 同一 target 的带
+    # SNI 与 nosni 两份采集，padding 长度恰好差 18 字节（正是那个 SNI 扩展的
+    # 大小），而 chrome119 带 SNI 时**根本没有 padding**：
+    #
+    #     去pad体长 + 4 + padding = 512   （chrome100 284/224、chrome119 506/2、
+    #                                      safari153 298/210、safari180 291/217）
+    #
+    # 照抄的后果是真的：实测我们发的 chrome119 在对端眼里是 17 个扩展，而
+    # curl_cffi 本尊是 16 个 —— 多出来的正是这条不该发的 padding。前面几档门禁
+    # 全绿，因为它们比的都是"我们与我们自己算的一致"；只有与被模仿者 A/B 才看
+    # 得见。
+    #
+    # 这也意味着 **JA4 会随 SNI 长度变化**，那正是真浏览器的行为。
+    if PADDING_EXT in ext_order:
+        fixed = _hello_len(profile, ext_bytes_wo_padding(ext_bytes))
+        need = PAD_TO - fixed - 4
+        if need < 0:
+            ext_bytes = ext_bytes_wo_padding(ext_bytes)
+        else:
+            ext_bytes = ext_bytes_wo_padding(ext_bytes)
+            ext_bytes += _u16(PADDING_EXT) + _vec(b"\x00" * need, 2)
 
     hello = b""
     hello += _u16(profile.get("client_version", 0x0303))

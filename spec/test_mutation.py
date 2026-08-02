@@ -84,6 +84,12 @@ MUTANTS = [
      ["test_keyshare"],
      "注入 key_share（=真要握手）时必须拒绝会话恢复态 profile"),
 
+    ("padding:照抄 golden 不重算", "oracle/chbuild.py",
+     "    if PADDING_EXT in ext_order:",
+     "    if False:",
+     ["test_keyshare", "test_build_parity"],
+     "padding 要按实际长度补齐到 512，超过就不发（照抄会多一个扩展）"),
+
     ("ECH:照抄 golden 的 config_id", "oracle/chbuild.py",
      '            body = grease_ech(bodies.get(ext_id, b""))',
      '            body = bodies.get(ext_id, b"")',
