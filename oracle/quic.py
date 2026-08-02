@@ -167,6 +167,17 @@ def reassemble_client_hello(crypto_chunks):
         raise QuicError(f"CRYPTO 有空洞，收到 {sum(seen)}/{total} 字节")
     if not buf or buf[0] != 0x01:
         raise QuicError(f"不是 ClientHello（handshake type={buf[0] if buf else None}）")
+    # **"没有空洞"不等于"收齐了"**：末尾片段还没到时，已收到的部分之间同样
+    # 没有空洞，于是会"成功"重组出一条被截断的 ClientHello。Chromium 把整条
+    # 塞进一个 Initial，所以这个缺陷一直没暴露；Firefox 会拆成多个 Initial，
+    # 第一个包单独看就是"无空洞但只有 1209 字节，而消息声称 1405"。
+    # 握手消息长度就在第 1..3 字节，拿它当收齐的判据。
+    if len(buf) < 4:
+        raise QuicError("CRYPTO 数据不足 4 字节，读不出握手消息长度")
+    want = 4 + int.from_bytes(buf[1:4], "big")
+    if len(buf) < want:
+        raise QuicError(f"ClientHello 未收齐：已有 {len(buf)}/{want} 字节，"
+                        "等后续 Initial 包")
     return bytes([0x16, 0x03, 0x01]) + struct.pack(">H", len(buf)) + bytes(buf)
 
 
