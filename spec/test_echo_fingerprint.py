@@ -521,12 +521,30 @@ def main(argv):
             print(f"  ⚠️ A/B  {rec['id']:16s} {lib} 取不到回显")
             continue
         theirs = (d.get("tls") or {}).get("ja4")
-        if theirs == peer_seen[rec["id"]]:
+        ours_ja4 = peer_seen[rec["id"]]
+        # **带 ECH 的 profile 本来就有两个 JA4**：ECH 体长每连接从
+        # {186,218,250,282} 随机取，它进总长、总长决定 padding 补不补，于是扩展
+        # 数在 16/17 之间跳（实测真机 16 次得到 10:6 两个值）。A/B 各取一个样本，
+        # 约一半概率对不上 —— 那是**门禁的抖动，不是缺陷**，而抖动的门禁比没有
+        # 更糟：它会被无视。
+        #
+        # 按已知机理精确豁免：**两个哈希段必须完全相同**，只允许扩展计数差 1，
+        # 且该 profile 确实带 ECH。差在别处、或哈希段不同，照样红。
+        if theirs != ours_ja4 and 0xFE0D in (rec["tls"].get("raw_extensions") or []):
+            a_pre, a_b, a_c = ours_ja4.split("_")
+            b_pre, b_b, b_c = theirs.split("_")
+            same_hash = (a_b, a_c) == (b_b, b_c)
+            cnt_a, cnt_b = a_pre[4:8], b_pre[4:8]
+            if (same_hash and a_pre[:4] == b_pre[:4] and a_pre[8:] == b_pre[8:]
+                    and cnt_a[:2] == cnt_b[:2]
+                    and abs(int(cnt_a[2:]) - int(cnt_b[2:])) == 1):
+                theirs = ours_ja4        # 已知的 ECH 长度抖动，不是不一致
+        if theirs == ours_ja4:
             ab_ok += 1
             print(f"  A/B✅            {rec['id']:16s} 与 {lib}[{target}] 同一指纹")
         else:
             bad.append(f"{rec['id']}: **与被模仿者不是同一个指纹**\n"
-                       f"      我们        {peer_seen[rec['id']]}\n"
+                       f"      我们        {ours_ja4}\n"
                        f"      {lib:11s} {theirs}\n"
                        "      （两者都由对端计算，所以不是记法问题）")
     print(f"\n与被模仿者 A/B  {ab_ok}/{ab_n} 条同一指纹")
