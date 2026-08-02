@@ -21,7 +21,7 @@
 | 层 | 判据来自 | 结果 |
 |---|---|---|
 | 算法 | FoxIO 的 JA4 规范官方向量 | 逐字符一致 |
-| 构造 | 三份构造器互比 + 27 条代码变异 | 全绿 |
+| 构造 | 三份构造器互比 + 31 条代码变异 | 全绿 |
 | 每连接变化 | 三个引擎的真机连采（逐扩展比内容） | 变化谱一致 |
 | 线上可用 | 真实站点握手 | 104/104（52 profile × 2 站点，2026-08-02 实测）|
 | 对端视角 | 第三方指纹回显服务 | 37/37；生产字节 8/8（2026-08-02 实测）|
@@ -120,9 +120,20 @@ C 侧的构造器 `tlsfp_build_client_hello()` 与库里其他函数一样是**�
 非阻塞**的，可直接在 nginx worker 里调。Lua 侧一步到位：
 
 ```lua
-local rec, prof = tlsfp.client_hello("chrome", 151, "example.com")
+-- 先问这个 profile 要哪些组的密钥（组是 profile 决定的，逐版本不同）
+local groups = tlsfp.key_share_groups("chrome", 151)   -- {{group=0x11ec,len=1216},…}
+local ks = {}
+for _, g in ipairs(groups) do ks[g.group] = my_keygen(g.group) end
+
+local rec, prof = tlsfp.client_hello("chrome", 151, "example.com", ks)
 -- rec 是可直接 sock:send() 的完整 TLS record
 ```
+
+**`key_shares` 是必填的。** 不给、少给一组、长度不对、多给一个 profile 里没有的
+组 —— 五种都当场返回 `nil, err`，不会"用默认值凑合"。原因见下面 key_share 那节：
+凑合出来的字节所有指纹字段都对、JA4/JA3 全绿，只有服务端算共享密钥时才炸，而
+报错指向"解密失败"，与真因隔着两层。`test_lua_keyshare` 把这 8 条边界逐个验，
+并断言报错内容指向真因而不是底层那句"组装失败"。
 
 两个设计要点：
 
@@ -316,6 +327,22 @@ C       照抄 golden 整段
 顺带一条门禁自身的教训：做阴性对照时，把形状退化成只剩 GREASE，构造器直接抛
 `ValueError` 把整条门禁**打死**，后面的检查一条都没跑。**门禁应该报告，不该崩** ——
 崩掉时你只看得到一个 traceback，看不到"哪几条不符"。
+
+##### 修完之后，生产接口上并没有它
+
+上面这些都做在 Python 与 C 的构造器里，`test_keyshare` 全绿。但 `lua/tlsfp.lua`
+的 `client_hello()` 调的是**不带注入参数的那个 C 入口** —— 于是生产接口发出去的
+仍然是 golden 里那把采集机公钥。实测确认过：Lua 发的 `0x001d` 公钥与 golden
+逐字节相同。
+
+**这与 VERBATIM 默认值那次是同一类**（见"默认值要选错了会响的那个"）：能力做在
+库里，出口没接上，而所有指纹门禁照样全绿 —— **JA4 和 JA3 都不看 key_share 的
+公钥内容**。这一类的共同点是"改动落在实现上、没落在调用链上"，判据只能是
+**从生产入口回打一遍**，不能看实现里写没写。
+
+现在 Lua 侧多了 `key_share_groups()`（问该为哪些组生成密钥）与必填的
+`key_shares` 参数，`test_lua_keyshare` 从生产入口出发验注入是否真落到线上字节里，
+六个代码变异逐个确认它会红。
 
 #### GREASE ECH：同一族的第二处，而且更险
 

@@ -179,6 +179,12 @@ int tlsfp_build_client_hello_ex(const tlsfp_profile *p, const char *sni,
                                 unsigned flags,
                                 uint8_t *out, size_t outlen);
 
+/* profile 的 key_share 要哪些组、每条多长（GREASE 那条不列 —— 它的内容由库
+ * 自己按 RFC 8701 填）。调用方据此生成密钥；**猜组是错的**，组不在 profile 里
+ * 时 _ex 会直接报错而不是将就。返回写入的条数。 */
+size_t tlsfp_key_share_groups(const tlsfp_profile *p, uint16_t *groups,
+                              size_t *lens, size_t max);
+
 /* 等价于 ks=NULL 的 _ex —— 见上面关于"不能拿去真握手"的说明。 */
 int tlsfp_build_client_hello(const tlsfp_profile *p, const char *sni,
                              const uint8_t *random32, const uint8_t *session_id,

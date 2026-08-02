@@ -202,6 +202,34 @@ MUTANTS = [
      ["test_registry_fresh", "test_rebuild", "test_derive"],
      "集合类字段要排序后才能当去重键，否则同一指纹被拆成多条"),
 
+    # —— 生产接口（Lua）这一层。**能力做在库里、出口没接上**是本项目撞过两次
+    # 的形态（另一次是 C 构造器默认 VERBATIM），所以这四条从生产入口回打。
+    ("Lua:client_hello 不注入 key_share", "lua/tlsfp.lua",
+     "                                              ks_buf, n_ks,",
+     "                                              nil, 0,",
+     ["test_lua_keyshare"],
+     "生产接口发出去的公钥必须是调用方注入的，不是采集机那把"),
+
+    ("Lua:少给一组时零填充凑合", "lua/tlsfp.lua",
+     '        if type(pub) ~= "string" then\n'
+     '            return nil, string.format("key_share 缺组 0x%04x（或不是字符串）", g)\n'
+     '        end',
+     '        if type(pub) ~= "string" then pub = string.rep("\\0", tonumber(ks_len[i])) end',
+     ["test_lua_keyshare"],
+     "key_shares 少给一组必须报错，不能凑合出握不上手的字节"),
+
+    ("Lua:多给的组静默丢掉", "lua/tlsfp.lua",
+     "        if not listed then",
+     "        if false then",
+     ["test_lua_keyshare"],
+     "profile 里没有的组要报错——静默丢会让调用方以为注入成功了"),
+
+    ("Lua:组查询漏掉最后一组", "lua/tlsfp.lua",
+     "    for i = 0, tonumber(want) - 1 do\n        local g = tonumber(ks_grp[i])",
+     "    for i = 0, tonumber(want) - 2 do\n        local g = tonumber(ks_grp[i])",
+     ["test_lua_keyshare"],
+     "key_share 的每一个非 GREASE 组都要被注入，漏一组就有一把旧公钥上线"),
+
     ("JA4T:不取 window scale", "oracle/ja4t.py",
      "        elif kind == OPT_WSCALE and len(val) == 1:",
      "        elif False:",

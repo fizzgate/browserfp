@@ -455,6 +455,25 @@ static size_t put_u16(uint8_t *p, uint16_t v) {
     p[0] = (uint8_t)(v >> 8); p[1] = (uint8_t)v; return 2;
 }
 
+size_t tlsfp_key_share_groups(const tlsfp_profile *p, uint16_t *groups,
+                              size_t *lens, size_t max) {
+    if (!p) return 0;
+    for (size_t i = 0; i < p->n_rawext; i++) {
+        if (p->rawext[i] != 0x0033) continue;
+        const uint8_t *b = p->extblob + p->extoff[i];
+        uint16_t blen = p->extlen[i];
+        size_t n = 0, j = 2;
+        while (j + 4 <= blen && n < max) {
+            uint16_t g = (uint16_t)((b[j] << 8) | b[j + 1]);
+            uint16_t l = (uint16_t)((b[j + 2] << 8) | b[j + 3]);
+            if (!tlsfp_is_grease(g)) { groups[n] = g; lens[n] = l; n++; }
+            j += 4 + l;
+        }
+        return n;
+    }
+    return 0;
+}
+
 int tlsfp_build_client_hello(const tlsfp_profile *p, const char *sni,
                              const uint8_t *random32, const uint8_t *session_id,
                              uint8_t *out, size_t outlen) {

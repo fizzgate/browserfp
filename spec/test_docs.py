@@ -57,6 +57,19 @@ def _count_mutants():
     return len(_re.findall(r"^    \(\"", body, _re.M))
 
 
+def _count_reject_paths():
+    """数 test_lua_keyshare 里验了几条拒绝路径。
+
+    README 写"把这七条边界逐个验"。这个数字**能从代码算出来**，所以按本文件
+    开头那条规矩必须锚定 —— 项目里已经有三处"改了数字没加锚定"的先例，
+    全是靠后来偶然发现的。
+    """
+    import re as _re
+    src = open(os.path.join(HERE, "test_lua_keyshare.py")).read()
+    body = src[src.index('for i, name, want in (('):]
+    return len(_re.findall(r"\(\d+, \"", body[:body.index("):")]))
+
+
 def check_numbers(text):
     """关键数字必须与 profiles.json 实算一致。
 
@@ -113,6 +126,7 @@ def check_numbers(text):
         # （库涨到 82 之后 README 还写着 77/77），而且是在"凡是能算的都要有门禁查"
         # 这句话被写进 README **之后** —— 当时只改了数字，没加锚定。
         "三方差分条数": len(registry),
+        "拒绝路径条数": _count_reject_paths(),
     }
     # 每个事实锚定到 README 里唯一的一处表述，改动那处才会被抓到。
     for label, value in cov.items():
@@ -130,6 +144,7 @@ def check_numbers(text):
         "构造比对条数": r"\|\s*构造器比对（默认配置）\s*\|\s*{v}/{v}\s*\|",
         "变异条数": r"三份构造器互比 \+ {v} 条代码变异",
         "三方差分条数": r"Python  ←→  C CLI       {v}/{v} 一致",
+        "拒绝路径条数": r"把这\s*{v}\s*条边界逐个验",
     }
     bad = []
     for label, value in facts.items():

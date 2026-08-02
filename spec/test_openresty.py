@@ -103,7 +103,17 @@ http {
                 local tlsfp = require "tlsfp"
                 tlsfp.load("/app/csrc/libtlsfp.so")
                 local a = ngx.req.get_uri_args()
-                local rec, prof = tlsfp.client_hello(a.brand, tonumber(a.version), a.sni)
+                -- 生产调用的完整形状：先问该产哪些组的密钥，再把公钥交回去。
+                -- 这里填的是常数字节而不是真密钥 —— 本门禁只验"注入有没有落到
+                -- 线上字节里"，密钥的合法性由 test_live_handshake 在真握手里验。
+                local groups, gerr = tlsfp.key_share_groups(a.brand, tonumber(a.version))
+                if not groups then ngx.say("ERR\\t" .. tostring(gerr)) return end
+                local ks = {}
+                for _, g in ipairs(groups) do
+                    ks[g.group] = string.rep(string.char(0xab), g.len)
+                end
+                local rec, prof = tlsfp.client_hello(a.brand, tonumber(a.version),
+                                                     a.sni, ks)
                 if not rec then
                     ngx.say("ERR\\t" .. tostring(prof))
                 else
@@ -147,18 +157,48 @@ def _build_linux_so(workdir):
     return "ELF" in out.stdout, out.stdout.strip()[:80]
 
 
+PAD_EXT, PAD_TO = 0x0015, 512
+
+
+def _pad_diffs(raw, fp, golden):
+    """按字段比 golden，但把 padding 扩展单独拿出来按规则验。
+
+    padding（0x0015）**本来就该随连接出现或消失**：BoringSSL 只在 ClientHello
+    长度落在 [256, 512) 时补齐到 512。而出网口径下 GREASE ECH 的体长每连接在
+    {186,218,250,282} 里随机取，正好能把总长推过 512 —— 实测 curl_cffi:chrome119
+    这条 40 次构造里 11 次带 padding、29 次不带，两种都是对的。
+
+    所以这里不能直接拿 extensions_ordered 比 golden（golden 只是其中一次采样），
+    但也不能一豁免了事。做法是：集合比对时扣掉 0x0015，再**单独断言长度规则成立**
+    —— 带 padding 就必须正好 512，不带就必须落在 [256,512) 之外。这比豁免严，
+    padding 算错（比如照抄 golden 的固定长度）照样会被抓住。
+    """
+    from oracle.coverage import FIELDS, SET_FIELDS
+
+    def norm(t, fl):
+        v = t.get(fl)
+        if fl == "extensions_ordered":
+            v = [e for e in (v or []) if e != PAD_EXT]
+        return sorted(v) if fl in SET_FIELDS and v else v
+
+    diffs = [fl for fl in FIELDS if norm(fp, fl) != norm(golden, fl)]
+
+    hlen = len(raw) - 5                       # 去掉 record 头
+    has = PAD_EXT in (fp.get("extensions_ordered") or [])
+    if has and hlen != PAD_TO:
+        diffs.append(f"padding 在场但总长 {hlen} != {PAD_TO}")
+    if not has and 256 <= hlen < PAD_TO:
+        diffs.append(f"总长 {hlen} 落在 [256,{PAD_TO}) 却没补 padding")
+    return diffs
+
+
 def _check_client_hello(opener, mapper):
     """在真 worker 里调 client_hello，解析回来与 golden 逐字段比。"""
     import json as _json
     from oracle.clienthello import fingerprint
-    from oracle.coverage import FIELDS, SET_FIELDS
 
     with open(os.path.join(HERE, "profiles.json")) as f:
         by_id = {r["id"]: r for r in _json.load(f)}
-
-    def norm(t, fl):
-        v = t.get(fl)
-        return sorted(v) if fl in SET_FIELDS and v else v
 
     bad = []
     for brand, ver in (("chrome", 151), ("firefox", 153),
@@ -184,9 +224,34 @@ def _check_client_hello(opener, mapper):
         except Exception as e:
             bad.append(f"{brand} {ver}: 构造的字节解析失败 {type(e).__name__}")
             continue
-        diff = [fl for fl in FIELDS if norm(fp, fl) != norm(rec["tls"], fl)]
+        diff = _pad_diffs(bytes.fromhex(hexs), fp, rec["tls"])
         if diff:
             bad.append(f"{brand} {ver}: 与 {pid} 差 {diff[:3]}")
+
+        # **注入必须真的落到线上字节里**。指纹字段全对也证明不了这一条 ——
+        # JA4/JA3 都不看公钥内容，采集机那把旧公钥能让所有指纹门禁全绿，
+        # 而握手在服务端算共享密钥时才失败。这里逐组比公钥本身。
+        from oracle.clienthello import parse_client_hello, is_grease
+        hb = parse_client_hello(bytes.fromhex(hexs))["extension_bodies"].get(0x0033)
+        if hb is None:
+            bad.append(f"{brand} {ver}: 构造的字节里没有 key_share")
+            continue
+        body = bytes.fromhex(hb)
+        i, seen = 2, 0
+        while i + 4 <= len(body):
+            g = int.from_bytes(body[i:i + 2], "big")
+            ln = int.from_bytes(body[i + 2:i + 4], "big")
+            pub = body[i + 4:i + 4 + ln]
+            if not is_grease(g):
+                seen += 1
+                if pub != b"\xab" * ln:
+                    bad.append(f"{brand} {ver}: 组 0x{g:04x} 发的不是注入的公钥"
+                               f"（前 8 字节 {pub[:8].hex()}）—— 采集机那把旧公钥"
+                               "握不上手")
+            i += 4 + ln
+        if seen == 0:
+            bad.append(f"{brand} {ver}: key_share 里一个非 GREASE 组都没有，"
+                       "上面的逐组比对等于没比")
     return bad
 
 
@@ -270,14 +335,9 @@ def _check_concurrency(port, rounds=60):
     import json as _json
     import urllib.request as _u
     from oracle.clienthello import fingerprint
-    from oracle.coverage import FIELDS, SET_FIELDS
 
     with open(os.path.join(HERE, "profiles.json")) as f:
         by_id = {r["id"]: r for r in _json.load(f)}
-
-    def norm(t, fl):
-        v = t.get(fl)
-        return sorted(v) if fl in SET_FIELDS and v else v
 
     cases = [("chrome", 151), ("firefox", 135), ("safari", 26),
              ("chrome-mobile", 132), ("edge", 140)]
@@ -306,7 +366,7 @@ def _check_concurrency(port, rounds=60):
             except Exception as e:
                 bad.append(f"{brand} {ver}: 字节解析失败 {type(e).__name__}")
                 continue
-            diff = [fl for fl in FIELDS if norm(fp, fl) != norm(rec["tls"], fl)]
+            diff = _pad_diffs(bytes.fromhex(hexs), fp, rec["tls"])
             if diff:
                 bad.append(f"{brand} {ver}: 并发下拿到的字节与 {pid} 差 "
                            f"{diff[:3]} —— 共享缓冲被别的请求串了")

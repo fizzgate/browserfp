@@ -55,6 +55,14 @@ int  tlsfp_ja4(const tlsfp_hello *h, char transport, char *out, size_t outlen);
 int  tlsfp_build_client_hello(const tlsfp_profile *p, const char *sni,
                               const uint8_t *random32, const uint8_t *session_id,
                               uint8_t *out, size_t outlen);
+typedef struct { uint16_t group; const uint8_t *pub; size_t pub_len; } tlsfp_keyshare;
+int  tlsfp_build_client_hello_ex(const tlsfp_profile *p, const char *sni,
+                                 const uint8_t *random32, const uint8_t *session_id,
+                                 const tlsfp_keyshare *ks, size_t n_ks,
+                                 unsigned flags,
+                                 uint8_t *out, size_t outlen);
+size_t tlsfp_key_share_groups(const tlsfp_profile *p, uint16_t *groups,
+                              size_t *lens, size_t max);
 typedef struct {
     const uint32_t *settings; size_t n_settings;
     uint32_t        window;
@@ -183,9 +191,30 @@ end
 -- 拿到自己的字节，其余拿到别的品牌的、甚至解析都失败。
 -- 往这几行之后加代码时，先问一句"这里会不会让出"。
 local ch_buf   = ffi.new("uint8_t[16384]")
+local ks_buf   = ffi.new("tlsfp_keyshare[8]")
+local ks_grp   = ffi.new("uint16_t[8]")
+local ks_len   = ffi.new("size_t[8]")
 local h2_buf = ffi.new("uint8_t[?]", 8192)
 local rnd_buf  = ffi.new("uint8_t[32]")
 local sid_buf  = ffi.new("uint8_t[32]")
+
+--- 这个 profile 的 key_share 要哪些组、每组公钥多少字节。
+-- **调用方必须先问这个再去生成密钥**：组是 profile 决定的，不同浏览器、不同版本
+-- 差别很大（X25519 / P-256 / X25519MLKEM768 都出现过），照着某一个写死必然有
+-- profile 对不上。GREASE 那条不列 —— 它的内容由库自己按 RFC 8701 填。
+-- @return 数组 {{group=…, len=…}, …}  或 nil, err
+function _M.key_share_groups(brand, version)
+    if not lib then return nil, "libtlsfp.so 未加载" end
+    local p = lib.tlsfp_lookup_ua(brand, version, conf_buf)
+    if p == nil then return nil, "无可用 profile" end
+    local n = lib.tlsfp_key_share_groups(p, ks_grp, ks_len, 8)
+    local out = {}
+    for i = 0, tonumber(n) - 1 do
+        out[#out + 1] = { group = tonumber(ks_grp[i]), len = tonumber(ks_len[i]) }
+    end
+    return out
+end
+
 
 --- 按 UA 选出指纹并组装 ClientHello 字节，供 cosocket 直接发出。
 -- **伪装链的最后一环**：查表只拿到 profile，得把它变成真正的字节。
@@ -194,14 +223,22 @@ local sid_buf  = ffi.new("uint8_t[32]")
 -- ClientHello 逐字节相同，比不伪装还容易被判。这里用 resty.random 取强随机；
 -- 不在 OpenResty 环境时退回 math.random（仅供离线自测，**不要用于生产**）。
 --
+-- key_shares **是必填的**，且必须盖满 key_share_groups() 列出的每一组。缺一组
+-- 时发出去的是采集那台机器的公钥，我们没有对应私钥 —— 握手一定失败，而报错会
+-- 指向"共享密钥算错"，与真因毫无关系。所以这里宁可当场报错，不给默认值。
+--
 -- @param brand    品牌，移动端传 "<brand>-mobile"
 -- @param version  主版本；Chromium 系衍生浏览器传 UA 里 Chrome/ 的版本号
 -- @param sni      目标域名，必须给 —— 少了它多租户站点直接 handshake_failure
+-- @param key_shares  {[组号] = 公钥字符串}，长度须与 key_share_groups() 给的一致
 -- @return record 字符串, profile 信息表；失败返回 nil, err
-function _M.client_hello(brand, version, sni)
+function _M.client_hello(brand, version, sni, key_shares)
     if not lib then return nil, "libtlsfp.so 未加载" end
     if type(sni) ~= "string" or sni == "" then
         return nil, "必须提供 sni：多租户站点缺 SNI 会直接 handshake_failure"
+    end
+    if type(key_shares) ~= "table" then
+        return nil, "必须提供 key_shares：否则发的是采集机的公钥，握不上手"
     end
     local prof, err, conf = _M.by_ua(brand, version)
     if not prof then return nil, err or "无可用 profile" end
@@ -222,8 +259,48 @@ function _M.client_hello(brand, version, sni)
 
     local p = lib.tlsfp_lookup_ua(brand, version, conf_buf)
     if p == nil then return nil, "profile 已失效" end
-    local n = lib.tlsfp_build_client_hello(p, sni, rnd_buf, sid_buf,
-                                           ch_buf, ffi.sizeof(ch_buf))
+    -- 组必须**盖满**。C 侧只查"给进来的组在不在 profile 里"（多给会报错），
+    -- 查不了"少给" —— 少给的那组会安静地沿用采集机的公钥。这一侧补上。
+    local n_ks = 0
+    local hold = {}
+    local want = lib.tlsfp_key_share_groups(p, ks_grp, ks_len, 8)
+    for i = 0, tonumber(want) - 1 do
+        local g = tonumber(ks_grp[i])
+        local pub = key_shares[g]
+        if type(pub) ~= "string" then
+            return nil, string.format("key_share 缺组 0x%04x（或不是字符串）", g)
+        end
+        if #pub ~= tonumber(ks_len[i]) then
+            return nil, string.format("key_share 组 0x%04x 公钥应为 %d 字节，给了 %d",
+                                      g, tonumber(ks_len[i]), #pub)
+        end
+        local buf = ffi.new("uint8_t[?]", #pub)
+        ffi.copy(buf, pub, #pub)
+        hold[#hold + 1] = buf                -- 防止 GC 在 FFI 调用前回收
+        ks_buf[n_ks].group = g
+        ks_buf[n_ks].pub = buf
+        ks_buf[n_ks].pub_len = #pub
+        n_ks = n_ks + 1
+    end
+    -- 多给的组要报错，不能静默丢。**"以为注入了、其实没有"是最难查的一种**：
+    -- 字节合法、指纹全对，只有服务端算共享密钥时才炸。GREASE 那条也算多给 ——
+    -- 它的内容按 RFC 8701 由库自己填，注入进去等于把伪装做坏了。
+    for g in pairs(key_shares) do
+        if type(g) ~= "number" then
+            return nil, "key_shares 的键必须是组号（数字），拿到 " .. type(g)
+        end
+        local listed = false
+        for i = 0, tonumber(want) - 1 do
+            if tonumber(ks_grp[i]) == g then listed = true break end
+        end
+        if not listed then
+            return nil, string.format("key_shares 里的组 0x%04x 不在这个 profile 的 "
+                                      .. "key_share 里，注入会被丢掉", g)
+        end
+    end
+    local n = lib.tlsfp_build_client_hello_ex(p, sni, rnd_buf, sid_buf,
+                                              ks_buf, n_ks,
+                                              0, ch_buf, ffi.sizeof(ch_buf))
     if n < 0 then return nil, "组装失败（缓冲区不足或 profile 缺重建字段）" end
     return ffi.string(ch_buf, n), prof
 end
