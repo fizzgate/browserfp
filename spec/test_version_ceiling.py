@@ -19,6 +19,7 @@ chromiumdash.appspot.com、googlechromelabs.github.io）DNS 能解析但连不�
 
 import json
 import os
+import re
 import sys
 import urllib.request
 
@@ -63,17 +64,48 @@ def fetch_latest(brand, timeout=20):
     return None, "；".join(tried) if tried else "没有配置版本源"
 
 
+def local_versions():
+    """本机已装浏览器的版本 —— **上游源被挡时唯一可达的判据**。
+
+    它不是"上游最新"，是一个**下界**：本机那台浏览器是真实发布过的，所以扫描
+    上限至少不能低于它。用途很实际 —— 用户的 Chrome 自动更新到了我们表外的版本，
+    这条会先发现。
+
+    Google 的三个版本源在本机全部连不上（curl 也取不到，不是我们的装置问题），
+    于是**最重要的那个品牌永远查不到**。有一个可达的下界，比完全没有强。
+    """
+    from oracle.capture_browser import BROWSERS, browser_version
+    out = {}
+    for brand, path in BROWSERS.items():
+        if not os.path.exists(path):
+            continue
+        v = browser_version(path)
+        m = re.search(r"(\d+)\.", str(v or ""))
+        if m:
+            out[brand] = (int(m.group(1)), str(v).strip())
+    return out
+
+
 def main():
     print("扫描上限 vs 上游最新稳定版\n")
     stale, skipped = [], []
+    local = local_versions()
     for brand in sorted(FEEDS):
         if brand not in TARGETS:
             continue
         hi = TARGETS[brand][2]
         latest, info = fetch_latest(brand)
         if latest is None:
-            skipped.append((brand, info))
-            print(f"  ？ {brand:16s} 上限 {hi:>3}   取不到上游版本")
+            # 上游取不到时退到**本机已装版本**这个下界。它回答不了"上游最新是
+            # 多少"，但能回答"有没有落后于一台真实存在的浏览器"。
+            lv = local.get(brand)
+            if lv and hi < lv[0]:
+                stale.append((brand, hi, lv[0], f"本机已装：{lv[1]}"))
+                print(f"  ❌ {brand:16s} 上限 {hi:>3}   本机已装 {lv[0]}（上游取不到）")
+            else:
+                skipped.append((brand, info))
+                extra = f"，本机已装 {lv[0]}（未超上限）" if lv else ""
+                print(f"  ？ {brand:16s} 上限 {hi:>3}   取不到上游版本{extra}")
             continue
         mark = "✅" if hi >= latest else "❌"
         print(f"  {mark} {brand:16s} 上限 {hi:>3}   上游最新 {latest}")
