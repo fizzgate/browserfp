@@ -117,7 +117,11 @@ def synthetic_profile():
 def check_end_to_end():
     """端到端：向量字段 → ClientHello 字节 → Python / C 各算一遍。"""
     bad = []
-    raw = build_client_hello(synthetic_profile(), sni="example.com")
+    # **不重算 padding**：向量描述的是一条给定的 ClientHello，扩展列表就是它
+    # 列的那 16 个。按长度重算会把 0x0015 丢掉（合成报文很短），于是"验不过
+    # 官方向量"——而问题出在我们改写了判据本身。
+    raw = build_client_hello(synthetic_profile(), sni="example.com",
+                             recompute_padding=False)
     py = fingerprint(raw)["ja4"]
     mark = "✅" if py == WANT_JA4 else "✗"
     print(f"  {mark} Python  {py}")

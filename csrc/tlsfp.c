@@ -649,9 +649,11 @@ int tlsfp_build_client_hello_ex(const tlsfp_profile *p, const char *sni,
     }
 
     /* **padding（0x0015）按实际长度重算**：BoringSSL 把 ClientHello 补齐到
-       512 字节（含 4 字节握手头），超过就整个不发。照抄 profile 的后果实测过：
-       我们发的 chrome119 在对端眼里是 17 个扩展，curl_cffi 本尊是 16 个 ——
-       多出来的正是这条不该发的 padding。推导见 oracle/chbuild.py 的同名说明。 */
+       512 字节（含 4 字节握手头），**只在 256..511 之间才补**，两端之外都不发。
+       判据是长度，不是"profile 里有没有记录 padding"——两个方向都实测到过：
+       chrome119 照抄会多发一条（对端看到 17 个扩展、本尊 16 个），而 OkHttp 系
+       不看长度就会少发一条（本尊 13 个、我们 12 个）。
+       推导与全语料零反例的核对见 oracle/chbuild.py 的同名说明。 */
     {
         size_t no_pad = 0;
         for (size_t i = 0; i + 4 <= e; ) {
@@ -660,7 +662,7 @@ int tlsfp_build_client_hello_ex(const tlsfp_profile *p, const char *sni,
             if (id2 != 0x0015) no_pad += 4 + n2;
             i += 4 + n2;
         }
-        if (no_pad != e) {                       /* profile 里确实有 padding */
+        {                                        /* 按长度判，不看 profile 有没有 */
             size_t fixed = 4 + 2 + 32 + 1 + p->session_id_len
                          + 2 + p->n_rawciph * 2 + 2 + 2 + no_pad;
             uint8_t tmp[sizeof(ext)];
@@ -671,7 +673,7 @@ int tlsfp_build_client_hello_ex(const tlsfp_profile *p, const char *sni,
                 if (id2 != 0x0015) { memcpy(tmp + o, ext + i, 4 + n2); o += 4 + n2; }
                 i += 4 + n2;
             }
-            if (fixed + 4 <= 512) {
+            if (fixed >= 256 && fixed + 4 <= 512) {
                 size_t need = 512 - fixed - 4;
                 if (o + 4 + need > sizeof(tmp)) return -1;
                 o += put_u16(tmp + o, 0x0015);

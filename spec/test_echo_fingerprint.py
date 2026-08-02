@@ -65,6 +65,8 @@ DEFAULT_PER_ENGINE = 5
 C_PATH_PER_ENGINE = 2
 
 # 与被模仿者 A/B 的条数上限 —— 每条要额外打一次回显服务，对公开服务克制些。
+# `--all` 时不限：那是"深跑一遍"的用法，不是常态。这一档的产出率最高
+# （padding 那处缺陷就是它抓到的，另外四档全绿），所以深跑值得。
 AB_LIMIT = 6
 PACE = 2.5
 
@@ -233,6 +235,41 @@ def curl_cffi_echo(target, host):
                          timeout=25)
             if r.status_code == 200:
                 return r.json()
+        except Exception:
+            pass
+        time.sleep(PACE)
+    return None
+
+
+WREQ_PY = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                       ".venv-wreq", "bin", "python")
+
+WREQ_SNIPPET = """
+import asyncio, datetime, json, sys, wreq
+async def main():
+    c = wreq.Client(emulation=getattr(wreq.Emulation, sys.argv[1]))
+    r = await c.get(sys.argv[2], timeout=datetime.timedelta(seconds=25))
+    print(await r.text())
+asyncio.run(main())
+"""
+
+
+def wreq_echo(target, host):
+    """让 **wreq 本尊**打同一个回显端点。
+
+    wreq 装在另一个 venv（它要 Python ≥3.11），所以走子进程。curl_cffi 覆盖不到
+    的 profile 有 10 条只有 wreq 别名 —— 只用一家库做 A/B，另一家建模的那批就
+    没有"与被模仿者比"这一层。
+    """
+    if not os.path.exists(WREQ_PY):
+        return None
+    for _ in range(2):
+        try:
+            r = subprocess.run([WREQ_PY, "-c", WREQ_SNIPPET, target,
+                                f"https://{host}{ECHO_PATH}"],
+                               capture_output=True, text=True, timeout=60)
+            if r.returncode == 0 and r.stdout.strip():
+                return json.loads(r.stdout)
         except Exception:
             pass
         time.sleep(PACE)
@@ -461,28 +498,35 @@ def main(argv):
     # 前两档全绿而这一档红，说明我们"自洽地错着"。
     ab_ok, ab_n = 0, 0
     for rec in cases:
-        target = next((a.split(":", 1)[1] for a in
-                       [rec["id"]] + list(rec.get("aliases") or [])
+        names = [rec["id"]] + list(rec.get("aliases") or [])
+        target = next((a.split(":", 1)[1] for a in names
                        if a.startswith("curl_cffi:")), None)
+        lib, echo = "curl_cffi", curl_cffi_echo
+        if not target:
+            # curl_cffi 覆盖不到的，换 wreq 比 —— 只用一家库做 A/B，另一家建模
+            # 的那批就没有"与被模仿者比"这一层。
+            target = next((a.split(":", 1)[1] for a in names
+                           if a.startswith("wreq:")), None)
+            lib, echo = "wreq", wreq_echo
         if not target or rec["id"] not in peer_seen:
             continue
-        if ab_n >= AB_LIMIT:
+        if not take_all and ab_n >= AB_LIMIT:
             break
         ab_n += 1
         time.sleep(PACE)
-        d = curl_cffi_echo(target, host)
+        d = echo(target, host)
         if d is None:
-            netbad.append(f"{rec['id']}: curl_cffi[{target}] 取不到回显")
-            print(f"  ⚠️ A/B  {rec['id']:16s} curl_cffi 取不到回显")
+            netbad.append(f"{rec['id']}: {lib}[{target}] 取不到回显")
+            print(f"  ⚠️ A/B  {rec['id']:16s} {lib} 取不到回显")
             continue
         theirs = (d.get("tls") or {}).get("ja4")
         if theirs == peer_seen[rec["id"]]:
             ab_ok += 1
-            print(f"  A/B✅            {rec['id']:16s} 与 curl_cffi[{target}] 同一指纹")
+            print(f"  A/B✅            {rec['id']:16s} 与 {lib}[{target}] 同一指纹")
         else:
             bad.append(f"{rec['id']}: **与被模仿者不是同一个指纹**\n"
                        f"      我们        {peer_seen[rec['id']]}\n"
-                       f"      curl_cffi   {theirs}\n"
+                       f"      {lib:11s} {theirs}\n"
                        "      （两者都由对端计算，所以不是记法问题）")
     print(f"\n与被模仿者 A/B  {ab_ok}/{ab_n} 条同一指纹")
     if ab_n and ab_ok == 0:

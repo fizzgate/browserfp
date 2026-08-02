@@ -149,7 +149,7 @@ PSK_EXT = 0x0029
 
 # padding：补齐到 512 字节（含 4 字节握手头）。见 build_client_hello 里的推导。
 PADDING_EXT = 0x0015
-PAD_TO = 512
+PAD_LO, PAD_TO = 256, 512
 
 
 def ext_bytes_wo_padding(ext_bytes):
@@ -172,7 +172,8 @@ def _hello_len(profile, ext_bytes):
             + 2 + len(ext_bytes))
 
 
-def build_client_hello(profile, sni=None, key_shares=None):
+def build_client_hello(profile, sni=None, key_shares=None,
+                       recompute_padding=True):
     """按 profile 组装一条完整的 TLS record（含 5 字节 record 头）。
 
     profile 用的是 oracle.clienthello.fingerprint() 的输出结构，也就是 golden
@@ -239,14 +240,26 @@ def build_client_hello(profile, sni=None, key_shares=None):
     # 得见。
     #
     # 这也意味着 **JA4 会随 SNI 长度变化**，那正是真浏览器的行为。
-    if PADDING_EXT in ext_order:
-        fixed = _hello_len(profile, ext_bytes_wo_padding(ext_bytes))
-        need = PAD_TO - fixed - 4
-        if need < 0:
-            ext_bytes = ext_bytes_wo_padding(ext_bytes)
-        else:
-            ext_bytes = ext_bytes_wo_padding(ext_bytes)
-            ext_bytes += _u16(PADDING_EXT) + _vec(b"\x00" * need, 2)
+    # **按长度判，不看 profile 里有没有记录 padding。**
+    #
+    # 只在"profile 里有 0x0015"时才补，会漏掉反方向的一半：wreq 的 OkHttp 系
+    # 语料是在 nosni（体长 251）下采的，低于下界所以没有 padding —— 但换成
+    # 真实 SNI（体长 268）落进区间，**本尊会补而我们不补**。实测对端看到本尊 13
+    # 个扩展、我们 12 个。这正是同一个客户端在两个长度下的直接对照，也就是
+    # **下界 256 的证据**。
+    #
+    # 全语料 82 条零反例：22 条在区间且补了、17 条 <256 未补、43 条 ≥512 未补。
+    # 六条 Firefox 正好 512 且带 padding —— NSS 同样补，所以这条规则不是
+    # BoringSSL 专有的。
+    # recompute_padding=False 只给一种调用方：**判据里给定的那条 ClientHello**
+    # （如 JA4 规范的官方向量）。那是一条固定的报文，不是让我们按长度重算的
+    # profile —— 对它套长度规则会把向量本身改掉，然后"验不过官方向量"。
+    base = ext_bytes_wo_padding(ext_bytes) if recompute_padding else ext_bytes
+    fixed = _hello_len(profile, base)
+    if recompute_padding and PAD_LO <= fixed < PAD_TO:
+        ext_bytes = base + _u16(PADDING_EXT) + _vec(b"\x00" * (PAD_TO - fixed - 4), 2)
+    elif recompute_padding:
+        ext_bytes = base
 
     hello = b""
     hello += _u16(profile.get("client_version", 0x0303))

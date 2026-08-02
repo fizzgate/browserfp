@@ -85,7 +85,7 @@ MUTANTS = [
      "注入 key_share（=真要握手）时必须拒绝会话恢复态 profile"),
 
     ("padding:照抄 golden 不重算", "oracle/chbuild.py",
-     "    if PADDING_EXT in ext_order:",
+     "    if recompute_padding and PAD_LO <= fixed < PAD_TO:",
      "    if False:",
      ["test_keyshare", "test_build_parity"],
      "padding 要按实际长度补齐到 512，超过就不发（照抄会多一个扩展）"),
