@@ -111,7 +111,10 @@ int main(void) {
             if (n <= 0) continue;
             /* 每条 profile 取若干个位点，各试几种恶意值 */
             const uint8_t vals[] = {0x00, 0x01, 0x7f, 0x80, 0xfe, 0xff};
-            for (size_t off = 0; off < (size_t)n; off += 7) {
+            /* **每个位点都要试**。原来 off += 7 只覆盖 1/7 的位置 ——
+               长度字段往往就那么一两个字节，跳着走很容易正好跨过去。
+               全覆盖也只多花零点几秒。 */
+            for (size_t off = 0; off < (size_t)n; off++) {
                 for (size_t v = 0; v < sizeof(vals); v++) {
                     static uint8_t mut[16384];
                     memcpy(mut, base, (size_t)n);
@@ -121,6 +124,15 @@ int main(void) {
                     if ((size_t)n > 8) {
                         CALL(feed_parser(mut, (size_t)n - 1, &hello));
                         CALL(feed_parser(mut, (size_t)n / 2, &hello));
+                    }
+                    /* **双字节变异**：长度字段是 2 字节的，只改一个字节
+                       常常还落在合法范围里；真实攻击也不会只动一处。
+                       与相邻字节、以及固定几个偏移各配一次。 */
+                    if (off + 1 < (size_t)n) {
+                        uint8_t save = mut[off + 1];
+                        mut[off + 1] = vals[(v + 3) % sizeof(vals)];
+                        CALL(feed_parser(mut, (size_t)n, &hello));
+                        mut[off + 1] = save;
                     }
                 }
             }
