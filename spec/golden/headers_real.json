@@ -259,5 +259,24 @@
     "keep-alive"
    ]
   ]
+ },
+ "_capture_note": {
+  "how": "Chrome/Chromium/Edge 用 --headless=new，Firefox 用 --headless，Safari 有头（open -a），都打本地 HTTP",
+  "headless_contaminates": [
+   "user-agent",
+   "accept-language",
+   "cookie"
+  ],
+  "headless_identical": [
+   "头名顺序（交集 13 个）",
+   "accept",
+   "accept-encoding",
+   "upgrade-insecure-requests",
+   "sec-fetch-*",
+   "sec-ch-ua-mobile",
+   "sec-ch-ua-platform"
+  ],
+  "measured": "同一台机器上有头 vs 无头 Chrome 逐字段对比",
+  "warning": "user-agent 字段是 HeadlessChrome/…，**不可当作真实 UA 使用**；accept-language 是新 profile 的 locale，也不可用。本项目只从这份采集里取头顺序与 BROWSER_VALUED 那三项，那些已实测不受无头影响。"
  }
 }

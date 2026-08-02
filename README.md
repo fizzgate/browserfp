@@ -594,6 +594,35 @@ C 与 Python 用的是两张独立的表，顺序又是关键，所以门禁逐�
 这条规则连同实测记在 `spec/golden/uach_real.json` 的 `_context_rule` 里，
 门禁会断言它没被改动 —— 采到的结论若只写在文档里，改错了没人会发现。
 
+#### 采集环境本身也要被验一遍
+
+那五份实采是无头浏览器打本地 HTTP 采的（Safari 除外）。**无头会改变发出去的
+头**，不查清楚就用，等于把采集环境当成浏览器行为。同机有头 vs 无头逐字段比：
+
+```
+被污染          user-agent（HeadlessChrome/…）、accept-language（新 profile 的
+                locale）、cookie（新 profile 没有）
+完全相同        头名顺序（交集 13 个）、accept、accept-encoding、
+                upgrade-insecure-requests、sec-fetch-*、
+                sec-ch-ua-mobile、sec-ch-ua-platform
+```
+
+结论：污染的三项**恰好都不在本项目实际使用的表里**（`accept-language` 早就因为
+"是系统 locale 不是浏览器属性"被排除了，这次拿到了第二重证据 —— 有头是
+`zh-CN,...`、无头是 `en-US,...`，同一台机器同一个浏览器）。
+
+这条测量写进 `headers_real.json` 的 `_capture_note`，门禁断言它与取值表不相交，
+并且断言 `user-agent` 确实被记在污染清单里 —— 那个字段看着最像"现成可用的
+真实 UA"，最容易被后来人直接拿去用。
+
+**污染的是取值，不是位置。** 门禁第一版查的是"被污染的头名有没有出现在顺序表
+里"，把三条正常的顺序全判成有问题 —— `user-agent` 的位置本身没被污染，实测
+有头与无头的交集顺序完全一致。
+
+顺带白捡一个验证点：有头那次 `open -a` 复用了**更新前就在跑的 Chrome 150 进程**
+（磁盘上的二进制已经是 151）。于是拿到了 M150 的真实 `sec-ch-ua`，推导逐字节
+命中 —— 而且它是**有头**采的，交叉证明了无头不影响 `sec-ch-ua`。
+
 #### 头的取值：只收浏览器决定的那几项
 
 实采五个真实浏览器（Chrome 151 / Chromium 142 / Edge 151 / Firefox 153 /

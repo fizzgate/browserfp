@@ -71,6 +71,7 @@ def _load():
 def engine_orders(real=None):
     """{引擎: (顺序, [来源...])}；同引擎内若有矛盾则抛错。"""
     real = real or _load()
+    real = {k: v for k, v in real.items() if not k.startswith("_")}
     by_engine = {}
     for name, rec in real.items():
         eng = CAPTURE_ENGINE.get(name)
@@ -132,6 +133,7 @@ def engine_values(path=None):
     """
     with open(path or REALHDR) as f:
         real = json.load(f)
+    real = {k: v for k, v in real.items() if not k.startswith("_")}
     out, bad = {}, []
     for name, rec in real.items():
         eng = CAPTURE_ENGINE.get(name)

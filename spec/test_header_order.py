@@ -128,6 +128,35 @@ def main():
     if any("accept-language" in values_for(b) for b in BRAND_ENGINE):
         bad.append("表里出现了 accept-language")
 
+    # 采集污染必须写在 golden 里、且必须与实际使用的字段不相交。
+    # 无头 Chrome 的 user-agent 是 HeadlessChrome/…，accept-language 是新
+    # profile 的 locale —— 拿它们当真值会把采集环境泄漏出去。实测（同机
+    # 有头 vs 无头逐字段比）污染只有这三项，而它们都不在我们用的表里。
+    with open(os.path.join(HERE, "golden", "headers_real.json")) as f:
+        note = json.load(f).get("_capture_note")
+    if not note:
+        bad.append("headers_real.json 里没有 _capture_note —— "
+                   "采集是无头的，不写清污染范围，后来人会当成真实 UA 用")
+    else:
+        polluted = set(note.get("headless_contaminates") or [])
+        if not polluted:
+            bad.append("_capture_note 说无头没有污染任何字段 —— 与实测不符")
+        # **污染的是取值，不是位置**。头顺序表存的是头名，user-agent 的位置
+        # 本身没被污染（实测：有头与无头的交集顺序完全一致）。所以只查
+        # "我们取值的那几项"有没有被污染，不查头名是否出现在顺序里 ——
+        # 第一版查了后者，把三条正常的顺序全判成有问题。
+        overlap = polluted & set(BROWSER_VALUED)
+        if overlap:
+            bad.append(f"我们取值的字段里有被无头污染的：{sorted(overlap)}")
+        if "user-agent" not in polluted:
+            bad.append("污染清单里没有 user-agent —— 无头 Chrome 发的是 "
+                       "HeadlessChrome/…，这条必须记着，否则会被当真实 UA 用")
+        same = set(note.get("headless_identical") or [])
+        if not any("顺序" in x for x in same):
+            bad.append("_capture_note 没记录\"顺序不受无头影响\"这条实测 —— "
+                       "头顺序正是从这类采集来的，它受不受影响必须有据")
+        print(f"\n采集污染范围   {sorted(polluted)}（都不在取值表里）")
+
     # 排序行为：认识的排到位、不认识的留在最后
     got = sort_headers("firefox", ["Accept-Encoding", "User-Agent", "X-Custom",
                                    "Accept"])

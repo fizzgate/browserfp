@@ -30,5 +30,12 @@
   "insecure_context_lan_ip": [],
   "safari_27": [],
   "note": "UA-CH 只在安全上下文（https / localhost）发送；明文 HTTP 打 LAN IP 时一个都没有。默认只发这三个低熵提示，高熵项要服务端用 Accept-CH 索要。"
+ },
+ "chrome-150-headed": {
+  "major": 150,
+  "brand": "Google Chrome",
+  "sec_ch_ua": "\"Not;A=Brand\";v=\"8\", \"Chromium\";v=\"150\", \"Google Chrome\";v=\"150\"",
+  "version": "150.x（有头实例，open -a 复用了更新前就在跑的进程）",
+  "how": "本机 Chrome 有头窗口打本地 HTTP。与另外三条不同，这条不是无头采的 —— 正好交叉验证\"无头不影响 sec-ch-ua\""
  }
 }
