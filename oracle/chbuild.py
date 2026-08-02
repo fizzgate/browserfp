@@ -66,9 +66,20 @@ def _vec(body, len_bytes):
 # 的 CH 全都超过 512、padding 一次都不补，与实测的 512/538/570 对不上。
 ECH_BODY_LENS = (186, 218, 250, 282)
 
-# **只对实测过的族随机。** Firefox 的 golden ECH 体长是 249/281/569（模 32 余
-# 25），而上面那组是余 26 —— 两个栈的取值族不同，把 BoringSSL 的集合套给 NSS
-# 就是凭空造一个没人发过的长度。没测过的栈保持 golden 长度，等测了再放开。
+# **只对实测过的族随机 —— 而且 NSS 本来就不随机。**
+#
+# 真机 Firefox（本地 sniffer，连开 6 次）ECH 体长**恒为 281**、CH 体长恒为 1887：
+#
+#     第1..6次  ECH体=281  CH体=1887
+#
+# 所以这不是"我们没测所以保守"，而是**两个栈的行为本来就不同**：BoringSSL 每次
+# 从 {186,218,250,282} 里抽，NSS 固定。给 NSS 套上 BoringSSL 的集合，等于让
+# Firefox 发出一个真 Firefox 从不发的长度 —— 那比照抄还糟。
+#
+# 语料本身也印证这条界线：curl_cffi / tls_client / wreq 的 firefox 形态落在
+# {186,218,250,282}（它们用 BoringSSL/utls 去**模拟** Firefox，GREASE ECH 走的是
+# 自己那套），而 real:firefox153 / real_quic:firefox 这些**真机**采集是
+# 249/281/569（模 32 余 25），与 BoringSSL 那组（余 26）不是一个族。
 def ech_family(golden_len):
     return ECH_BODY_LENS if golden_len in ECH_BODY_LENS else None
 

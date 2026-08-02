@@ -36,6 +36,9 @@ BROWSERS = {
     "chrome": "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
     "edge": "/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge",
     "brave": "/Applications/Brave Browser.app/Contents/MacOS/Brave Browser",
+    # 表里原来没有 firefox —— _firefox_argv 那条分支只有显式传 path 才走得到，
+    # 于是 capture("firefox") 恒报 "not found at None"。装了却用不上。
+    "firefox": "/Applications/Firefox.app/Contents/MacOS/firefox",
 }
 
 
@@ -54,6 +57,16 @@ def _is_firefox(path):
 
 def _firefox_argv(path, profile, sni, url):
     """Firefox 没有 --host-resolver-rules；用 localDomains 把 SNI 指向本地。
+
+    **这条路在本机不生效**：把 firefox 加进 BROWSERS 之后实测，Firefox 正常启动
+    但 45s 内一个 ClientHello 都不到；换成 `https://localhost:<port>/`（不依赖
+    DNS 覆盖）立刻抓到 1892 字节。也就是说 `network.dns.localDomains` 没把
+    example.com 指过来，而不是采集链路坏了 —— 关掉 DoH（`network.trr.mode=5`）
+    也一样。原因未查清。
+
+    此前这条分支**从来没被走到过**：BROWSERS 表里没有 firefox，`capture("firefox")`
+    恒报 `not found at None`，于是"装了却用不上"一直没人发现。需要真机 Firefox
+    指纹时，用 localhost 作 SNI 是可行的替代（代价是 JA4 的 SNI 标志位不同）。
 
     关掉首次运行页与遥测，否则浏览器起来先打 Mozilla 自家域名，虽然不会连到
     我们的观测端口，但会拖慢首个 ClientHello。

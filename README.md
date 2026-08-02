@@ -490,8 +490,24 @@ padding 补不补，于是**同一个客户端打同一个目标会产生两个�
 
 **集合是按 TLS 栈分的，不能通用。** 第一版把 BoringSSL 那组套给了所有 profile，
 门禁当场报出 Firefox 被改成了不属于它的长度：Firefox 的 golden 是 249/281/569
-（模 32 余 25），而 BoringSSL 那组是余 26 —— **两个族**。没测过的栈保持 golden
-长度，等测了再放开；`ech_family()` 就是这条界线。
+（模 32 余 25），而 BoringSSL 那组是余 26 —— **两个族**。
+
+后来把 NSS 那族也实测了：真机 Firefox 连开 6 次，**ECH 体长恒为 281、CH 体长恒为
+1887**。所以这不是"我们没测所以保守"，而是**两个栈的行为本来就不同** —— BoringSSL
+每次抽，NSS 固定。给 NSS 套上 BoringSSL 的集合，等于让 Firefox 发出一个真 Firefox
+从不发的长度，**比照抄还糟**。`ech_family()` 就是这条界线。
+
+语料本身也印证它：curl_cffi / tls_client / wreq 的 firefox 形态落在
+`{186,218,250,282}` —— 它们是用 BoringSSL/utls **模拟** Firefox，GREASE ECH 走的
+是自己那套；而 `real:firefox153` / `real_quic:firefox` 这些**真机**采集是
+249/281/569。**"Firefox 的指纹"取决于是谁在发。**
+
+顺带撞出一处一直没人发现的死代码：`capture_browser` 的 Firefox 分支
+**从来没被走到过** —— `BROWSERS` 表里根本没有 firefox，`capture("firefox")` 恒报
+`not found at None`，"装了却用不上"。补进表之后才发现它也不工作：Firefox 正常启动
+但 45s 内一个 ClientHello 都不到，而换成 `https://localhost:<port>/`（不依赖 DNS
+覆盖）立刻抓到 —— 是 `network.dns.localDomains` 没生效，不是采集链路坏了。
+**分层定位比反复调参有用**：一个替代路径就把"DNS 层"与"采集层"分开了。
 
 **判据也要按用途分开**，与 `pre_shared_key` 同一个道理：重建验证要"照采集那条"
 （`verbatim=True`），真出网要"每次新鲜"。默认值给的是**出网口径** —— 忘了传参时
