@@ -118,7 +118,13 @@ int tlsfp_parse_client_hello(const uint8_t *rec, size_t len,
                 break;
             case 0x002b:                     /* supported_versions */
                 if (elen >= 1) {
+                    /* **长度字段要夹到扩展体之内**：n 来自报文（1 字节，
+                       最大 255），不夹的话恶意 ClientHello 声称 255 就能读到
+                       扩展外、缓冲外。这条是 ASan + 精确大小堆缓冲才暴露出来的
+                       —— 之前用固定大小的静态数组喂，越界落在数组内部，
+                       看不见。入站识别的输入完全由对方控制，这里是真漏洞。 */
                     size_t n = ebody[0];
+                    if (n + 1 > elen) n = elen - 1;
                     for (size_t i = 0; i + 1 < n; i += 2) {
                         uint16_t v = rd16(ebody + 1 + i);
                         if (!tlsfp_is_grease(v))

@@ -10,7 +10,13 @@
 
 喂进去的东西：NULL、空串、单空格、超长串（70KB）、非 UTF-8 字节、全逗号、
 越界与 (size_t)-1 下标、零长缓冲、差一字节的缓冲、截断到每一个长度的 TLS
-record、长度字段撒谎的 record。
+record。
+
+**外加结构化变异**：拿库里每条 profile 真实构造出来的 ClientHello 逐位点改，
+每个位点试 6 种恶意值，再各配"长度说得比实际多/少"两种截断。全零与截断只能
+覆盖"一眼就不合法"的输入，而真实攻击面是**看起来合法、内部长度撒谎**的记录 ——
+扩展块声称 60000 字节、cipher 列表长度是奇数、会话 ID 超过 32 字节这类。
+当前 20 万次调用，跑完只要 0.15 秒。
 
 **Lua 那层单独验**：C 挡住了 NULL，不等于 Lua 挡住了错类型。FFI 遇到数字会抛
 `cannot convert 'number' to 'const char *'`，`table.concat` 遇到 nil 会报错，
@@ -35,16 +41,26 @@ FUZZCLI = os.path.join(ROOT, "csrc", "fuzzcli")
 
 # 调用次数下限：防平凡通过 —— 程序若因为编译宏或早退只跑了几次，
 # "没崩"毫无意义。当前 1543 次。
-MIN_CALLS = 1000
+MIN_CALLS = 150000
 # Lua 侧同理。当前 2005 次。
 MIN_LUA_CALLS = 1500
 
 
 def main():
-    r = subprocess.run(["make", "-s", "fuzzcli"], cwd=os.path.join(ROOT, "csrc"),
+    # **先删产物再构建，并且构建失败必须红**。撞过一次：临时副本里带着一份
+    # 复制来的旧 fuzzcli，make 失败（rc=2）而旧二进制还在，门禁就拿它跑了 ——
+    # 三个"去掉边界检查"的变异全部"通过"，因为跑的根本是没变异的那份。
+    # 这是本项目第四次栽在"陈旧产物让测试说谎"上（前三次：pyc 缓存、make 的
+    # 秒级 mtime、git commit 带 pathspec）。
+    try:
+        os.remove(FUZZCLI)
+    except OSError:
+        pass
+    r = subprocess.run(["make", "fuzzcli"], cwd=os.path.join(ROOT, "csrc"),
                        capture_output=True, text=True, timeout=600)
-    if not os.path.exists(FUZZCLI):
-        print(f"构建失败：{(r.stderr or r.stdout)[-300:]}", file=sys.stderr)
+    if r.returncode != 0 or not os.path.exists(FUZZCLI):
+        print(f"构建失败（rc={r.returncode}）：{(r.stderr or r.stdout)[-400:]}",
+              file=sys.stderr)
         return 2
 
     env = dict(os.environ)
