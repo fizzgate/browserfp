@@ -164,8 +164,22 @@ def build_client_hello(profile, sni=None, key_shares=None):
             "profile（by_ua 本来就只返回 initial 态）")
     bodies = {int(k): bytes.fromhex(v) for k, v in profile["extension_bodies"].items()}
 
+    # **profile 不含 SNI 扩展时要补进去**。80/82 条 profile 采自 nosni 场景
+    # （真机浏览器只能这么采），遍历 raw_extensions 永远发不出 SNI —— 于是
+    # `sni=` 这个参数对 97.5% 的 profile **被静默忽略**，打有默认证书的站点不
+    # 报错，打多租户站点直接 handshake_failure(40)。
+    #
+    # C 侧与参考实现 oracle/tls13.py 都早就在补，只有本函数没有：三方差分都用
+    # sni=None，真机端到端走的是 tls13 那份，C 的 SNI 由 snitest 单独验 ——
+    # 三条路各自绕开了这里。位置规则与另两处一致：紧跟开头的 GREASE，无 GREASE
+    # 时排第一。
+    ext_order = list(raw_extensions)
+    if sni is not None and 0x0000 not in ext_order:
+        pos = 1 if ext_order and is_grease(ext_order[0]) else 0
+        ext_order.insert(pos, 0x0000)
+
     ext_bytes = b""
-    for ext_id in raw_extensions:
+    for ext_id in ext_order:
         if is_grease(ext_id):
             # GREASE 扩展体：位置照抄 golden，内容按 RFC 8701 留空
             # （唯一例外是 Chrome 末尾那个 GREASE 会带 1 字节 0x00）。

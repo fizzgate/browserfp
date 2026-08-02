@@ -31,7 +31,10 @@ from cryptography.hazmat.primitives.asymmetric.x25519 import (      # noqa: E402
 from cryptography.hazmat.primitives.ciphers.aead import (           # noqa: E402
     AESGCM, ChaCha20Poly1305)
 
-from oracle.chbuild import _u16, _vec, grease_ech                   # noqa: E402
+from cryptography.hazmat.primitives.serialization import (          # noqa: E402
+    Encoding, PublicFormat)
+from oracle.chbuild import (_parse_key_share, _u16, _vec,           # noqa: E402
+                            build_client_hello, grease_ech)
 from oracle.clienthello import is_grease                            # noqa: E402
 
 X25519_GROUP = 0x001D
@@ -146,12 +149,13 @@ class TLS13Client:
         # 按 profile 的首选曲线决定 key_share 形态：含 0x11ec 就发后量子混合，
         # 否则退到纯 X25519。发什么必须跟 supported_groups 的首项一致，否则
         # 服务端会发 HelloRetryRequest。
-        self._use_mlkem = X25519MLKEM768_GROUP in (self.profile.get("curves") or [])
-        x_priv = X25519PrivateKey.generate()
-        x_pub = x_priv.public_key().public_bytes_raw()
-        mlkem_priv = MLKEM768PrivateKey.generate() if self._use_mlkem else None
+        # **按 profile 的 key_share 形状逐组生成真密钥**，而不是只发首选那条。
+        # 真机会同时发 GREASE + 后量子混合 + X25519（chrome131 是三条），只发一条
+        # 与它自己的 supported_groups 对不上。GREASE 那条由构造器照抄 profile。
+        self._shares, self._privs = self._gen_shares()
+        self._use_mlkem = X25519MLKEM768_GROUP in self._privs
 
-        record = self._build_hello(x_pub, mlkem_priv)
+        record = self._build_hello(self._shares)
         # transcript 只含 handshake 消息体，不含 record 头
         self.transcript += record[5:]
         self.sock.sendall(record)
@@ -164,10 +168,16 @@ class TLS13Client:
             if len(server_pub) != MLKEM_CT_LEN + X25519_LEN:
                 raise TLSError(f"bad X25519MLKEM768 server share: {len(server_pub)}")
             ct, srv_x = server_pub[:MLKEM_CT_LEN], server_pub[MLKEM_CT_LEN:]
-            shared = (mlkem_priv.decapsulate(ct)
-                      + x_priv.exchange(X25519PublicKey.from_public_bytes(srv_x)))
+            mk, xk = self._privs[X25519MLKEM768_GROUP]
+            shared = (mk.decapsulate(ct)
+                      + xk.exchange(X25519PublicKey.from_public_bytes(srv_x)))
         else:
-            shared = x_priv.exchange(X25519PublicKey.from_public_bytes(server_pub))
+            if X25519_GROUP not in self._privs:
+                raise TLSError(
+                    f"服务端选了 0x{self._negotiated_group:04x}，而参考实现只做 "
+                    "X25519 与 X25519MLKEM768 —— 这是实现能力不足，不是 profile 不可用")
+            shared = self._privs[X25519_GROUP].exchange(
+                X25519PublicKey.from_public_bytes(server_pub))
 
         early = hkdf_extract(b"\x00" * hlen, b"\x00" * hlen, hashname)
         derived = derive_secret(early, b"derived", b"", hashname)
@@ -197,69 +207,56 @@ class TLS13Client:
         self._rx = _Keys(s_ap, aead_cls, key_len, hashname)
         return self
 
-    def _build_hello(self, x_pub, mlkem_priv=None):
-        """按 profile 组装 ClientHello，但用真实 key_share 与真实 SNI 覆写。"""
-        p = self.profile
-        bodies = {int(k): bytes.fromhex(v)
-                  for k, v in p["extension_bodies"].items()}
+    def _gen_shares(self):
+        """按 profile 的 key_share 形状逐组生成**真**密钥。
 
-        # profile 可能来自 no-SNI 采集（真机浏览器只能这么采，见 browsers.py），
-        # 那样 raw_extensions 里没有 0x0000，遍历它永远发不出 SNI —— 打
-        # 有默认证书的站点不报错，打多租户站点（按 SNI 分证书）则
-        # 直接 handshake_failure(40)。这里按实测规律补：SNI 紧跟开头的 GREASE，
-        # 无 GREASE 时排第一（31 个 curl_cffi profile 全部符合，tor145 是唯一
-        # 无 GREASE 的，其 SNI 就在第 0 位）。
-        ext_order = list(p["raw_extensions"])
-        if self.sni and 0x0000 not in ext_order:
-            pos = 1 if ext_order and is_grease(ext_order[0]) else 0
-            ext_order.insert(pos, 0x0000)
+        返回 ({group: pub_bytes}, {group: 私钥})。GREASE 那条不生成 —— 构造器
+        会照抄 profile（RFC 8701 规定内容固定）。
 
-        ext_bytes = b""
-        for ext_id in ext_order:
-            if is_grease(ext_id):
-                ext_bytes += _u16(ext_id) + _vec(bodies.get(ext_id, b""), 2)
-                continue
-            if ext_id == 0x0000:
-                entry = bytes([0]) + _vec(self.sni.encode(), 2)
-                body = _vec(entry, 2)
-            elif ext_id == 0x0033:
-                body = _vec(self._key_share_entries(x_pub, mlkem_priv), 2)
-            elif ext_id == 0x0029:
-                continue          # pre_shared_key：无票据可用，整个扩展不发
-            elif ext_id == 0xFE0D:
-                # GREASE ECH：Chrome 恒发。**不能跳过**——部分站点缺了它直接
-                # 回 handshake_failure(40)，而另一些站点不要求，只打后者
-                # 会漏掉这个缺陷。也**不能照搬 golden 的 body**：config_id 只有
-                # 1 字节，固定值一旦撞上服务端真实 ECH 配置，它会拿自己的私钥去
-                # 解 payload 并失败，同样是 handshake_failure。必须每次新鲜生成。
-                body = grease_ech(bodies.get(ext_id, b""))
-                if not body:
-                    continue
-            else:
-                body = bodies.get(ext_id, b"")
-            ext_bytes += _u16(ext_id) + _vec(body, 2)
-
-        hello = _u16(p.get("client_version", 0x0303))
-        hello += os.urandom(32)
-        hello += _vec(os.urandom(p.get("session_id_len", 32) or 32), 1)
-        hello += _vec(b"".join(_u16(c) for c in p["raw_ciphers"]), 2)
-        hello += _vec(bytes(p.get("compression", [0])), 1)
-        hello += _vec(ext_bytes, 2)
-
-        handshake = bytes([0x01]) + _vec(hello, 3)
-        return bytes([0x16]) + _u16(0x0301) + _vec(handshake, 2)
-
-    def _key_share_entries(self, x_pub, mlkem_priv):
-        """按 profile 首选曲线产出 key_share 条目。
-
-        只发首选那一条（外加后量子混合时它本身就含 X25519）——真实浏览器也只为
-        前一两条曲线发公钥，不是每条都发；发多了反而与 golden 的 key_share 长度
-        对不上。
+        0x6399（Kyber768Draft00）我们生成不了（cryptography 只有 ML-KEM）——
+        那 3 条 profile 上留给构造器填随机字节；**服务端真选中它时握手会失败**，
+        那是实现能力不足，会明确报出来而不是悄悄发一把假公钥当成功。
         """
-        if mlkem_priv is not None:
-            share = mlkem_priv.public_key().public_bytes_raw() + x_pub
-            return _u16(X25519MLKEM768_GROUP) + _vec(share, 2)
-        return _u16(X25519_GROUP) + _vec(x_pub, 2)
+        from cryptography.hazmat.primitives.asymmetric.ec import (
+            SECP256R1, generate_private_key)
+
+        eb = self.profile.get("extension_bodies") or {}
+        k = [x for x in eb if int(x) == 0x0033]
+        shape = _parse_key_share(bytes.fromhex(eb[k[0]])) if k else []
+        pubs, privs = {}, {}
+        for group, plen in shape:
+            if is_grease(group):
+                continue
+            if group == X25519_GROUP:
+                pk = X25519PrivateKey.generate()
+                pubs[group] = pk.public_key().public_bytes_raw()
+                privs[group] = pk
+            elif group == X25519MLKEM768_GROUP:
+                mk = MLKEM768PrivateKey.generate()
+                xk = X25519PrivateKey.generate()
+                pubs[group] = (mk.public_key().public_bytes_raw()
+                               + xk.public_key().public_bytes_raw())
+                privs[group] = (mk, xk)
+            elif group == 0x0017 and plen == 65:
+                ek = generate_private_key(SECP256R1())
+                pubs[group] = ek.public_key().public_bytes(
+                    Encoding.X962, PublicFormat.UncompressedPoint)
+                privs[group] = ek
+        return pubs, privs
+
+    def _build_hello(self, shares):
+        """走**发货那份构造器**，只把真密钥注进去。
+
+        这里原来是自造的一份组装逻辑，于是与 chbuild / C 那两份长期分叉，而且
+        分叉的方向恰好让端到端测试**看起来更好**：它补 SNI、新鲜生成 GREASE ECH、
+        跳过 pre_shared_key，发货那两份一度三样都不做。"端到端全绿"证明的是
+        测试用的构造器能用，不是我们发货的能用 —— 三处缺陷都是这么藏住的。
+
+        反过来它自己也藏着一个：key_share **只发首选那一条**，把 GREASE 条目与
+        其余分组全丢了（真机 chrome131 发三条）。`test_builder_parity` 就是抓
+        这一类的。现在统一走 `build_client_hello`，形状由 profile 决定。
+        """
+        return build_client_hello(self.profile, sni=self.sni, key_shares=shares)
 
     def _read_server_hello(self):
         ctype, head, body = self._read_record()

@@ -66,6 +66,18 @@ MUTANTS = [
      ["test_build_parity"],
      "重建 ClientHello 时 SNI 排在首个 GREASE 之后"),
 
+    ("SNI:Python 不补入", "oracle/chbuild.py",
+     "    if sni is not None and 0x0000 not in ext_order:",
+     "    if False:",
+     ["test_builder_parity"],
+     "profile 不含 SNI 扩展时必须补进去（80/82 条采自 nosni 场景）"),
+
+    ("tls13:key_share 只发一条", "oracle/tls13.py",
+     "        return pubs, privs",
+     "        k = sorted(pubs)[:1]\n        return {x: pubs[x] for x in k}, privs",
+     ["test_builder_parity"],
+     "参考实现发出去的每一组都要有对应私钥"),
+
     ("PSK:真出网时不拒绝恢复态", "oracle/chbuild.py",
      "    if key_shares and PSK_EXT in raw_extensions:",
      "    if False:",
