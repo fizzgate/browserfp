@@ -458,8 +458,11 @@ static size_t put_u16(uint8_t *p, uint16_t v) {
 int tlsfp_build_client_hello(const tlsfp_profile *p, const char *sni,
                              const uint8_t *random32, const uint8_t *session_id,
                              uint8_t *out, size_t outlen) {
+    /* 旧签名保持"重建口径" —— 它的既有调用方（buildcli / snitest / 重建门禁）
+       要的都是照采集那条。真出网走 _ex 并自己传 flags=0。 */
     return tlsfp_build_client_hello_ex(p, sni, random32, session_id,
-                                       NULL, 0, out, outlen);
+                                       NULL, 0, TLSFP_BUILD_VERBATIM,
+                                       out, outlen);
 }
 
 /* 按 profile 的 key_share 形状重写公钥。形状（分组/顺序/每条长度）一律照抄，
@@ -492,13 +495,33 @@ static void ech_bytes(const uint8_t *random32, uint32_t idx,
     }
 }
 
+/* GREASE ECH 的**整个扩展体**长度每次连接随机，取自这个固定集合。
+   26 次本地抓包（curl_cffi chrome119 与 chrome131）实测都是这四个，两两差 32，
+   且与 profile 自身大小无关。照抄 golden 会让我们的 JA4 永不变化，而真实客户端
+   在变 —— 一个 JA4 恒定的"Chrome"在聚合统计里很显眼。推导见 oracle/chbuild.py。 */
+static const uint16_t tlsfp_ech_body_lens[4] = {186, 218, 250, 282};
+
 static int rewrite_ech(const uint8_t *body, uint16_t blen,
-                       const uint8_t *random32, uint8_t *out, uint16_t *outlen) {
+                       const uint8_t *random32, int verbatim,
+                       uint8_t *out, uint16_t *outlen) {
     if (blen < 8) return -1;
     uint16_t enc_len = (uint16_t)((body[6] << 8) | body[7]);
     if ((size_t)8 + enc_len + 2 > blen) return -1;
     uint16_t pay_len = (uint16_t)((body[8 + enc_len] << 8) | body[9 + enc_len]);
     if ((size_t)10 + enc_len + pay_len != blen) return -1;
+    /* **只对实测过的族随机**：blen 已经在集合里才认。Firefox 的 golden 是
+       249/281/569（模 32 余 25），与这组（余 26）不是同一个族 —— 套过去等于
+       凭空造一个没人发过的长度。没测过的栈保持 golden 长度。 */
+    if (!verbatim) {
+        int known = 0;
+        for (int i = 0; i < 4; i++) if (tlsfp_ech_body_lens[i] == blen) known = 1;
+        if (known) {
+            uint8_t pick[1];
+            ech_bytes(random32, 7, pick, 1);
+            uint16_t want = tlsfp_ech_body_lens[pick[0] & 3];
+            if (want > 10 + enc_len) pay_len = (uint16_t)(want - 10 - enc_len);
+        }
+    }
 
     size_t o = 0;
     out[o++] = 0x00;                         /* outer */
@@ -559,6 +582,7 @@ static int rewrite_key_share(const uint8_t *body, uint16_t blen,
 int tlsfp_build_client_hello_ex(const tlsfp_profile *p, const char *sni,
                                 const uint8_t *random32, const uint8_t *session_id,
                                 const tlsfp_keyshare *ks, size_t n_ks,
+                                unsigned flags,
                                 uint8_t *out, size_t outlen) {
     /* 注入了 key_share = 调用方真要握手。这时候不能把 profile 里那张采集当时的
        票据发出去：验不过，服务端退回完整握手 —— 一个"声称自己来过"却拿不出
@@ -622,7 +646,9 @@ int tlsfp_build_client_hello_ex(const tlsfp_profile *p, const char *sni,
             uint8_t tmp[4096];
             uint16_t tlen = 0;
             if (blen > sizeof(tmp)) return -1;
-            if (rewrite_ech(body, blen, random32, tmp, &tlen) != 0) return -1;
+            if (rewrite_ech(body, blen, random32,
+                            (flags & TLSFP_BUILD_VERBATIM) != 0,
+                            tmp, &tlen) != 0) return -1;
             if (e + 4 + tlen > sizeof(ext)) return -1;
             e += put_u16(ext + e, id);
             e += put_u16(ext + e, tlen);
@@ -662,7 +688,7 @@ int tlsfp_build_client_hello_ex(const tlsfp_profile *p, const char *sni,
             if (id2 != 0x0015) no_pad += 4 + n2;
             i += 4 + n2;
         }
-        {                                        /* 按长度判，不看 profile 有没有 */
+        if (!(flags & TLSFP_BUILD_VERBATIM)) {   /* 按长度判，不看 profile 有没有 */
             size_t fixed = 4 + 2 + 32 + 1 + p->session_id_len
                          + 2 + p->n_rawciph * 2 + 2 + 2 + no_pad;
             uint8_t tmp[sizeof(ext)];

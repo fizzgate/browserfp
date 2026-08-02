@@ -43,7 +43,37 @@ def _vec(body, len_bytes):
     raise ValueError(len_bytes)
 
 
-def grease_ech(golden_body, rnd=None):
+# GREASE ECH 的 payload 长度**每次连接随机**，取自一个固定集合。
+#
+# 26 次本地抓包（curl_cffi chrome119 与 chrome131，各自 golden 是 218 与 250）
+# 实测到的取值都是这四个，两两相差 32：
+#
+#     186 × 8    218 × 8    250 × 8    282 × 2
+#
+# 集合与 profile 自身大小**无关** —— 两条 golden 不同的 profile 抽到的是同一组
+# 数。safari180 连采 10 次一条 ECH 都没有（Safari 不发），所以这只是 BoringSSL
+# 的行为。
+#
+# 后果有两层，都要紧：
+#   · 我们照抄 golden 的长度 ⇒ **每次连接都一模一样**，而真实客户端在变 ——
+#     一个 JA4 永不变化的"Chrome"，在聚合统计里是显眼的
+#   · ECH 长度进总长、总长决定 padding 补不补 ⇒ **同一个客户端打同一个目标会
+#     产生两个不同的 JA4**（实测 16 次得到 10:6 两个值）。这类 profile 的
+#     "那个 JA4" 本来就不存在
+# 注意这是**整个扩展体**的长度，不是 payload 字段的长度：体 = 10 + enc + payload
+# （type1 + kdf2 + aead2 + config_id1 + enc长2 + enc + payload长2 + payload）。
+# 第一版把它当成 payload 长度直接用，于是每条都多出 10+32=42 字节 —— 构造出来
+# 的 CH 全都超过 512、padding 一次都不补，与实测的 512/538/570 对不上。
+ECH_BODY_LENS = (186, 218, 250, 282)
+
+# **只对实测过的族随机。** Firefox 的 golden ECH 体长是 249/281/569（模 32 余
+# 25），而上面那组是余 26 —— 两个栈的取值族不同，把 BoringSSL 的集合套给 NSS
+# 就是凭空造一个没人发过的长度。没测过的栈保持 golden 长度，等测了再放开。
+def ech_family(golden_len):
+    return ECH_BODY_LENS if golden_len in ECH_BODY_LENS else None
+
+
+def grease_ech(golden_body, rnd=None, payload_len=None, verbatim=False):
     """按 draft-ietf-tls-esni 的 outer 形态**新鲜生成** GREASE ECH。
 
         type(1)=0 | kdf(2) | aead(2) | config_id(1) | enc<2> | payload<2>
@@ -57,7 +87,8 @@ def grease_ech(golden_body, rnd=None):
 
     **形状必须照抄**：payload 长度决定 ClientHello 总长度，属于该 profile 指纹
     的一部分；kdf/aead 也照 golden（实测三个 Chrome profile 都是 0x0001/0x0001）。
-    只有 config_id / enc / payload 的**内容**是新鲜的。
+    **payload 长度也是新鲜的**：实测它每次连接从一个固定集合里随机取
+    （见 ECH_PAYLOAD_LENS 的说明），照抄 golden 会让我们的 JA4 永不变化。
 
     rnd: 取随机字节的函数，默认 secrets.token_bytes。C 侧没有内部 RNG（库是
     内存进内存出的），那边从调用方给的 random32 派生。
@@ -67,7 +98,14 @@ def grease_ech(golden_body, rnd=None):
     rnd = rnd or secrets.token_bytes
     kdf, aead = struct.unpack_from(">HH", golden_body, 1)
     enc_len = struct.unpack_from(">H", golden_body, 6)[0]
-    payload_len = struct.unpack_from(">H", golden_body, 8 + enc_len)[0]
+    if verbatim:
+        payload_len = struct.unpack_from(">H", golden_body, 8 + enc_len)[0]
+    elif payload_len is None:
+        fam = ech_family(len(golden_body))
+        if fam:
+            payload_len = fam[secrets.randbelow(len(fam))] - 10 - enc_len
+        else:
+            payload_len = struct.unpack_from(">H", golden_body, 8 + enc_len)[0]
     return (bytes([0]) + struct.pack(">HH", kdf, aead)
             + rnd(1)
             + _vec(rnd(enc_len), 2)
@@ -172,8 +210,19 @@ def _hello_len(profile, ext_bytes):
             + 2 + len(ext_bytes))
 
 
-def build_client_hello(profile, sni=None, key_shares=None,
-                       recompute_padding=True):
+def build_client_hello(profile, sni=None, key_shares=None, verbatim=False):
+    """verbatim=True 时**照采集那条重建**：ECH 用 golden 的长度、padding 不重算。
+
+    判据按用途分开，与 pre_shared_key 那处同一个道理：
+
+        重建验证   要"照采集那条" —— 不然 test_rebuild / test_build_parity
+                   比的是两条本来就不同的报文
+        真出网     要"每次新鲜" —— ECH 长度与 padding 都随连接变，固定不变
+                   本身就是破绽
+
+    默认是**出网口径**：默认值决定了忘记传参时会发生什么，而"忘了传参就退化成
+    固定字节"比"忘了传参就重建不上"危险得多。
+    """
     """按 profile 组装一条完整的 TLS record（含 5 字节 record 头）。
 
     profile 用的是 oracle.clienthello.fingerprint() 的输出结构，也就是 golden
@@ -217,7 +266,7 @@ def build_client_hello(profile, sni=None, key_shares=None,
         elif ext_id == 0x0033:
             body = _build_key_share(bodies.get(ext_id, b""), key_shares)
         elif ext_id == 0xFE0D:
-            body = grease_ech(bodies.get(ext_id, b""))
+            body = grease_ech(bodies.get(ext_id, b""), verbatim=verbatim)
         elif ext_id in VOLATILE_EXTENSIONS:
             body = bodies.get(ext_id, b"")
         else:
@@ -254,11 +303,11 @@ def build_client_hello(profile, sni=None, key_shares=None,
     # recompute_padding=False 只给一种调用方：**判据里给定的那条 ClientHello**
     # （如 JA4 规范的官方向量）。那是一条固定的报文，不是让我们按长度重算的
     # profile —— 对它套长度规则会把向量本身改掉，然后"验不过官方向量"。
-    base = ext_bytes_wo_padding(ext_bytes) if recompute_padding else ext_bytes
+    base = ext_bytes if verbatim else ext_bytes_wo_padding(ext_bytes)
     fixed = _hello_len(profile, base)
-    if recompute_padding and PAD_LO <= fixed < PAD_TO:
+    if not verbatim and PAD_LO <= fixed < PAD_TO:
         ext_bytes = base + _u16(PADDING_EXT) + _vec(b"\x00" * (PAD_TO - fixed - 4), 2)
-    elif recompute_padding:
+    elif not verbatim:
         ext_bytes = base
 
     hello = b""

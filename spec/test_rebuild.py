@@ -24,7 +24,9 @@ REAL = os.path.join(HERE, "golden", "real_browsers.json")
 
 def check(name, profile):
     """重建后解析，返回差异列表。空 = 该 profile 可被完整重建。"""
-    record = build_client_hello(profile, sni=None)
+    # **verbatim**：本门禁验的是"能不能照采集那条重建回去"。出网口径下 ECH 长度
+    # 与 padding 都随连接变，拿它比 golden 等于比两条本来就不同的报文。
+    record = build_client_hello(profile, sni=None, verbatim=True)
     rebuilt = fingerprint(record)
     diffs = []
     for f in FIELDS:

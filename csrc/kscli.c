@@ -42,7 +42,13 @@ int main(void) {
         char *tab = strchr(line, '\t');
         if (!tab) { printf("ERR\n"); fflush(stdout); continue; }
         *tab = 0;
-        const tlsfp_profile *p = by_id(line);
+        /* id 前缀 "!" = 出网口径（ECH 长度随机、padding 按长度重算）；
+           不带前缀 = 重建口径。只加一个字符，省得再动一次输入契约 ——
+           上次动它就漏了调用方，test_keyshare 的 C 侧当场 70 条全失败。 */
+        unsigned flags = TLSFP_BUILD_VERBATIM;
+        char *idp = line;
+        if (*idp == '!') { flags = 0; idp++; }
+        const tlsfp_profile *p = by_id(idp);
         if (!p) { printf("ERR\n"); fflush(stdout); continue; }
         char *sni = tab + 1;
         char *tab2 = strchr(sni, '\t');
@@ -69,7 +75,7 @@ int main(void) {
         if (bad) { printf("ERR\n"); fflush(stdout); continue; }
 
         int n = tlsfp_build_client_hello_ex(p, sni, rnd, sid,
-                                            n_ks ? ks : NULL, n_ks,
+                                            n_ks ? ks : NULL, n_ks, flags,
                                             out, sizeof(out));
         if (n < 0) { printf("ERR\n"); fflush(stdout); continue; }
         for (int k = 0; k < n; k++) printf("%02x", out[k]);

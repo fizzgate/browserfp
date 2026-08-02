@@ -168,9 +168,15 @@ typedef struct {
  * 长度对不上、或某个分组在 profile 里根本没有，一律返回 -1 而**不是**将就 ——
  * 形状一变就不再是那个浏览器了，静默接受等于悄悄产出一个假指纹。
  * GREASE 那条不接受注入：按 RFC 8701 它的内容本来就是固定的。 */
+/* flags：TLSFP_BUILD_VERBATIM = 照采集那条重建（ECH 用 profile 的长度、padding
+ * 不重算）。**只给重建验证用**；真出网必须走默认口径，那里 ECH 长度与 padding
+ * 都随连接变，固定不变本身就是破绽。 */
+#define TLSFP_BUILD_VERBATIM 1u
+
 int tlsfp_build_client_hello_ex(const tlsfp_profile *p, const char *sni,
                                 const uint8_t *random32, const uint8_t *session_id,
                                 const tlsfp_keyshare *ks, size_t n_ks,
+                                unsigned flags,
                                 uint8_t *out, size_t outlen);
 
 /* 等价于 ks=NULL 的 _ex —— 见上面关于"不能拿去真握手"的说明。 */

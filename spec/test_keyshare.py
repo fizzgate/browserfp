@@ -43,7 +43,9 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from oracle.chbuild import _parse_key_share, build_client_hello   # noqa: E402
+from oracle.chbuild import (ECH_BODY_LENS, _parse_key_share,     # noqa: E402
+                            ech_family,
+                            build_client_hello)
 from oracle.clienthello import parse_client_hello                 # noqa: E402
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -130,7 +132,8 @@ def main():
         # **构造失败要当成发现，不能让门禁崩掉**。同一个教训在本文件里出现两次：
         # 崩掉时终端只有一个 traceback，看不到"哪几条不符"，也看不到后面几段
         # 检查跑没跑。门禁的职责是报告。
-        raw = py_build(rec, bad, "无注入构造就失败了 —— 重建闭环要靠它", sni=None)
+        raw = py_build(rec, bad, "无注入构造就失败了 —— 重建闭环要靠它",
+                       sni=None, verbatim=True)
         if raw is None:
             continue
         got = built_shape(raw)
@@ -162,7 +165,8 @@ def main():
         group, plen = next((g, n) for g, n in shape
                            if not (0x0a0a <= g <= 0xfafa and (g & 0x0f0f) == 0x0a0a))
         mine = bytes([0x5a]) * plen
-        gold_pub = built_pubs(build_client_hello(sample["tls"], sni=None))
+        gold_pub = built_pubs(build_client_hello(sample["tls"], sni=None,
+                                                 verbatim=True))
 
         # **注入这一步要包起来**：构造器对不合法的注入是抛异常的，而这里给的
         # 是合法注入 —— 真抛了说明实现坏了，那是**发现**，不该表现成门禁自己
@@ -170,7 +174,7 @@ def main():
         # ValueError 把整条门禁打死，后面的检查一条都没跑。
         try:
             py_raw = build_client_hello(sample["tls"], sni=None,
-                                        key_shares={group: mine})
+                                        key_shares={group: mine}, verbatim=True)
         except Exception as e:
             py_raw = None
             bad.append(f"Python 对合法注入抛了 {type(e).__name__}: {str(e)[:80]}")
@@ -194,7 +198,8 @@ def main():
         for tag, ks in (("长度不符", {group: mine[:-1]}),
                         ("组不存在", {absent: b"\x01" * 32})):
             try:
-                build_client_hello(sample["tls"], sni=None, key_shares=ks)
+                build_client_hello(sample["tls"], sni=None, key_shares=ks,
+                                   verbatim=True)
                 py_ok = True
             except Exception:
                 py_ok = False
@@ -227,7 +232,7 @@ def main():
         # 不注入：必须照常构造出来（重建验证要用）
         plain = py_build(rec, bad,
                          "不注入时也拒绝了恢复态 profile —— 重建闭环要靠它原样构造",
-                         sni=None)
+                         sni=None, verbatim=True)
         plain_ok = plain is not None and \
             0x0029 in parse_client_hello(plain)["raw_extensions"]
         if not plain_ok:
@@ -273,9 +278,17 @@ def main():
                 continue
             got = bytes.fromhex(got_eb[k[0]])
             n_ech += 1
-            if len(got) != len(gold):
-                bad.append(f"{rec['id']}: {side} 的 ECH 长度 {len(got)} != "
-                           f"golden {len(gold)} —— payload 长度决定 CH 总长度")
+            # **长度不再要求等于 golden**：实测 GREASE ECH 的体长每次连接从
+            # {186,218,250,282} 里随机取（26 次抓包，两条 golden 不同的 profile
+            # 抽到同一组数）。要求等于 golden 反而是要求"我们比真客户端更固定"。
+            # 改成必须落在那个集合里。
+            fam = ech_family(len(gold))
+            if fam and len(got) not in fam:
+                bad.append(f"{rec['id']}: {side} 的 ECH 体长 {len(got)} 不在实测集合 "
+                           f"{fam} 里")
+            elif not fam and len(got) != len(gold):
+                bad.append(f"{rec['id']}: {side} 改了没测过的栈的 ECH 长度 "
+                           f"（{len(gold)}→{len(got)}）—— 那等于凭空造一个长度")
             elif got[:5] != gold[:5]:
                 bad.append(f"{rec['id']}: {side} 改了 ECH 的 type/kdf/aead")
             elif got == gold:
