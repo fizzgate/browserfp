@@ -154,7 +154,15 @@ def sec_ch_ua(major, brand=BRAND, full_version=None):
     ver = full_version or str(major)
     greasey_brand = (f"Not{chars[major % len(chars)]}A"
                      f"{chars[(major + 1) % len(chars)]}Brand")
-    items = [(greasey_brand, gvers[major % len(gvers)]), ("Chromium", ver)]
+    gver = gvers[major % len(gvers)]
+    if full_version:
+        # 完整版本模式下 GREASE 的版本要补零：源码
+        # GetProcessedGreasedBrandVersion 里写着"单段版本 → 追加 .0.0.0"。
+        # 不补的话 full-version-list 里会出现 v="99" 而真浏览器发 v="99.0.0.0"
+        # —— 只差这一处，而这一处正好是最不像手写值的地方。
+        if gver.count(".") == 0:
+            gver = gver + ".0.0.0"
+    items = [(greasey_brand, gver), ("Chromium", ver)]
     if brand:
         items.append((brand, ver))
 

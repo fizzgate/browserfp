@@ -46,6 +46,15 @@ def main():
     for name, rec in sorted(real.items()):
         try:
             got = sec_ch_ua(rec["major"], rec["brand"])
+            # 带完整版本的那条另外验 full-version-list：GREASE 的版本要补
+            # ".0.0.0"，只差这一处而它恰好最不像手写值
+            want_fvl = rec.get("sec_ch_ua_full_version_list")
+            if want_fvl:
+                got_fvl = sec_ch_ua(rec["major"], rec["brand"],
+                                    full_version=rec["full_version"])
+                if got_fvl != want_fvl:
+                    bad.append(f"{name} full-version-list\n"
+                               f"      推出 {got_fvl}\n      实采 {want_fvl}")
         except Exception as e:
             bad.append(f"{name}: 推导失败 {type(e).__name__}: {str(e)[:60]}")
             continue
@@ -60,6 +69,25 @@ def main():
         print(f"  {name:14s} {rec['sec_ch_ua']}")
     for b in bad:
         print(f"  ✗ {b}")
+
+    # Accept-CH 是检测方能主动出的招：回一个 Accept-CH，看客户端会不会补发
+    # 高熵提示。这条实测必须留着 —— 它同时记录了"哪些推得出、哪些推不出"，
+    # 后者是诚实边界，删掉就会有人默认全都能推。
+    ach = real.get("chrome-151-accept-ch")
+    if not ach:
+        bad.append("golden 里没有 Accept-CH 那条实测 —— "
+                   "检测方能主动出这一招，缺了它等于没测过这条路")
+    else:
+        if "sec-ch-ua-full-version-list" not in (ach.get("derivable") or []):
+            bad.append("full-version-list 没被标成可推 —— 它确实推得出")
+        nd = ach.get("not_derivable") or {}
+        if "sec-ch-ua-platform-version" not in nd:
+            bad.append("platform-version 没被标成推不出 —— UA 缩减后恒为 "
+                       "10_15_7，真实值是系统版本，从 UA 推不出来")
+        n_hi = len(ach.get("high_entropy") or {})
+        print(f"  Accept-CH    实测补发 {n_hi + 1} 个高熵提示；"
+              f"可推 {len(ach.get('derivable') or [])} 项，"
+              f"其余 {len(nd)} 类不是浏览器属性")
 
     # 「该不该发」与「发什么」是两个独立的坑，都要有据可查。
     if not rule:
