@@ -550,6 +550,31 @@ edge-151       同 151 的 GREASE 品牌，只换品牌名                ✅
 **Opera 不推**：它的嵌入层会往列表里再加自己的品牌项，而本项目没有 Opera 实采 ——
 加几项、叫什么名字都只能猜。
 
+#### `sec-ch-ua-platform` / `-mobile` 必须与 UA 同源
+
+真浏览器这两处同源：UA 字符串与 UA-CH 都由同一个平台判定生成。伪装时最容易的
+出错方式是**一处照抄 UA、另一处硬编码** —— UA 说 Windows 而 platform 说 macOS，
+是不用任何统计就能抓的交叉矛盾。所以这两项也由库推，不让调用方填：
+
+```
+Mozilla/5.0 (Windows NT 10.0; ...) Chrome/151     → "Windows"  ?0
+Mozilla/5.0 (Linux; Android 14; Pixel 8) ...      → "Android"  ?1
+Mozilla/5.0 (iPhone; CPU iPhone OS 26_0 ...)      → 没有
+```
+
+平台串取自源码（`GetPlatformForUAMetadata`：macOS 写死 `"macOS"`、Android 是
+`"Android"`、其余走 `GetOSType()`），门禁断言它们仍在源码里 —— 那段有 TODO
+说想改名，改了就该红而不是继续发一个不存在的值。
+
+**匹配顺序踩过两处**，都单独立了断言：
+
+· `iPhone/iPad` 必须排在 `Mac` 前 —— iOS 的 UA 里写着 `like Mac OS X`，
+  不先拦下来会给 iPhone 推出 `"macOS"`；而 iOS 上所有浏览器都是 WebKit、
+  根本不发 UA-CH，正确答案是"没有"
+· `Android` 必须排在 `Linux` 前 —— Android 的 UA 里也写着 `Linux`
+
+C 与 Python 用的是两张独立的表，顺序又是关键，所以门禁逐条比对（10/10）。
+
 #### UA-CH 什么时候该发、什么时候绝不能发
 
 "少发"和"多发"是对称的两个坑，都实测过：

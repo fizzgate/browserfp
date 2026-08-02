@@ -47,6 +47,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from oracle.covscan import TARGETS                               # noqa: E402
 from oracle.headerorder import BRAND_ENGINE, CAPTURE_ENGINE      # noqa: E402
 from oracle.headerorder import order_for, values_for             # noqa: E402
+from oracle.uach import platform_hint                            # noqa: E402
 from spec.test_h2_live import (NET, OK, REJECT, _frame,          # noqa: E402
                                _has_priority, build)
 
@@ -85,9 +86,15 @@ def compose(brand, ver, host):
                 "accept-language": "en-US,en;q=0.9"}
     uach = sec_ch_ua(brand, ver)
     if uach:
+        # **platform 与 mobile 也由库推，不能手填**：它们必须与 UA 里声明的
+        # 系统同源。第一版这里硬编码 "Windows"/?0，UA 换成 Android 模板就会
+        # 出现"UA 说 Android、platform 说 Windows"这种一眼假的组合。
+        plat, mobile = platform_hint(ua)
+        if not plat:
+            return [], None          # 该 UA 的系统不发 UA-CH
         supplied["sec-ch-ua"] = uach
-        supplied["sec-ch-ua-mobile"] = "?0"
-        supplied["sec-ch-ua-platform"] = '"Windows"'
+        supplied["sec-ch-ua-mobile"] = mobile
+        supplied["sec-ch-ua-platform"] = plat
 
     have = {**supplied, **vals}
     # 按库给的顺序排，库不认识的（这里没有）留到最后

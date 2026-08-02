@@ -332,6 +332,33 @@ static size_t put_frame_head(uint8_t *p, uint32_t len, uint8_t type,
     return n;
 }
 
+/* 与 oracle/uach.py 的 PLATFORM_BY_UA 同一张表、同一个顺序。
+   顺序有讲究：iPhone/iPad 要排在 Mac 前（iOS 的 UA 里写着 like Mac OS X），
+   Android 要排在 Linux 前（Android 的 UA 里也写着 Linux）。 */
+static const struct { const char *token; const char *platform; } tlsfp_ua_plat[] = {
+    {"iPhone", NULL}, {"iPad", NULL}, {"iPod", NULL},
+    {"Android", "\"Android\""},
+    {"Windows NT", "\"Windows\""},
+    {"Macintosh", "\"macOS\""},
+    {"Mac OS X", "\"macOS\""},
+    {"X11", "\"Linux\""},
+    {"Linux", "\"Linux\""},
+};
+
+int tlsfp_ua_platform(const char *ua, const char **platform, const char **mobile) {
+    if (!ua) return 0;
+    for (size_t i = 0; i < sizeof(tlsfp_ua_plat) / sizeof(tlsfp_ua_plat[0]); i++) {
+        if (!strstr(ua, tlsfp_ua_plat[i].token)) continue;
+        if (!tlsfp_ua_plat[i].platform) return 0;      /* iOS：不发 UA-CH */
+        if (platform) *platform = tlsfp_ua_plat[i].platform;
+        if (mobile)
+            *mobile = (strcmp(tlsfp_ua_plat[i].platform, "\"Android\"") == 0
+                       && strstr(ua, "Mobile")) ? "?1" : "?0";
+        return 1;
+    }
+    return 0;
+}
+
 const char *tlsfp_header_value(const char *brand, const char *name) {
     if (!brand || !name) return NULL;
     for (size_t i = 0; i < TLSFP_HV_COUNT; i++) {

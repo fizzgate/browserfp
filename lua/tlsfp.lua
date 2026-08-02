@@ -69,6 +69,7 @@ const char *tlsfp_h2_pseudo(const tlsfp_h2 *h);
 const char *tlsfp_header_order(const char *brand, int *attested);
 const char *tlsfp_sec_ch_ua(const char *brand, uint16_t version);
 const char *tlsfp_header_value(const char *brand, const char *name);
+int tlsfp_ua_platform(const char *ua, const char **platform, const char **mobile);
 const tlsfp_profile *tlsfp_profile_at(size_t idx);
 const tlsfp_profile *tlsfp_lookup_ja4(const char *ja4);
 size_t tlsfp_profile_count(void);
@@ -306,6 +307,18 @@ function _M.header_value(brand, name)
     end
     local p = lib.tlsfp_header_value(brand, name:lower())
     return p ~= nil and ffi.string(p) or nil
+end
+
+-- UA → sec-ch-ua-platform / sec-ch-ua-mobile。两处必须与 UA 里声明的系统
+-- 同源 —— 一处照抄 UA、另一处硬编码，会出现"UA 说 Windows、platform 说
+-- macOS"这种一眼假的组合。iOS 与认不出的系统返回 nil（那一族不发 UA-CH）。
+local plat_buf = ffi.new("const char*[1]")
+local mob_buf = ffi.new("const char*[1]")
+function _M.ua_platform(ua)
+    if not lib then return nil, "libtlsfp.so 未加载" end
+    if type(ua) ~= "string" then return nil, "ua 必须是字符串" end
+    if lib.tlsfp_ua_platform(ua, plat_buf, mob_buf) == 0 then return nil end
+    return ffi.string(plat_buf[0]), ffi.string(mob_buf[0])
 end
 
 function _M.profile_count()

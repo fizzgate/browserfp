@@ -181,6 +181,66 @@ UACH_BRANDS = {
 }
 
 
+# UA 里的系统标记 → sec-ch-ua-platform 的值。串本身取自源码
+# （GetPlatformForUAMetadata）：macOS 是写死的 "macOS"，Android 是 "Android"，
+# 其余走 version_info::GetOSType()，也就是 "Windows" / "Linux"。
+#
+# **必须与 UA 里声明的系统一致**：UA 说 Windows 而 sec-ch-ua-platform 说 macOS，
+# 是最容易被抓的交叉矛盾 —— 真浏览器两处同源，伪装时却常常一处照抄一处硬编码。
+# **顺序有讲究**，两处都踩过：
+#   Android 必须排在 Linux 前 —— Android 的 UA 里也写着 Linux
+#   iPhone/iPad 必须排在 Mac 前 —— iOS 的 UA 里写着 "like Mac OS X"，
+#     不先拦下来会给 iPhone 推出 "macOS"。而 iOS 上所有浏览器都是 WebKit、
+#     根本不发 UA-CH，正确答案是"没有"而不是某个平台串。
+PLATFORM_BY_UA = (
+    ("iPhone", None), ("iPad", None), ("iPod", None),
+    ("Android", "Android"),
+    ("Windows NT", "Windows"),
+    ("Macintosh", "macOS"),
+    ("Mac OS X", "macOS"),
+    ("X11", "Linux"),
+    ("Linux", "Linux"),
+)
+
+
+def platform_hint(ua):
+    """UA → (sec-ch-ua-platform 的值, sec-ch-ua-mobile 的值)。
+
+    移动位的判据同源码 GetMobileBitForUAMetadata：只有 Android（非桌面形态）
+    与 iOS 为 ?1。iOS 上所有浏览器都是 WebKit、根本不发 UA-CH，所以这里只有
+    Android 会给 ?1。
+    """
+    plat = "?"
+    for token, value in PLATFORM_BY_UA:
+        if token in ua:
+            plat = value
+            break
+    if plat is None:
+        return None, None            # iOS：整族都不发 UA-CH
+    if plat == "?":
+        return None, None            # 认不出的系统，不猜
+    mobile = "?1" if (plat == "Android" and "Mobile" in ua) else "?0"
+    return f'"{plat}"', mobile
+
+
+def assert_platform_strings(text):
+    """源码里确实有我们用的那几个平台串，否则报错而不是照发。
+
+    串是写死在 GetPlatformForUAMetadata 里的（"macOS"、"Android"、
+    "Chrome OS"…），哪天 Chromium 改了名字（TODO 注释里就写着想改），
+    这里会红，而不是继续发一个已经不存在的值。
+    """
+    i = text.find("GetPlatformForUAMetadata")
+    if i < 0:
+        raise LookupError("源码里找不到 GetPlatformForUAMetadata")
+    body = text[i:i + 1400]
+    for want in ('"macOS"', '"Android"'):
+        if want not in body:
+            raise LookupError(f"GetPlatformForUAMetadata 里已经没有 {want} —— "
+                              "平台串改过了，PLATFORM_BY_UA 要跟着改")
+    return True
+
+
 def build(dest=None):
     """算出 {品牌: {版本: sec-ch-ua}}，落成 JSON 供 C 生成器与门禁共用。
 

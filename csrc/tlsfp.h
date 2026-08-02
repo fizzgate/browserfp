@@ -147,6 +147,14 @@ const char *tlsfp_sec_ch_ua(const char *brand, uint16_t version);
  * 而 Chromium 与 Gecko 都是 "gzip, deflate, br, zstd"。 */
 const char *tlsfp_header_value(const char *brand, const char *name);
 
+/* UA 字符串 → sec-ch-ua-platform / sec-ch-ua-mobile 的值。
+ * 这两处必须与 UA 里声明的系统**同源** —— 真浏览器两处都由同一个平台判定
+ * 生成，伪装时一处照抄 UA、另一处硬编码，就会出现"UA 说 Windows、platform
+ * 说 macOS"这种不用统计就能抓的矛盾。
+ * iOS（UA 里含 iPhone/iPad/iPod）返回 0：那一族全是 WebKit，不发 UA-CH。
+ * 认不出的系统也返回 0，不猜。返回 1 时 platform/mobile 被填好。 */
+int tlsfp_ua_platform(const char *ua, const char **platform, const char **mobile);
+
 int tlsfp_build_client_hello(const tlsfp_profile *p, const char *sni,
                              const uint8_t *random32, const uint8_t *session_id,
                              uint8_t *out, size_t outlen);
