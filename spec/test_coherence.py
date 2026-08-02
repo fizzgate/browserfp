@@ -10,11 +10,21 @@
   反向  故意跨引擎拼的三元组必须判 mismatch。只验正向的话，一个恒返回 ok
         的实现也能全绿 —— 那正是最坏的情况：使用者以为自审过了。
 
-另外验两条语义：
+另外验四条语义：
 
   · 信息不足时报 unknown，不报 ok。只有一层认得出来时谈不上"一致"。
   · 头顺序按**子序列**匹配，多解时报"认不出"而不是硬选一个。实测 600 个随机
     子序列里 549 个唯一，短子集（3 个头）容易多解 —— 那时必须弃权。
+
+  · **ALPN 与 h2 层不得矛盾**：有 h2 数据的组合，其 ClientHello 通告的 ALPN
+    必须含 `h2`。当前 644 条全部相符；另有 3 条 ALPN 含 h2 却没有 h2 数据，
+    那是合理的（走 HTTP/1.1，就是 safari 12-14 那三个缺口）。
+
+  · **`by_ua` 绝不能返回会话恢复态的 profile**。库里有 15 条 `resumed`，它们
+    带 `pre_shared_key`(41)，里面是采集当时的会话票据 —— 合成不出来。发一个
+    带陈旧 binder 的恢复态握手，服务端验不过会退回完整握手，比干净的首连**更
+    可疑**。`oracle/uamap.py` 里显式过滤了 `mode != "initial"`，这条断言守的就是
+    那个过滤别被人"顺手优化掉"。
 
 跑：python -m spec.test_coherence
 """
@@ -122,6 +132,39 @@ def main():
         bad.append(f"短子集多解却认成了 {sem[1][3]} —— 该弃权")
     print(f"语义：信息不足→unknown、短子集多解→弃权   "
           f"{'OK' if sem[0][0] == 'unknown' and sem[1][3] == '-' else '失败'}")
+
+    # ALPN 与 h2 层不得矛盾
+    alpn_bad, alpn_ok = 0, 0
+    for brand, ver in meta:
+        pid = mapper.lookup(TARGETS[brand][0].format(v=ver)).get("profile")
+        alpn = regs[pid]["tls"].get("alpn") or []
+        if "h2" in alpn:
+            alpn_ok += 1
+        else:
+            alpn_bad += 1
+            if alpn_bad <= 3:
+                bad.append(f"{brand} {ver}: 有 h2 数据但 ALPN 不含 h2（{alpn}）"
+                           " —— 通告的和实际要说的对不上")
+    print(f"ALPN vs h2 层        {alpn_ok}/{alpn_ok + alpn_bad} 相符")
+
+    # by_ua 绝不能给出会话恢复态
+    resumed = {r["id"] for r in regs.values() if r.get("mode") != "initial"}
+    leaked = set()
+    for brand, (tpl, lo, hi) in TARGETS.items():
+        for ver in range(lo, hi + 1):
+            if ver in NEVER_RELEASED.get(brand, set()):
+                continue
+            pid = mapper.lookup(tpl.format(v=ver)).get("profile")
+            if pid in resumed:
+                leaked.add((brand, ver, pid))
+    print(f"by_ua 不返回恢复态    {'OK' if not leaked else f'漏了 {len(leaked)} 个'}"
+          f"（库里有 {len(resumed)} 条非 initial）")
+    if leaked:
+        bad.append(f"by_ua 返回了恢复态 profile：{sorted(leaked)[:3]} —— "
+                   "那里面的 pre_shared_key 是采集当时的票据，发出去验不过，"
+                   "服务端会退回完整握手，比干净的首连更可疑")
+    if not resumed:
+        bad.append("库里一条非 initial 的 profile 都没有 —— 这条断言等于没验")
 
     for b in bad[:8]:
         print(f"  ✗ {b}")
