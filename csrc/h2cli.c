@@ -6,6 +6,8 @@
 #include "tlsfp.h"
 #include <stdio.h>
 int main(void) {
+    /* 行缓冲：错误分支用 continue 跳过了 fflush，缓冲住会让交互式调用方挂死。 */
+    setvbuf(stdout, NULL, _IOLBF, 0);
     char line[128], brand[64];
     unsigned ver;
     uint8_t out[8192];

@@ -6,7 +6,7 @@ LDFLAGS ?= -L$(OPENSSL_PREFIX)/lib -lcrypto
 # **每个门禁用到的二进制都必须在 all 里**。uacli / lookup_test 曾经不在，
 # 结果 `make` 从不重建它们，门禁跑的是上一次手工编译的陈旧二进制——改了
 # tlsfp.c 的行为，门禁却报旧行为，既能假绿也能假红。
-all: ja4cli uacli lookup_test buildcli h2cli idcli cohcli kscli snitest libtlsfp.so
+all: ja4cli uacli lookup_test buildcli h2cli idcli cohcli kscli snitest kxcli libtlsfp.so
 
 # **改了数据源就用 `make regen`，别手工 rm profiles.inc**。实测两次踩同一个坑：
 # 手工删掉 inc 再 make，重建出来的仍是旧内容（wildcard 在 make 启动时求值，
@@ -29,8 +29,16 @@ tlsfp.o: tlsfp.c tlsfp.h profiles.inc
 
 # 共享库供 LuaJIT FFI 加载：所有导出函数都是内存进内存出、非阻塞的，
 # 由 OpenResty 的 cosocket 在 Lua 侧驱动网络 I/O。
-libtlsfp.so: tlsfp.o
-	$(CC) -shared -o $@ $< $(LDFLAGS)
+libtlsfp.so: tlsfp.o tlsfp_kx.o
+	$(CC) -shared -o $@ tlsfp.o tlsfp_kx.o $(LDFLAGS) -ldl
+
+# **不 include openssl 头**：符号在运行时用 dlsym 解析，编译期不需要声明。
+# 这样打包机的 OpenSSL 版本与 worker 里那份不一致也不会出问题。
+tlsfp_kx.o: tlsfp_kx.c tlsfp_kx.h
+	$(CC) $(CFLAGS) -c tlsfp_kx.c -o $@
+
+kxcli: tlsfp_kx.o kxcli.c
+	$(CC) $(CFLAGS) -o $@ kxcli.c tlsfp_kx.o $(LDFLAGS) -ldl
 
 ja4cli: tlsfp.o ja4cli.c
 	$(CC) $(CFLAGS) -o $@ ja4cli.c tlsfp.o $(LDFLAGS)
@@ -68,6 +76,6 @@ lookup_test: tlsfp.o lookup_test.c
 	$(CC) $(CFLAGS) -o $@ lookup_test.c tlsfp.o $(LDFLAGS)
 
 clean:
-	rm -f *.o ja4cli uacli lookup_test buildcli h2cli idcli cohcli kscli snitest libtlsfp.so profiles.inc
+	rm -f *.o ja4cli uacli lookup_test buildcli h2cli idcli cohcli kscli snitest kxcli libtlsfp.so profiles.inc
 
 .PHONY: all clean

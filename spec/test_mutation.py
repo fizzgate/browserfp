@@ -202,6 +202,64 @@ MUTANTS = [
      ["test_registry_fresh", "test_rebuild", "test_derive"],
      "集合类字段要排序后才能当去重键，否则同一指纹被拆成多条"),
 
+    # —— 密钥交换。**错了不会报错**：本地照样算得出一个共享密钥，只是与服务端
+    # 算的不同，症状是握手在 Finished 阶段失败、报"解密失败"。
+    ("KX:混合组公钥两段对调", "csrc/tlsfp_kx.c",
+     '            int m = raw_pub(k->a, pub, publen);\n'
+     '            int x = (m == MLKEM_EK_LEN)\n'
+     '                    ? raw_pub(k->b, pub + MLKEM_EK_LEN, publen - MLKEM_EK_LEN) : -1;',
+     '            int x = raw_pub(k->b, pub, publen);\n'
+     '            int m = (x == X25519_LEN)\n'
+     '                    ? raw_pub(k->a, pub + X25519_LEN, publen - X25519_LEN) : -1;',
+     ["test_kx"],
+     "X25519MLKEM768 的 key_share 是 ML-KEM 封装密钥在前、X25519 在后"),
+
+    ("KX:共享密钥两段对调", "csrc/tlsfp_kx.c",
+     '        int x = derive_ecdh(k->b, "X25519", peer + MLKEM_CT_LEN, X25519_LEN,\n'
+     '                            secret + MLKEM_SS_LEN, seclen - MLKEM_SS_LEN);',
+     '        unsigned char tmp[MLKEM_SS_LEN]; memcpy(tmp, secret, MLKEM_SS_LEN);\n'
+     '        int x = derive_ecdh(k->b, "X25519", peer + MLKEM_CT_LEN, X25519_LEN,\n'
+     '                            secret, seclen);\n'
+     '        memcpy(secret + X25519_LEN, tmp, MLKEM_SS_LEN);',
+     ["test_kx"],
+     "混合组共享密钥同样是 ML-KEM 那 32 字节在前"),
+
+    ("KX:混合组丢掉 X25519 那半段", "csrc/tlsfp_kx.c",
+     '        int x = derive_ecdh(k->b, "X25519", peer + MLKEM_CT_LEN, X25519_LEN,\n'
+     '                            secret + MLKEM_SS_LEN, seclen - MLKEM_SS_LEN);',
+     '        memset(secret + MLKEM_SS_LEN, 0, X25519_LEN); int x = X25519_LEN;',
+     ["test_kx"],
+     "混合组两半都要真算——少一半长度仍然对，只有比字节才看得出来"),
+
+    ("KX:P-256 用错曲线", "csrc/tlsfp_kx.c",
+     'gen_ec(group == P256_GROUP ? "prime256v1" : "secp384r1")',
+     'gen_ec("secp384r1")',
+     ["test_kx"],
+     "每个组要用它自己的曲线（Firefox 的 key_share 带 P-256）"),
+
+    ("KX:复用同一把 X25519 密钥", "csrc/tlsfp_kx.c",
+     'static void *gen_named(const char *name) {\n'
+     '    void *c = S.ctx_new_from_name(NULL, name, NULL);\n'
+     '    if (!c) return NULL;\n'
+     '    void *pk = NULL;\n'
+     '    if (S.keygen_init(c) != 1 || S.generate(c, &pk) != 1) pk = NULL;\n'
+     '    S.ctx_free(c);\n'
+     '    return pk;\n'
+     '}',
+     'static void *CACHED_X;\n'
+     'static void *gen_named(const char *name) {\n'
+     '    if (CACHED_X && name[0] == 0x58) return CACHED_X;\n'
+     '    void *c = S.ctx_new_from_name(NULL, name, NULL);\n'
+     '    if (!c) return NULL;\n'
+     '    void *pk = NULL;\n'
+     '    if (S.keygen_init(c) != 1 || S.generate(c, &pk) != 1) pk = NULL;\n'
+     '    S.ctx_free(c);\n'
+     '    if (name[0] == 0x58) CACHED_X = pk;\n'
+     '    return pk;\n'
+     '}',
+     ["test_kx"],
+     "每次握手都要新密钥——复用等于一把固定公钥反复上线"),
+
     # —— 生产接口（Lua）这一层。**能力做在库里、出口没接上**是本项目撞过两次
     # 的形态（另一次是 C 构造器默认 VERBATIM），所以这四条从生产入口回打。
     ("Lua:client_hello 不注入 key_share", "lua/tlsfp.lua",

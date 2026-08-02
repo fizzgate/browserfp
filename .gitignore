@@ -11,14 +11,12 @@ csrc/lookup_test
 csrc/buildcli
 csrc/h2cli
 csrc/kscli
-csrc/hdrcli
-csrc/uachcli
-csrc/platcli
 csrc/idcli
 csrc/cohcli
 csrc/fuzzcli
 csrc/*.dSYM
 csrc/uacli
 csrc/snitest
+csrc/kxcli
 csrc/profiles.inc
 spec/cache/

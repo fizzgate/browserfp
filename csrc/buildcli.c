@@ -3,6 +3,8 @@
 #include <stdio.h>
 #include <string.h>
 int main(void) {
+    /* 行缓冲：错误分支用 continue 跳过了 fflush，缓冲住会让交互式调用方挂死。 */
+    setvbuf(stdout, NULL, _IOLBF, 0);
     char line[64];
     uint8_t out[16384], rnd[32], sid[32];
     for (int i = 0; i < 32; i++) { rnd[i] = (uint8_t)(i * 7 + 1); sid[i] = (uint8_t)(i * 3 + 2); }

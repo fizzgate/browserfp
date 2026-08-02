@@ -1,0 +1,272 @@
+#include "tlsfp_kx.h"
+
+#include <dlfcn.h>
+#include <stdlib.h>
+#include <string.h>
+
+#define X25519_GROUP   0x001D
+#define P256_GROUP     0x0017
+#define P384_GROUP     0x0018
+#define MLKEM_GROUP    0x11EC
+
+#define MLKEM_EK_LEN   1184
+#define MLKEM_CT_LEN   1088
+#define MLKEM_SS_LEN     32
+#define X25519_LEN       32
+
+/* 只声明用得到的那几个 EVP 入口。**不 include openssl 的头** —— 打包机上的
+ * 头文件版本与运行时那份未必一致，而我们只需要函数签名。 */
+typedef void *(*fn_ctx_new_from_name)(void *, const char *, const char *);
+typedef void *(*fn_ctx_new)(void *, void *);
+typedef int (*fn_keygen_init)(void *);
+typedef int (*fn_generate)(void *, void **);
+typedef int (*fn_set_group_name)(void *, const char *);
+typedef int (*fn_get_raw_pub)(const void *, unsigned char *, size_t *);
+typedef int (*fn_get_octet_param)(const void *, const char *, unsigned char *,
+                                  size_t, size_t *);
+typedef void *(*fn_new_raw_pub_ex)(void *, const char *, const char *,
+                                   const unsigned char *, size_t);
+typedef void *(*fn_pkey_new)(void);
+typedef int (*fn_copy_params)(void *, const void *);
+typedef int (*fn_set1_encoded_pub)(void *, const unsigned char *, size_t);
+typedef int (*fn_derive_init)(void *);
+typedef int (*fn_derive_set_peer)(void *, void *);
+typedef int (*fn_derive)(void *, unsigned char *, size_t *);
+typedef int (*fn_decap_init)(void *, void *);
+typedef int (*fn_decap)(void *, unsigned char *, size_t *,
+                        const unsigned char *, size_t);
+typedef void (*fn_pkey_free)(void *);
+typedef void (*fn_ctx_free)(void *);
+typedef const char *(*fn_version)(int);
+
+static struct {
+    int loaded;
+    fn_ctx_new_from_name ctx_new_from_name;
+    fn_ctx_new           ctx_new;
+    fn_keygen_init       keygen_init;
+    fn_generate          generate;
+    fn_set_group_name    set_group_name;
+    fn_get_raw_pub       get_raw_pub;
+    fn_get_octet_param   get_octet_param;
+    fn_new_raw_pub_ex    new_raw_pub_ex;
+    fn_pkey_new          pkey_new;
+    fn_copy_params       copy_params;
+    fn_set1_encoded_pub  set1_encoded_pub;
+    fn_derive_init       derive_init;
+    fn_derive_set_peer   derive_set_peer;
+    fn_derive            derive;
+    fn_decap_init        decap_init;
+    fn_decap             decap;
+    fn_pkey_free         pkey_free;
+    fn_ctx_free          ctx_free;
+    fn_version           version;
+} S;
+
+/* 私钥句柄。混合组要拿两把。 */
+typedef struct {
+    uint16_t group;
+    void *a;            /* X25519 / EC / ML-KEM */
+    void *b;            /* 混合组的 X25519 */
+} kx_ctx;
+
+#define SYM(field, name)                                        \
+    do {                                                        \
+        void *p = h ? dlsym(h, name) : dlsym(RTLD_DEFAULT, name); \
+        if (!p) return -1;                                      \
+        S.field = (fn_##field)p;                                \
+    } while (0)
+
+int tlsfp_kx_init(const char *libcrypto_path) {
+    if (S.loaded) return 0;
+    void *h = NULL;
+    if (libcrypto_path) {
+        h = dlopen(libcrypto_path, RTLD_NOW | RTLD_GLOBAL);
+        if (!h) return -1;
+    }
+    SYM(ctx_new_from_name, "EVP_PKEY_CTX_new_from_name");
+    SYM(ctx_new,           "EVP_PKEY_CTX_new");
+    SYM(keygen_init,       "EVP_PKEY_keygen_init");
+    SYM(generate,          "EVP_PKEY_generate");
+    SYM(set_group_name,    "EVP_PKEY_CTX_set_group_name");
+    SYM(get_raw_pub,       "EVP_PKEY_get_raw_public_key");
+    SYM(get_octet_param,   "EVP_PKEY_get_octet_string_param");
+    SYM(new_raw_pub_ex,    "EVP_PKEY_new_raw_public_key_ex");
+    SYM(pkey_new,          "EVP_PKEY_new");
+    SYM(copy_params,       "EVP_PKEY_copy_parameters");
+    SYM(set1_encoded_pub,  "EVP_PKEY_set1_encoded_public_key");
+    SYM(derive_init,       "EVP_PKEY_derive_init");
+    SYM(derive_set_peer,   "EVP_PKEY_derive_set_peer");
+    SYM(derive,            "EVP_PKEY_derive");
+    SYM(decap_init,        "EVP_PKEY_decapsulate_init");
+    SYM(decap,             "EVP_PKEY_decapsulate");
+    SYM(pkey_free,         "EVP_PKEY_free");
+    SYM(ctx_free,          "EVP_PKEY_CTX_free");
+    SYM(version,           "OpenSSL_version");
+    S.loaded = 1;
+    return 0;
+}
+
+const char *tlsfp_kx_openssl_version(void) {
+    return S.loaded ? S.version(0) : NULL;
+}
+
+size_t tlsfp_kx_pub_len(uint16_t group) {
+    switch (group) {
+    case X25519_GROUP: return X25519_LEN;
+    case P256_GROUP:   return 65;
+    case P384_GROUP:   return 97;
+    case MLKEM_GROUP:  return MLKEM_EK_LEN + X25519_LEN;
+    default:           return 0;
+    }
+}
+
+size_t tlsfp_kx_secret_len(uint16_t group) {
+    switch (group) {
+    case X25519_GROUP: return 32;
+    case P256_GROUP:   return 32;
+    case P384_GROUP:   return 48;
+    case MLKEM_GROUP:  return MLKEM_SS_LEN + X25519_LEN;
+    default:           return 0;
+    }
+}
+
+static void *gen_named(const char *name) {
+    void *c = S.ctx_new_from_name(NULL, name, NULL);
+    if (!c) return NULL;
+    void *pk = NULL;
+    if (S.keygen_init(c) != 1 || S.generate(c, &pk) != 1) pk = NULL;
+    S.ctx_free(c);
+    return pk;
+}
+
+static void *gen_ec(const char *curve) {
+    void *c = S.ctx_new_from_name(NULL, "EC", NULL);
+    if (!c) return NULL;
+    void *pk = NULL;
+    if (S.keygen_init(c) != 1 || S.set_group_name(c, curve) != 1
+        || S.generate(c, &pk) != 1) pk = NULL;
+    S.ctx_free(c);
+    return pk;
+}
+
+static int raw_pub(void *pk, uint8_t *out, size_t cap) {
+    size_t n = cap;
+    if (S.get_raw_pub(pk, out, &n) != 1) return -1;
+    return (int)n;
+}
+
+static int ec_pub(void *pk, uint8_t *out, size_t cap) {
+    size_t n = 0;
+    if (S.get_octet_param(pk, "encoded-pub-key", out, cap, &n) != 1) return -1;
+    return (int)n;
+}
+
+int tlsfp_kx_keygen(uint16_t group, uint8_t *pub, size_t publen, void **out) {
+    if (!S.loaded || !out) return -1;
+    size_t need = tlsfp_kx_pub_len(group);
+    if (!need || publen < need) return -1;
+
+    kx_ctx *k = calloc(1, sizeof(*k));
+    if (!k) return -1;
+    k->group = group;
+    int n = -1;
+
+    switch (group) {
+    case X25519_GROUP:
+        k->a = gen_named("X25519");
+        if (k->a) n = raw_pub(k->a, pub, publen);
+        break;
+    case P256_GROUP:
+    case P384_GROUP:
+        k->a = gen_ec(group == P256_GROUP ? "prime256v1" : "secp384r1");
+        if (k->a) n = ec_pub(k->a, pub, publen);
+        break;
+    case MLKEM_GROUP:
+        /* 顺序按 draft-ietf-tls-ecdhe-mlkem：ML-KEM 在前，X25519 在后。
+         * 与参考实现 oracle/tls13.py 同一顺序 —— 它已经能跟真站点握上手。 */
+        k->a = gen_named("ML-KEM-768");
+        k->b = gen_named("X25519");
+        if (k->a && k->b) {
+            int m = raw_pub(k->a, pub, publen);
+            int x = (m == MLKEM_EK_LEN)
+                    ? raw_pub(k->b, pub + MLKEM_EK_LEN, publen - MLKEM_EK_LEN) : -1;
+            if (x == X25519_LEN) n = m + x;
+        }
+        break;
+    default:
+        break;
+    }
+
+    if (n != (int)need) { tlsfp_kx_free(k); return -1; }
+    *out = k;
+    return n;
+}
+
+static int derive_ecdh(void *priv, const char *rawname,
+                       const uint8_t *peer, size_t peerlen,
+                       uint8_t *out, size_t cap) {
+    void *pk = NULL;
+    if (rawname) {
+        pk = S.new_raw_pub_ex(NULL, rawname, NULL, peer, peerlen);
+    } else {
+        pk = S.pkey_new();
+        if (pk && (S.copy_params(pk, priv) != 1
+                   || S.set1_encoded_pub(pk, peer, peerlen) != 1)) {
+            S.pkey_free(pk); pk = NULL;
+        }
+    }
+    if (!pk) return -1;
+
+    void *c = S.ctx_new(priv, NULL);
+    int n = -1;
+    if (c && S.derive_init(c) == 1 && S.derive_set_peer(c, pk) == 1) {
+        size_t len = cap;
+        if (S.derive(c, out, &len) == 1) n = (int)len;
+    }
+    if (c) S.ctx_free(c);
+    S.pkey_free(pk);
+    return n;
+}
+
+int tlsfp_kx_derive(void *ctx, const uint8_t *peer, size_t peerlen,
+                    uint8_t *secret, size_t seclen) {
+    kx_ctx *k = (kx_ctx *)ctx;
+    if (!S.loaded || !k) return -1;
+    size_t need = tlsfp_kx_secret_len(k->group);
+    if (!need || seclen < need) return -1;
+
+    switch (k->group) {
+    case X25519_GROUP:
+        if (peerlen != X25519_LEN) return -1;
+        return derive_ecdh(k->a, "X25519", peer, peerlen, secret, seclen);
+    case P256_GROUP:
+    case P384_GROUP:
+        return derive_ecdh(k->a, NULL, peer, peerlen, secret, seclen);
+    case MLKEM_GROUP: {
+        if (peerlen != MLKEM_CT_LEN + X25519_LEN) return -1;
+        void *c = S.ctx_new(k->a, NULL);
+        if (!c) return -1;
+        size_t n = MLKEM_SS_LEN;
+        int ok = (S.decap_init(c, NULL) == 1
+                  && S.decap(c, secret, &n, peer, MLKEM_CT_LEN) == 1
+                  && n == MLKEM_SS_LEN);
+        S.ctx_free(c);
+        if (!ok) return -1;
+        int x = derive_ecdh(k->b, "X25519", peer + MLKEM_CT_LEN, X25519_LEN,
+                            secret + MLKEM_SS_LEN, seclen - MLKEM_SS_LEN);
+        return x == X25519_LEN ? (int)need : -1;
+    }
+    default:
+        return -1;
+    }
+}
+
+void tlsfp_kx_free(void *ctx) {
+    kx_ctx *k = (kx_ctx *)ctx;
+    if (!k) return;
+    if (S.loaded) {
+        if (k->a) S.pkey_free(k->a);
+        if (k->b) S.pkey_free(k->b);
+    }
+    free(k);
+}
