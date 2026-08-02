@@ -137,6 +137,17 @@ def _build_key_share(golden_body, key_shares=None):
     return _vec(out, 2)
 
 
+# 会话恢复态 profile 的 pre_shared_key。
+#
+# 里面是**采集当时的票据**：发出去验不过，服务端会退回完整握手 —— 那比干净的
+# 首连更可疑（一个"声称自己来过"却拿不出有效票据的客户端）。真做恢复也不可能
+# 靠照抄：binder 是对整段 transcript 的 HMAC，换一个字节就得重算。
+#
+# 所以按用途分开：**重建验证**必须原样发（不然验不了重建闭环），**真出网**必须
+# 拒绝。区分信号就是调用方有没有注入 key_share —— 注入了就说明它真要握手。
+PSK_EXT = 0x0029
+
+
 def build_client_hello(profile, sni=None, key_shares=None):
     """按 profile 组装一条完整的 TLS record（含 5 字节 record 头）。
 
@@ -145,6 +156,12 @@ def build_client_hello(profile, sni=None, key_shares=None):
     """
     raw_ciphers = profile["raw_ciphers"]
     raw_extensions = profile["raw_extensions"]
+    if key_shares and PSK_EXT in raw_extensions:
+        raise ValueError(
+            "这条 profile 是会话恢复态（带 pre_shared_key），而你注入了 "
+            "key_share —— 也就是真要握手。里面的票据是采集当时的，发出去验不过，"
+            "服务端会退回完整握手，比干净的首连更可疑。请改用 initial 态的 "
+            "profile（by_ua 本来就只返回 initial 态）")
     bodies = {int(k): bytes.fromhex(v) for k, v in profile["extension_bodies"].items()}
 
     ext_bytes = b""

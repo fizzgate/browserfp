@@ -560,6 +560,14 @@ int tlsfp_build_client_hello_ex(const tlsfp_profile *p, const char *sni,
                                 const uint8_t *random32, const uint8_t *session_id,
                                 const tlsfp_keyshare *ks, size_t n_ks,
                                 uint8_t *out, size_t outlen) {
+    /* 注入了 key_share = 调用方真要握手。这时候不能把 profile 里那张采集当时的
+       票据发出去：验不过，服务端退回完整握手 —— 一个"声称自己来过"却拿不出
+       有效票据的客户端，比干净的首连更可疑。真做恢复也不可能靠照抄，binder 是
+       对整段 transcript 的 HMAC。不注入时照常原样构造，那是重建验证要用的。 */
+    if (n_ks) {
+        for (size_t i = 0; i < p->n_rawext; i++)
+            if (p->rawext[i] == 0x0029) return -1;
+    }
     if (!p || !out || !p->rawciph || !p->rawext) return -1;
     if (!random32 || (p->session_id_len && !session_id)) return -1;
 

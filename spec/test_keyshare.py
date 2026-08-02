@@ -83,6 +83,21 @@ def built_pubs(raw):
     return out
 
 
+def py_build(rec, bad, why, **kw):
+    """Python 侧构造，**失败当成发现而不是让门禁崩掉**。
+
+    这个教训在本文件里撞了三次：形状比对循环、注入那一段、ECH 那一段 —— 每次
+    都是"某条 profile 让构造器抛异常，整条门禁当场死掉，后面几段一条没跑"。
+    崩掉时终端只有一个 traceback，看不到哪几条不符、也看不到还有没有别的问题。
+    所以不逐处补 try，只留这一个入口。
+    """
+    try:
+        return build_client_hello(rec["tls"], **kw)
+    except Exception as e:
+        bad.append(f"{rec['id']}: {why}（{type(e).__name__}: {str(e)[:70]}）")
+        return None
+
+
 def c_build(pid, inject=None):
     """kscli: 一行 "<profile_id>\\t<group>:<pubhex>,..." → ClientHello 的 hex。"""
     arg = f"{pid}\t" + ",".join(f"{g:04x}:{p.hex()}" for g, p in (inject or {}).items())
@@ -108,7 +123,13 @@ def main():
         if not want:
             continue
         n_shape += 1
-        got = built_shape(build_client_hello(rec["tls"], sni=None))
+        # **构造失败要当成发现，不能让门禁崩掉**。同一个教训在本文件里出现两次：
+        # 崩掉时终端只有一个 traceback，看不到"哪几条不符"，也看不到后面几段
+        # 检查跑没跑。门禁的职责是报告。
+        raw = py_build(rec, bad, "无注入构造就失败了 —— 重建闭环要靠它", sni=None)
+        if raw is None:
+            continue
+        got = built_shape(raw)
         if got != want:
             bad.append(f"{rec['id']}: Python 重建的 key_share 形状与 golden 不同\n"
                        f"      golden {want}\n      重建   {got}")
@@ -183,6 +204,52 @@ def main():
                   f"Python {'报错' if not py_ok else '✗ 接受了'}，"
                   f"C {'报错' if c_out is None else '✗ 接受了'}")
 
+    # —— 会话恢复态：真出网时必须拒绝 ——
+    #
+    # profile 里那张 pre_shared_key 是采集当时的票据，发出去验不过，服务端会
+    # 退回完整握手 —— 一个"声称自己来过"却拿不出有效票据的客户端，比干净的
+    # 首连更可疑。by_ua 本来就只返回 initial 态，但**构造器本身**此前会照发。
+    #
+    # 区分信号是"有没有注入 key_share"：注入了就说明调用方真要握手。不注入时
+    # 必须照常原样构造 —— 重建闭环要靠它。
+    psk = [x for x in registry if 0x0029 in (x["tls"].get("raw_extensions") or [])]
+    if not psk:
+        bad.append("注册表里一条会话恢复态 profile 都没有 —— 这段断言等于没验")
+    else:
+        rec = psk[0]
+        shape = golden_shape(rec)
+        grp = next(((g, n) for g, n in (shape or [])
+                    if not (0x0a0a <= g <= 0xfafa and (g & 0x0f0f) == 0x0a0a)), None)
+        # 不注入：必须照常构造出来（重建验证要用）
+        plain = py_build(rec, bad,
+                         "不注入时也拒绝了恢复态 profile —— 重建闭环要靠它原样构造",
+                         sni=None)
+        plain_ok = plain is not None and \
+            0x0029 in parse_client_hello(plain)["raw_extensions"]
+        if not plain_ok:
+            bad.append("不注入时构造出的字节里没有 pre_shared_key —— "
+                       "重建验证会失真")
+        if c_build(rec["id"]) is None:
+            bad.append("C 不注入时也拒绝了恢复态 profile —— 重建闭环要靠它")
+        # 注入：两侧都必须拒绝
+        if grp:
+            inj = {grp[0]: bytes([0x5a]) * grp[1]}
+            try:
+                build_client_hello(rec["tls"], sni=None, key_shares=inj)
+                bad.append("Python 允许对会话恢复态 profile 注入 key_share —— "
+                           "那等于真要握手，会把过期票据发出去")
+                py_ref = False
+            except Exception:
+                py_ref = True
+            c_ref = c_build(rec["id"], inj) is None
+            if not c_ref:
+                bad.append("C 允许对会话恢复态 profile 注入 key_share —— 同上")
+            print(f"会话恢复态 {rec['id']}：不注入照常构造，"
+                  f"注入时 Python {'拒绝' if py_ref else '✗ 接受'}、"
+                  f"C {'拒绝' if c_ref else '✗ 接受'}")
+        else:
+            bad.append(f"{rec['id']} 没有非 GREASE 的 key_share，注入验不了")
+
     # —— GREASE ECH：形状照抄、内容新鲜 ——
     ech = [x for x in registry if 0xFE0D in (x["tls"].get("raw_extensions") or [])]
     n_ech = 0
@@ -190,7 +257,7 @@ def main():
         eb = rec["tls"]["extension_bodies"]
         gk = [x for x in eb if int(x) == 0xFE0D][0]
         gold = bytes.fromhex(eb[gk])
-        for side, raw in (("Python", build_client_hello(rec["tls"], sni=None)),
+        for side, raw in (("Python", py_build(rec, bad, "ECH 段构造失败", sni=None)),
                           ("C", c_build(rec["id"]))):
             if raw is None:
                 continue
@@ -211,8 +278,9 @@ def main():
                 bad.append(f"{rec['id']}: {side} 照抄了 golden 的 ECH —— "
                            "config_id 固定会撞上服务端真实配置，回 handshake_failure")
     # 新鲜性：同一条 profile 连造两次必须不同
-    if ech:
-        two = [build_client_hello(ech[0]["tls"], sni=None) for _ in range(2)]
+    two = [py_build(ech[0], bad, "新鲜性检查构造失败", sni=None)
+           for _ in range(2)] if ech else []
+    if all(x is not None for x in two) and two:
         bodies = []
         for raw in two:
             e = parse_client_hello(raw)["extension_bodies"]

@@ -66,6 +66,12 @@ MUTANTS = [
      ["test_build_parity"],
      "重建 ClientHello 时 SNI 排在首个 GREASE 之后"),
 
+    ("PSK:真出网时不拒绝恢复态", "oracle/chbuild.py",
+     "    if key_shares and PSK_EXT in raw_extensions:",
+     "    if False:",
+     ["test_keyshare"],
+     "注入 key_share（=真要握手）时必须拒绝会话恢复态 profile"),
+
     ("ECH:照抄 golden 的 config_id", "oracle/chbuild.py",
      '            body = grease_ech(bodies.get(ext_id, b""))',
      '            body = bodies.get(ext_id, b"")',
