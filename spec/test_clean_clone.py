@@ -40,7 +40,8 @@ ROOT = os.path.dirname(HERE)
 EXCLUDE = {"test_clean_clone", "test_trivial_pass",
            "test_live_handshake", "test_build_live", "test_h2_live",
            "test_masquerade_live", "test_openresty", "test_cf_discrimination",
-           "test_version_ceiling", "test_chromium_h2", "test_gecko_h2"}
+           "test_version_ceiling", "test_chromium_h2", "test_gecko_h2",
+           "test_robustness"}
 
 
 def _export(dest):

@@ -150,6 +150,10 @@ static void hash12(const char *s, char *out) {
 }
 
 int tlsfp_ja4(const tlsfp_hello *h, char transport, char *out, size_t outlen) {
+    /* **空指针必须挡在门口**：这些函数跑在 nginx worker 里，解引用一个 NULL
+       不是"这个请求失败"，是整个 worker 挂掉。实测 ASan 下
+       tlsfp_ja4(NULL, …) 直接 SEGV。 */
+    if (!h || !out || outlen == 0) return -1;
     if (outlen < TLSFP_JA4_LEN) return -1;
 
     /* 版本取 supported_versions 的最大值，没有该扩展则退回 client_version

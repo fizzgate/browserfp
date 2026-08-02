@@ -61,6 +61,12 @@ cohcli: tlsfp.o cohcli.c
 
 # snitest 一直没有规则 —— 本机上它是早年手工编出来的，所以没人发现；
 # 干净克隆里 test_build_parity 的"SNI 插入生效"那一项直接失败。
+# 健壮性用的可执行：**必须带 ASan**。不带的话"没崩"只说明这次没踩到，
+# 越界读写在只读表上常常无声无息 —— 而它跑在 nginx worker 里。
+fuzzcli: tlsfp.c fuzzcli.c profiles.inc
+	$(CC) -O1 -g -fsanitize=address,undefined -fno-omit-frame-pointer \
+	  $(CFLAGS) -o $@ fuzzcli.c tlsfp.c $(LDFLAGS)
+
 snitest: tlsfp.o snitest.c
 	$(CC) $(CFLAGS) -o $@ snitest.c tlsfp.o $(LDFLAGS)
 

@@ -15,6 +15,7 @@ csrc/uachcli
 csrc/platcli
 csrc/idcli
 csrc/cohcli
+csrc/fuzzcli
 csrc/uacli
 csrc/snitest
 csrc/profiles.inc
