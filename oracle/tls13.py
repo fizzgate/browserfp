@@ -31,7 +31,7 @@ from cryptography.hazmat.primitives.asymmetric.x25519 import (      # noqa: E402
 from cryptography.hazmat.primitives.ciphers.aead import (           # noqa: E402
     AESGCM, ChaCha20Poly1305)
 
-from oracle.chbuild import _u16, _vec                               # noqa: E402
+from oracle.chbuild import _u16, _vec, grease_ech                   # noqa: E402
 from oracle.clienthello import is_grease                            # noqa: E402
 
 X25519_GROUP = 0x001D
@@ -232,7 +232,7 @@ class TLS13Client:
                 # 会漏掉这个缺陷。也**不能照搬 golden 的 body**：config_id 只有
                 # 1 字节，固定值一旦撞上服务端真实 ECH 配置，它会拿自己的私钥去
                 # 解 payload 并失败，同样是 handshake_failure。必须每次新鲜生成。
-                body = self._grease_ech(bodies.get(ext_id, b""))
+                body = grease_ech(bodies.get(ext_id, b""))
                 if not body:
                     continue
             else:
@@ -248,30 +248,6 @@ class TLS13Client:
 
         handshake = bytes([0x01]) + _vec(hello, 3)
         return bytes([0x16]) + _u16(0x0301) + _vec(handshake, 2)
-
-    @staticmethod
-    def _grease_ech(golden_body):
-        """按 draft-ietf-tls-esni 的 outer 形态生成 GREASE ECH。
-
-            type(1)=0 | kdf(2) | aead(2) | config_id(1) | enc<2> | payload<2>
-
-        config_id / enc / payload 内容全部新鲜随机；**payload 长度沿用 golden**
-        —— 它决定 ClientHello 总长度，属于该 profile 指纹的一部分，随意改会让
-        我们发出的 CH 与真实浏览器长度对不上。kdf/aead 也照 golden（实测三个
-        Chrome profile 都是 0x0001/0x0001）。
-
-        服务端遇到不认识的 config_id 应按规范忽略 ECH 并正常握手，所以这里
-        不需要任何服务端配合。
-        """
-        if not golden_body or len(golden_body) < 8:
-            return b""
-        kdf, aead = struct.unpack_from(">HH", golden_body, 1)
-        enc_len = struct.unpack_from(">H", golden_body, 6)[0]
-        payload_len = struct.unpack_from(">H", golden_body, 8 + enc_len)[0]
-        return (bytes([0]) + struct.pack(">HH", kdf, aead)
-                + os.urandom(1)                       # config_id
-                + _vec(os.urandom(enc_len), 2)        # enc（HPKE 公钥）
-                + _vec(os.urandom(payload_len), 2))   # payload（伪密文）
 
     def _key_share_entries(self, x_pub, mlkem_priv):
         """按 profile 首选曲线产出 key_share 条目。

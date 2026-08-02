@@ -465,6 +465,54 @@ int tlsfp_build_client_hello(const tlsfp_profile *p, const char *sni,
 /* 按 profile 的 key_share 形状重写公钥。形状（分组/顺序/每条长度）一律照抄，
    只换内容 —— 少一组、多一组、长度变一位，都不再是那个浏览器。
    写不下或形状对不上返回 -1。 */
+/* GREASE ECH 的 body 必须**每次新鲜**，不能照抄 profile。
+   config_id 只有 1 字节，固定值一旦撞上服务端真实的 ECH 配置，服务端会拿自己
+   的私钥去解 payload、失败，回 handshake_failure(40)。34/81 条默认 profile 带
+   0xFE0D，也就是绝大多数 Chrome 形态都埋着这个雷。
+
+   形状照抄：kdf/aead 与 enc/payload 的**长度**都取自 profile —— payload 长度
+   决定 ClientHello 总长度，是该 profile 指纹的一部分。只有内容是新鲜的。
+
+   **本库没有内部 RNG**（内存进内存出的架构约束），随机性从调用方给的 random32
+   派生：SHA256(random32 || 序号)。random32 每次连接都不同，派生出来的自然也
+   不同；而库本身仍然是确定性的、可差分比对的。 */
+static void ech_bytes(const uint8_t *random32, uint32_t idx,
+                      uint8_t *out, size_t n) {
+    uint8_t seed[36], digest[32];
+    size_t done = 0;
+    memcpy(seed, random32, 32);
+    while (done < n) {
+        uint32_t counter = idx + (uint32_t)(done / 32);
+        seed[32] = (uint8_t)(counter >> 24); seed[33] = (uint8_t)(counter >> 16);
+        seed[34] = (uint8_t)(counter >> 8);  seed[35] = (uint8_t)counter;
+        SHA256(seed, sizeof(seed), digest);
+        size_t take = n - done < 32 ? n - done : 32;
+        memcpy(out + done, digest, take);
+        done += take;
+    }
+}
+
+static int rewrite_ech(const uint8_t *body, uint16_t blen,
+                       const uint8_t *random32, uint8_t *out, uint16_t *outlen) {
+    if (blen < 8) return -1;
+    uint16_t enc_len = (uint16_t)((body[6] << 8) | body[7]);
+    if ((size_t)8 + enc_len + 2 > blen) return -1;
+    uint16_t pay_len = (uint16_t)((body[8 + enc_len] << 8) | body[9 + enc_len]);
+    if ((size_t)10 + enc_len + pay_len != blen) return -1;
+
+    size_t o = 0;
+    out[o++] = 0x00;                         /* outer */
+    out[o++] = body[1]; out[o++] = body[2];  /* kdf   */
+    out[o++] = body[3]; out[o++] = body[4];  /* aead  */
+    ech_bytes(random32, 1, out + o, 1); o += 1;            /* config_id */
+    out[o++] = (uint8_t)(enc_len >> 8); out[o++] = (uint8_t)enc_len;
+    ech_bytes(random32, 2, out + o, enc_len); o += enc_len;
+    out[o++] = (uint8_t)(pay_len >> 8); out[o++] = (uint8_t)pay_len;
+    ech_bytes(random32, 3 + enc_len, out + o, pay_len); o += pay_len;
+    *outlen = (uint16_t)o;
+    return 0;
+}
+
 static int rewrite_key_share(const uint8_t *body, uint16_t blen,
                              const tlsfp_keyshare *ks, size_t n_ks,
                              uint8_t *out, uint16_t *outlen) {
@@ -560,6 +608,17 @@ int tlsfp_build_client_hello_ex(const tlsfp_profile *p, const char *sni,
             ext[e++] = 0x00;
             e += put_u16(ext + e, (uint16_t)n);
             memcpy(ext + e, sni, n); e += n;
+            continue;
+        }
+        if (id == 0xFE0D && blen >= 8) {
+            uint8_t tmp[4096];
+            uint16_t tlen = 0;
+            if (blen > sizeof(tmp)) return -1;
+            if (rewrite_ech(body, blen, random32, tmp, &tlen) != 0) return -1;
+            if (e + 4 + tlen > sizeof(ext)) return -1;
+            e += put_u16(ext + e, id);
+            e += put_u16(ext + e, tlen);
+            memcpy(ext + e, tmp, tlen); e += tlen;
             continue;
         }
         if (id == 0x0033 && n_ks) {

@@ -43,6 +43,37 @@ def _vec(body, len_bytes):
     raise ValueError(len_bytes)
 
 
+def grease_ech(golden_body, rnd=None):
+    """按 draft-ietf-tls-esni 的 outer 形态**新鲜生成** GREASE ECH。
+
+        type(1)=0 | kdf(2) | aead(2) | config_id(1) | enc<2> | payload<2>
+
+    **不能照抄 golden 的 body**：config_id 只有 1 字节，固定值一旦撞上服务端
+    真实的 ECH 配置，服务端会拿自己的私钥去解 payload、失败，回
+    handshake_failure(40)。这条是参考实现 `oracle/tls13.py` 实测出来的，而发货
+    的构造器（本模块与 C）一直在照抄 golden —— 34/81 条默认 profile 带 0xFE0D，
+    也就是绝大多数 Chrome 形态都埋着这个雷。`test_build_live` 只打三个站点，
+    撞不上就一直是绿的。
+
+    **形状必须照抄**：payload 长度决定 ClientHello 总长度，属于该 profile 指纹
+    的一部分；kdf/aead 也照 golden（实测三个 Chrome profile 都是 0x0001/0x0001）。
+    只有 config_id / enc / payload 的**内容**是新鲜的。
+
+    rnd: 取随机字节的函数，默认 secrets.token_bytes。C 侧没有内部 RNG（库是
+    内存进内存出的），那边从调用方给的 random32 派生。
+    """
+    if not golden_body or len(golden_body) < 8:
+        return b""
+    rnd = rnd or secrets.token_bytes
+    kdf, aead = struct.unpack_from(">HH", golden_body, 1)
+    enc_len = struct.unpack_from(">H", golden_body, 6)[0]
+    payload_len = struct.unpack_from(">H", golden_body, 8 + enc_len)[0]
+    return (bytes([0]) + struct.pack(">HH", kdf, aead)
+            + rnd(1)
+            + _vec(rnd(enc_len), 2)
+            + _vec(rnd(payload_len), 2))
+
+
 def _parse_key_share(body):
     """golden 的 key_share 体 → [(group, pub_len)]，顺序照原样。"""
     out, i = [], 2                       # 跳过 client_shares 的 2 字节长度
@@ -129,6 +160,8 @@ def build_client_hello(profile, sni=None, key_shares=None):
             body = _vec(entry, 2)
         elif ext_id == 0x0033:
             body = _build_key_share(bodies.get(ext_id, b""), key_shares)
+        elif ext_id == 0xFE0D:
+            body = grease_ech(bodies.get(ext_id, b""))
         elif ext_id in VOLATILE_EXTENSIONS:
             body = bodies.get(ext_id, b"")
         else:

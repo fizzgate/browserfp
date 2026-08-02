@@ -66,6 +66,18 @@ MUTANTS = [
      ["test_build_parity"],
      "重建 ClientHello 时 SNI 排在首个 GREASE 之后"),
 
+    ("ECH:照抄 golden 的 config_id", "oracle/chbuild.py",
+     '            body = grease_ech(bodies.get(ext_id, b""))',
+     '            body = bodies.get(ext_id, b"")',
+     ["test_keyshare"],
+     "GREASE ECH 必须每次新鲜（固定 config_id 会撞上服务端真实配置）"),
+
+    ("ECH:C 侧不重写", "csrc/tlsfp.c",
+     "        if (id == 0xFE0D && blen >= 8) {",
+     "        if (0) {",
+     ["test_keyshare"],
+     "C 侧同样必须新鲜生成 ECH，不能照抄 profile"),
+
     ("key_share:只重建第一条", "oracle/chbuild.py",
      "    shape = _parse_key_share(golden_body)",
      "    shape = _parse_key_share(golden_body)[:1]",

@@ -1,4 +1,4 @@
-"""key_share：形状必须与真机一致，公钥必须能由调用方注入。
+"""key_share 与 GREASE ECH：形状必须与真机一致，内容必须每次新鲜。
 
 这一层长期没人看。JA4 **不哈希 key_share 的内容**，所以三方差分、重建闭环、
 真机握手（服务端只要能算出共享密钥就不在乎你发了几组）全部照样绿 —— 而实测
@@ -25,6 +25,13 @@ C       照抄 golden 整段
      我们给的那把，不是 golden 里那把
   3. **拒绝将就**：长度不符、分组在 profile 里不存在，必须报错而不是忽略。
      "以为注入了、实际被忽略"是最难查的一类错：握手会拿一把旧公钥去算密钥
+
+GREASE ECH（0xFE0D）是同一族的第二处，而且更险：**config_id 只有 1 字节**，
+照抄 golden 的固定值一旦撞上服务端真实的 ECH 配置，服务端会拿自己的私钥去解
+payload、失败，回 handshake_failure(40)。34/81 条默认 profile 带这个扩展，也就是
+绝大多数 Chrome 形态。参考实现 `oracle/tls13.py` 早就每次新鲜生成（注释里写着
+实测原因），而**发货的构造器一直在照抄** —— `test_build_live` 只打三个站点，
+撞不上就一直是绿的。
 
 跑：python -m spec.test_keyshare
 """
@@ -176,9 +183,48 @@ def main():
                   f"Python {'报错' if not py_ok else '✗ 接受了'}，"
                   f"C {'报错' if c_out is None else '✗ 接受了'}")
 
+    # —— GREASE ECH：形状照抄、内容新鲜 ——
+    ech = [x for x in registry if 0xFE0D in (x["tls"].get("raw_extensions") or [])]
+    n_ech = 0
+    for rec in ech:
+        eb = rec["tls"]["extension_bodies"]
+        gk = [x for x in eb if int(x) == 0xFE0D][0]
+        gold = bytes.fromhex(eb[gk])
+        for side, raw in (("Python", build_client_hello(rec["tls"], sni=None)),
+                          ("C", c_build(rec["id"]))):
+            if raw is None:
+                continue
+            got_eb = parse_client_hello(raw)["extension_bodies"]
+            k = [x for x in got_eb if int(x) == 0xFE0D]
+            if not k:
+                bad.append(f"{rec['id']}: {side} 把 GREASE ECH 整个丢了 —— "
+                           "部分站点缺了它直接 handshake_failure")
+                continue
+            got = bytes.fromhex(got_eb[k[0]])
+            n_ech += 1
+            if len(got) != len(gold):
+                bad.append(f"{rec['id']}: {side} 的 ECH 长度 {len(got)} != "
+                           f"golden {len(gold)} —— payload 长度决定 CH 总长度")
+            elif got[:5] != gold[:5]:
+                bad.append(f"{rec['id']}: {side} 改了 ECH 的 type/kdf/aead")
+            elif got == gold:
+                bad.append(f"{rec['id']}: {side} 照抄了 golden 的 ECH —— "
+                           "config_id 固定会撞上服务端真实配置，回 handshake_failure")
+    # 新鲜性：同一条 profile 连造两次必须不同
+    if ech:
+        two = [build_client_hello(ech[0]["tls"], sni=None) for _ in range(2)]
+        bodies = []
+        for raw in two:
+            e = parse_client_hello(raw)["extension_bodies"]
+            bodies.append(e[[x for x in e if int(x) == 0xFE0D][0]])
+        if bodies[0] == bodies[1]:
+            bad.append("同一条 profile 连造两次的 ECH 完全相同 —— 没有新鲜性，"
+                       "等于换了个地方写死")
+    print(f"GREASE ECH {n_ech} 次构造：形状照抄、内容新鲜、两次不重复")
+
     for b in bad[:8]:
         print(f"  ✗ {b}")
-    print(f"\n{'key_share 形状保真且可注入' if not bad else f'{len(bad)} 处问题'}")
+    print(f"\n{'key_share 与 ECH 都形状保真、内容新鲜' if not bad else f'{len(bad)} 处问题'}")
     return 1 if bad else 0
 
 

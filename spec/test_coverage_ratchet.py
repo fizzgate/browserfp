@@ -56,9 +56,47 @@ H2_BASELINE = {
 # QUIC / h3 的水位，按**引擎**记 —— 这两层没有版本表。
 # 与上面两张表一样是"只许升不许降"：这一层此前完全不在覆盖度报告里，
 # 而没有覆盖度的层等于隐形，悄悄退化也看不出来。
-# webkit（Safari）不在其中：它既没有强制走 h3 的开关，自签 CA 又要改系统
-# 信任设置才认 —— 那是侵入性操作，不做。补上了再把它加进来。
+# webkit（Safari）不在其中，理由见下面的 WONT_DO。
 QUIC_ENGINES = {"quic": {"chromium", "gecko"}, "h3": {"chromium", "gecko"}}
+
+
+# **已确认无路径的缺口**，与"还没做"分开记。
+#
+# 不区分这两者的代价是具体的：一条"待补"会让后来人（包括我自己）反复去试同一条
+# 死路。本表要求写清**试过什么、观测到什么**，不接受"做不了"这种没有观测支撑的
+# 说法；哪天条件变了（新的库、新的采集手段），删掉对应条目即可。
+WONT_DO = {
+    ("tls", "safari"): (3,
+        "safari 12-14：coreTLS 闭源、无公开段表；三家库都没建模过这三个版本；"
+        "真机侧拿不到那么旧的 Safari（系统绑定，无独立安装包）"),
+    ("h2", "safari"): (3, "同上，与 TLS 层是同一批版本"),
+    ("h2", "safari-mobile"): (3, "同上"),
+    ("h3", "webkit"): (0,
+        "iOS Safari **根本不发起 QUIC**。最初的理由是'自签 CA 要改系统信任'，"
+        "后来这条理由消失了（simctl keychain add-root-cert 只影响模拟器）；"
+        "装好 CA 后实测：Alt-Svc 送达、页面被加载 47 次、UDP 数据报 0 个。"
+        "又试了把 HTTP3Enabled / WebKitHTTP3Enabled / WebKitExperimentalHTTP3Enabled "
+        "写进 com.apple.mobilesafari 与 com.apple.WebKit.WebContent 并重启，仍是 0。"
+        "换宿主局域网 IP（非回环）另签证书也是 0，'不对 loopback 走 QUIC'被证伪。"
+        "让它访问 Cloudflare 的 trace 端点，自报 http=http/2 —— 对任何站点都不用 h3"),
+}
+
+
+def check_wont_do():
+    """WONT_DO 里记的缺口数必须与棘轮水位对得上。
+
+    两张表分头维护就会漂：棘轮降了而 WONT_DO 还写着"无路径"，或者反过来。
+    对不上时报错，逼一次显式的决定。
+    """
+    bad = []
+    for (layer, brand), (n, _why) in WONT_DO.items():
+        table = {"tls": BASELINE, "h2": H2_BASELINE}.get(layer)
+        if table is None:
+            continue
+        if table.get(brand) != n:
+            bad.append(f"WONT_DO 说 {layer}/{brand} 有 {n} 个无路径缺口，"
+                       f"而棘轮水位是 {table.get(brand)} —— 两张表漂了")
+    return bad
 
 
 def check_quic():
@@ -152,12 +190,19 @@ def main():
     for b in quic_bad:
         print(f"  ✗ {b}")
 
+    wd = check_wont_do()
+    print(f"\n已确认无路径（不再投入）")
+    for (layer, brand), (n, why) in sorted(WONT_DO.items()):
+        print(f"  {layer:4s} {brand:14s} {n} 个   {why[:58]}…")
+    for b in wd:
+        print(f"  ✗ {b}")
+
     rng = check_scan_range(mapper)
     print(f"\n扫描范围覆盖已有数据  {'OK' if not rng else '失败'}")
     for b in rng:
         print(f"  ✗ {b}")
 
-    failed = worse or rng or h2_worse or quic_bad
+    failed = worse or rng or h2_worse or quic_bad or wd
     print(f"\n{'覆盖未倒退' if not failed else '覆盖或扫描范围有问题'}")
     return 1 if failed else 0
 
