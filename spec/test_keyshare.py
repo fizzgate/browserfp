@@ -46,7 +46,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from oracle.chbuild import (ECH_BODY_LENS, _parse_key_share,     # noqa: E402
                             ech_family,
                             build_client_hello)
-from oracle.clienthello import parse_client_hello                 # noqa: E402
+from oracle.clienthello import is_grease, parse_client_hello     # noqa: E402
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
@@ -306,6 +306,60 @@ def main():
             bad.append("同一条 profile 连造两次的 ECH 完全相同 —— 没有新鲜性，"
                        "等于换了个地方写死")
     print(f"GREASE ECH {n_ech} 次构造：形状照抄、内容新鲜、两次不重复")
+
+    # —— GREASE：每连接随机，且各槽位的关系要对 ——
+    #
+    # GREASE 的全部意义就是每连接随机（RFC 8701）。恒定不变比长度类的破绽更容易
+    # 被发现：不用比长度，**看两次连接就够**。规格实测自真机（6~10 次采样）：
+    # 两个扩展 id 每次随机且恒不相同；密码套件独立；supported_groups 首项随机
+    # 且 key_share 里那条与它相同；supported_versions 独立。
+    sample_g = next((x for x in registry
+                     if any(is_grease(e) for e in (x["tls"].get("raw_extensions") or []))
+                     and 0x0029 not in (x["tls"].get("raw_extensions") or [])), None)
+    if not sample_g:
+        bad.append("找不到含 GREASE 扩展的 profile —— 这段断言等于没验")
+    else:
+        seen, ndiff = set(), 0
+        for _ in range(12):
+            raw = py_build(sample_g, bad, "GREASE 检查构造失败", sni=None)
+            if raw is None:
+                break
+            ch = parse_client_hello(raw)
+            exts = [e for e in ch["raw_extensions"] if is_grease(e)]
+            ciph = [c for c in ch["raw_ciphers"] if is_grease(c)]
+            eb = ch["extension_bodies"]
+
+            def first_grease(eid, off):
+                k = [x for x in eb if int(x) == eid]
+                if not k:
+                    return None
+                b = bytes.fromhex(eb[k[0]])
+                v = int.from_bytes(b[off:off + 2], "big")
+                return v if is_grease(v) else None
+
+            grp, ks = first_grease(0x000A, 2), first_grease(0x0033, 2)
+            # **先查"还在不在"，再查"对不对"**。做阴性对照时把 GREASE 换成
+            # 0，集合直接空了 —— 而只在集合里比的断言什么都没查到，看着是绿的。
+            # 这与"零处不符先拆跳过"是同一族。
+            want_n = len([e for e in (sample_g["tls"].get("raw_extensions") or [])
+                          if is_grease(e)])
+            if len(exts) != want_n:
+                bad.append(f"GREASE 扩展数 {len(exts)} != golden 的 {want_n} —— "
+                           "被换成了非 GREASE 值？")
+            if len(exts) >= 2 and exts[0] == exts[1]:
+                bad.append(f"两个 GREASE 扩展 id 相同（{exts}）—— 实测真客户端 "
+                           "0/10 相同")
+            if grp is not None and ks is not None and grp != ks:
+                bad.append(f"supported_groups 的 GREASE {grp:#06x} 与 key_share 的 "
+                           f"{ks:#06x} 不同 —— 实测真客户端 6/6 相同")
+            seen.add((tuple(exts), tuple(ciph), grp,
+                      first_grease(0x002B, 1)))
+            ndiff += 1
+        if ndiff and len(seen) < 2:
+            bad.append(f"{ndiff} 次构造的 GREASE 组合完全一样 —— "
+                       "那是写死的，看两次连接就能认出来")
+        print(f"GREASE 每连接随机  {ndiff} 次构造得到 {len(seen)} 种组合，"
+              "两个扩展 id 互不相同、组与 key_share 同源")
 
     for b in bad[:8]:
         print(f"  ✗ {b}")

@@ -123,6 +123,65 @@ def grease_ech(golden_body, rnd=None, payload_len=None, verbatim=False):
             + _vec(rnd(payload_len), 2))
 
 
+# RFC 8701 的 16 个 GREASE 值。
+GREASE_VALUES = tuple(0x0A0A + 0x1010 * i for i in range(16))
+
+
+def pick_grease(verbatim=False):
+    """按实测规格给一次连接抽一组 GREASE 值。
+
+    **GREASE 的全部意义就是每连接随机**（RFC 8701）。照抄 golden 的固定值，
+    等于让"Chrome"每次连接都发同一个 0x4a4a —— 这比长度类的破绽更容易被发现：
+    不用比长度，**看两次连接就够**。
+
+    规格是实测出来的（真机 curl_cffi chrome119，6~10 次采样，结论一致）：
+
+        两个扩展 id            每次随机，且**恒不相同**（0/10 相同）
+        密码套件               独立随机
+        supported_groups 首项  随机，**且 key_share 里那条与它相同**（6/6）
+        supported_versions     独立随机
+
+    verbatim=True 时返回 None，调用方保持 golden 的值 —— 重建验证要的是采集
+    那条报文，重新抽会让 test_rebuild / test_build_parity 比不了。
+    """
+    if verbatim:
+        return None
+    # **构造上就不可能相同**，不用循环重试。做代码变异时把重试条件改坏一次，
+    # 那个 while 直接变成死循环、门禁挂死 10 分钟 —— "靠重试保证不变式"在取值域
+    # 退化时就是这个下场。取一个偏移量绕过去，天然满足"两者不同"。
+    i = secrets.randbelow(16)
+    ext_a = GREASE_VALUES[i]
+    ext_b = GREASE_VALUES[(i + 1 + secrets.randbelow(15)) % 16]
+    group = GREASE_VALUES[secrets.randbelow(16)]
+    return {
+        "ext": [ext_a, ext_b],
+        "cipher": GREASE_VALUES[secrets.randbelow(16)],
+        "group": group,                          # key_share 里那条也用它
+        "version": GREASE_VALUES[secrets.randbelow(16)],
+    }
+
+
+def _regrease_list(vals, new, start=0):
+    """把一串值里的 GREASE 逐个换成 new 里的下一个；new 用尽后循环使用。"""
+    out, i = [], start
+    for v in vals:
+        if is_grease(v):
+            out.append(new[i % len(new)])
+            i += 1
+        else:
+            out.append(v)
+    return out
+
+
+def _regrease_u16_body(body, prefix_len, new):
+    """把 `<长度><u16 列表>` 形状的扩展体里的 GREASE 换成 new。"""
+    if len(body) < prefix_len:
+        return body
+    head, rest = body[:prefix_len], body[prefix_len:]
+    vals = [int.from_bytes(rest[i:i + 2], "big") for i in range(0, len(rest) - 1, 2)]
+    return head + b"".join(_u16(v) for v in _regrease_list(vals, [new]))
+
+
 def _parse_key_share(body):
     """golden 的 key_share 体 → [(group, pub_len)]，顺序照原样。"""
     out, i = [], 2                       # 跳过 client_shares 的 2 字节长度
@@ -134,7 +193,7 @@ def _parse_key_share(body):
     return out
 
 
-def _build_key_share(golden_body, key_shares=None):
+def _build_key_share(golden_body, key_shares=None, grease_group=None):
     """**按 golden 的形状**重建 key_share：分组、顺序、每条的长度全部照抄，
     只换公钥内容。
 
@@ -177,9 +236,13 @@ def _build_key_share(golden_body, key_shares=None):
                     f"key_share 组 0x{group:04x} 的公钥长度 {len(pub)} 与 golden "
                     f"的 {plen} 不符 —— 长度一变 ClientHello 的形状就变了")
         elif is_grease(group):
-            # GREASE 条目照抄 golden（内容按 RFC 8701 是 1 字节 0x00）
+            # GREASE 条目：内容按 RFC 8701 照抄 golden（1 字节 0x00），但**组 id
+            # 要与 supported_groups 那条一致** —— 实测 6/6 相同，两处各抽一个
+            # 会造出真客户端不会发的组合。
             pub = golden_body[
                 golden_body.index(_u16(group) + _u16(plen)) + 4:][:plen]
+            if grease_group is not None:
+                group = grease_group
         else:
             pub = secrets.token_bytes(plen)
         out += _u16(group) + _vec(pub, 2)
@@ -258,10 +321,17 @@ def build_client_hello(profile, sni=None, key_shares=None, verbatim=False):
     # sni=None，真机端到端走的是 tls13 那份，C 的 SNI 由 snitest 单独验 ——
     # 三条路各自绕开了这里。位置规则与另两处一致：紧跟开头的 GREASE，无 GREASE
     # 时排第一。
+    grease = pick_grease(verbatim)
+    if grease:
+        raw_ciphers = _regrease_list(raw_ciphers, [grease["cipher"]])
+
     ext_order = list(raw_extensions)
     if sni is not None and 0x0000 not in ext_order:
         pos = 1 if ext_order and is_grease(ext_order[0]) else 0
         ext_order.insert(pos, 0x0000)
+
+    if grease:
+        ext_order = _regrease_list(ext_order, grease["ext"])
 
     ext_bytes = b""
     for ext_id in ext_order:
@@ -275,7 +345,12 @@ def build_client_hello(profile, sni=None, key_shares=None, verbatim=False):
             entry = bytes([0]) + _vec(name, 2)
             body = _vec(entry, 2)
         elif ext_id == 0x0033:
-            body = _build_key_share(bodies.get(ext_id, b""), key_shares)
+            body = _build_key_share(bodies.get(ext_id, b""), key_shares,
+                                    grease["group"] if grease else None)
+        elif grease and ext_id == 0x000A:      # supported_groups
+            body = _regrease_u16_body(bodies.get(ext_id, b""), 2, grease["group"])
+        elif grease and ext_id == 0x002B:      # supported_versions
+            body = _regrease_u16_body(bodies.get(ext_id, b""), 1, grease["version"])
         elif ext_id == 0xFE0D:
             body = grease_ech(bodies.get(ext_id, b""), verbatim=verbatim)
         elif ext_id in VOLATILE_EXTENSIONS:

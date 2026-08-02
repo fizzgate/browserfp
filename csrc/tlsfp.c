@@ -536,8 +536,42 @@ static int rewrite_ech(const uint8_t *body, uint16_t blen,
     return 0;
 }
 
+/* 一次连接用的 GREASE 值。规格实测自真机 curl_cffi chrome119（6~10 次采样）：
+   两个扩展 id 每次随机且**恒不相同**；密码套件独立；supported_groups 首项随机
+   且 **key_share 里那条与它相同**；supported_versions 独立。
+   取值域是 RFC 8701 的 16 个。随机性从调用方给的 random32 派生（库内无 RNG）。 */
+typedef struct { uint16_t ext[2], cipher, group, version; } tlsfp_grease;
+
+static uint16_t grease_at(const uint8_t *random32, uint32_t idx) {
+    uint8_t b[1];
+    ech_bytes(random32, 1000 + idx, b, 1);
+    return (uint16_t)(0x0A0A + 0x1010 * (b[0] & 0x0F));
+}
+
+static void pick_grease(const uint8_t *random32, tlsfp_grease *g) {
+    g->ext[0] = grease_at(random32, 0);
+    uint32_t k = 1;
+    do { g->ext[1] = grease_at(random32, k++); } while (g->ext[1] == g->ext[0]);
+    g->cipher  = grease_at(random32, 100);
+    g->group   = grease_at(random32, 200);
+    g->version = grease_at(random32, 300);
+}
+
+/* 把一串 u16 里的 GREASE 逐个换掉 */
+static void regrease_u16(uint8_t *p, size_t n_vals, const uint16_t *repl,
+                         size_t n_repl) {
+    size_t j = 0;
+    for (size_t i = 0; i < n_vals; i++) {
+        uint16_t v = (uint16_t)((p[i * 2] << 8) | p[i * 2 + 1]);
+        if (!tlsfp_is_grease(v)) continue;
+        uint16_t nv = repl[j % n_repl]; j++;
+        p[i * 2] = (uint8_t)(nv >> 8); p[i * 2 + 1] = (uint8_t)(nv & 0xff);
+    }
+}
+
 static int rewrite_key_share(const uint8_t *body, uint16_t blen,
                              const tlsfp_keyshare *ks, size_t n_ks,
+                             uint16_t grease_group,
                              uint8_t *out, uint16_t *outlen) {
     if (blen < 2) return -1;
     size_t i = 2, o = 2;
@@ -546,6 +580,9 @@ static int rewrite_key_share(const uint8_t *body, uint16_t blen,
         uint16_t n = (uint16_t)((body[i + 2] << 8) | body[i + 3]);
         if (i + 4 + n > blen) return -1;
         const uint8_t *pub = body + i + 4;
+        if (tlsfp_is_grease(g) && grease_group) {
+            g = grease_group;            /* 与 supported_groups 那条一致 */
+        }
         if (!tlsfp_is_grease(g)) {
             for (size_t k = 0; k < n_ks; k++) {
                 if (ks[k].group != g) continue;
@@ -607,6 +644,11 @@ int tlsfp_build_client_hello_ex(const tlsfp_profile *p, const char *sni,
     for (size_t i = 0; i < p->n_rawext; i++) {
         if (p->rawext[i] == 0x0000) { sni_done = 1; break; }
     }
+    tlsfp_grease g;
+    int regrease = !(flags & TLSFP_BUILD_VERBATIM);
+    size_t n_ext_g = 0;
+    if (regrease) pick_grease(random32, &g);
+
     size_t sni_at = 0;
     if (!sni_done && sni) {
         /* 首个 GREASE 之后；没有 GREASE 就放最前 */
@@ -626,6 +668,7 @@ int tlsfp_build_client_hello_ex(const tlsfp_profile *p, const char *sni,
             sni_done = 1;
         }
         uint16_t id = p->rawext[i];
+        if (regrease && tlsfp_is_grease(id)) id = g.ext[n_ext_g++ % 2];
         const uint8_t *body = p->extblob + p->extoff[i];
         uint16_t blen = p->extlen[i];
 
@@ -642,6 +685,21 @@ int tlsfp_build_client_hello_ex(const tlsfp_profile *p, const char *sni,
             memcpy(ext + e, sni, n); e += n;
             continue;
         }
+        if (regrease && (id == 0x000A || id == 0x002B) && blen >= 2) {
+            /* supported_groups / supported_versions 的首项是 GREASE，也要换。
+               两者的前缀长度不同：groups 是 2 字节列表长，versions 是 1 字节。 */
+            uint8_t tmp[512];
+            if (blen > sizeof(tmp)) return -1;
+            memcpy(tmp, body, blen);
+            size_t pre = (id == 0x000A) ? 2 : 1;
+            uint16_t repl = (id == 0x000A) ? g.group : g.version;
+            regrease_u16(tmp + pre, (size_t)(blen - pre) / 2, &repl, 1);
+            if (e + 4 + blen > sizeof(ext)) return -1;
+            e += put_u16(ext + e, id);
+            e += put_u16(ext + e, blen);
+            memcpy(ext + e, tmp, blen); e += blen;
+            continue;
+        }
         if (id == 0xFE0D && blen >= 8) {
             uint8_t tmp[4096];
             uint16_t tlen = 0;
@@ -655,12 +713,17 @@ int tlsfp_build_client_hello_ex(const tlsfp_profile *p, const char *sni,
             memcpy(ext + e, tmp, tlen); e += tlen;
             continue;
         }
-        if (id == 0x0033 && n_ks) {
+        if (id == 0x0033 && (n_ks || regrease)) {
+            /* **没有注入公钥时也要进来**：key_share 里那条 GREASE 的组 id 要跟
+               supported_groups 保持一致。第一版写的是 `&& n_ks`，于是不注入时
+               整段照抄 golden，GREASE 组与 supported_groups 对不上 —— 实测
+               grp=0x8a8a 而 ks 还是 golden 的 0xaaaa。 */
             /* key_share：只换公钥，形状照抄。见 rewrite_key_share 的说明。 */
             uint8_t tmp[8192];
             uint16_t tlen = 0;
             if (blen > sizeof(tmp)) return -1;
-            if (rewrite_key_share(body, blen, ks, n_ks, tmp, &tlen) != 0)
+            if (rewrite_key_share(body, blen, ks, n_ks,
+                                  regrease ? g.group : 0, tmp, &tlen) != 0)
                 return -1;
             if (e + 4 + tlen > sizeof(ext)) return -1;
             e += put_u16(ext + e, id);
@@ -731,7 +794,11 @@ int tlsfp_build_client_hello_ex(const tlsfp_profile *p, const char *sni,
         o += p->session_id_len;
     }
     o += put_u16(out + o, (uint16_t)(p->n_rawciph * 2));
-    for (size_t i = 0; i < p->n_rawciph; i++) o += put_u16(out + o, p->rawciph[i]);
+    for (size_t i = 0; i < p->n_rawciph; i++) {
+        uint16_t c = p->rawciph[i];
+        if (regrease && tlsfp_is_grease(c)) c = g.cipher;
+        o += put_u16(out + o, c);
+    }
     out[o++] = 0x01;                              /* compression 长度 */
     out[o++] = 0x00;                              /* null */
     o += put_u16(out + o, (uint16_t)e);

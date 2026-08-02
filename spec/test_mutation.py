@@ -90,6 +90,18 @@ MUTANTS = [
      ["test_keyshare", "test_build_parity"],
      "padding 要按实际长度补齐到 512，超过就不发（照抄会多一个扩展）"),
 
+    ("GREASE:退回固定值", "oracle/chbuild.py",
+     "    if verbatim:\n        return None",
+     "    if True:\n        return None",
+     ["test_keyshare"],
+     "GREASE 必须每连接随机（RFC 8701），固定值看两次连接就能认出来"),
+
+    ("GREASE:key_share 与 groups 不同源", "oracle/chbuild.py",
+     "            if grease_group is not None:\n                group = grease_group",
+     "            if False:\n                group = grease_group",
+     ["test_keyshare"],
+     "key_share 里那条 GREASE 组要与 supported_groups 一致（实测 6/6）"),
+
     ("ECH:照抄 golden 的 config_id", "oracle/chbuild.py",
      '            body = grease_ech(bodies.get(ext_id, b""), verbatim=verbatim)',
      '            body = bodies.get(ext_id, b"")',

@@ -66,14 +66,25 @@ def key_share_shape(ch):
     return out
 
 
+# GREASE 值**按设计就该每次连接不同**（RFC 8701），所以比结构时把它们归一成一个
+# 记号 —— 比具体值等于要求三份实现抽到同一个随机数，那不是"结构一致"。
+# **只归一 GREASE 的取值，位置照比**：位置错了仍然要红。
+GREASE_MARK = 0x0AAA        # 任取一个非 GREASE 的记号
+
+
+def degrease(vals):
+    return [GREASE_MARK if is_grease(v) else v for v in vals]
+
+
 def structure(ch):
     """只取"必须相同"的那些维度。"""
     return {
-        "ext_order": list(ch["raw_extensions"]),
-        "ciphers": list(ch["raw_ciphers"]),
+        "ext_order": degrease(ch["raw_extensions"]),
+        "ciphers": degrease(ch["raw_ciphers"]),
         "compression": list(ch["compression"]),
         "client_version": ch["client_version"],
-        "key_share": key_share_shape(ch),
+        "key_share": [(GREASE_MARK if is_grease(g) else g, n)
+                      for g, n in (key_share_shape(ch) or [])],
         "sni": ch.get("sni"),
     }
 
