@@ -43,9 +43,14 @@ REAL = os.path.join(HERE, "..", "spec", "golden", "h2_real_browsers.json")
 # 实采条目名 → 引擎。Edge 与 Chromium 归一到同一个引擎是**实采支持的**：
 # 三份采集的头顺序逐项相同。Opera 没有实采，只能跟着 Chromium 走 —— 这是
 # 推断而非实证，`engine_of()` 会把它标出来。
+# **iOS 的 WebKit 是独立的一档，不是 webkit 的别名。** 实采（iOS 模拟器
+# Safari 17.4，见 h2_real_browsers.json 的 _provenance）显示它与 macOS Safari
+# 在四个轴上同时不同：settings 顺序、window_update 取值、伪头序（m,s,p,a vs
+# m,s,a,p）、普通头序。三家独立库记录的 Safari iOS 17 与本次实采逐字节一致，
+# 所以这不是模拟器假象。把它并进 webkit 会让两份采集互相矛盾。
 CAPTURE_ENGINE = {
     "chrome": "chromium", "chromium": "chromium", "edge": "chromium",
-    "firefox": "gecko", "safari": "webkit",
+    "firefox": "gecko", "safari": "webkit", "safari-ios": "webkit-ios",
 }
 
 BRAND_ENGINE = {
@@ -53,14 +58,21 @@ BRAND_ENGINE = {
     "edge": "chromium", "edge-mobile": "chromium",
     "opera": "chromium", "opera-mobile": "chromium",
     "firefox": "gecko", "firefox-mobile": "gecko",
-    "safari": "webkit", "safari-mobile": "webkit",
+    "safari": "webkit", "safari-mobile": "webkit-ios",
 }
 
 # 有实采背书的品牌；其余是按引擎推断的。
-# **移动端一个都没有**：本项目的真机采集全是桌面浏览器。移动端的头名与顺序
-# 大概率与桌面相同（sec-ch-ua-mobile 变的是值不是名），但"大概率"不是实证 ——
-# 标成推断，调用方有权知道这个区别。
-ATTESTED = {"chrome", "edge", "firefox", "safari"}
+#
+# 移动端此前**一个都没有**，理由是"真机采集全是桌面浏览器"。现在 safari-mobile
+# 有了：iOS 模拟器里的 Safari 是真的 iOS WebKit 构建，采出来的头序与三家独立库
+# 记录的真机 Safari iOS 17 逐字节一致。
+#
+# 而当初"移动端大概率与桌面相同"那句猜测**是错的** —— 实采一比，iOS 与 macOS
+# 的头序毫无共同点（`sec-fetch-dest` 从第一位跑到最后一位）。猜测标成推断是对的，
+# 但这次的教训是猜测的**方向**也可能整个反了，不只是"不够确信"。
+#
+# Chromium/Gecko 的移动端仍是推断：还没采。
+ATTESTED = {"chrome", "edge", "firefox", "safari", "safari-mobile"}
 
 
 def _load():
@@ -120,7 +132,8 @@ BROWSER_VALUED = ("accept", "accept-encoding", "upgrade-insecure-requests")
 # 本项目的伪装出网是 HTTPS，所以 WebKit 那侧必须不发。把它当成固定值会让
 # Safari 伪装多出一个真 Safari 在 https 上不会发的头 —— 与 UA-CH 那条
 # "多发也是异常"同一类问题。
-SCHEME_DEPENDENT = {("webkit", "https"): {"upgrade-insecure-requests"}}
+SCHEME_DEPENDENT = {("webkit", "https"): {"upgrade-insecure-requests"},
+                    ("webkit-ios", "https"): {"upgrade-insecure-requests"}}
 
 REALHDR = os.path.join(HERE, "..", "spec", "golden", "headers_real.json")
 

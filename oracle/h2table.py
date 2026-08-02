@@ -25,7 +25,7 @@ TLS 对、h2 不对，是一个现实中不存在的组合，比不伪装更容�
        Chromium 系（chrome/edge/opera，含 -mobile）→ 用桌面 Chrome 的推导
          依据：curl_cffi 的 chrome99_android ≡ chrome99、chrome131_android ≡
                chrome131；h2 的那几个常量在 http_network_session 里没有平台分支
-       safari-mobile → 同版本 safari
+       safari-mobile → **同平台**最近较低版本（旧规则「取同版本桌面」已被实采推翻）
          依据：wreq 的 SafariIos26 ≡ Safari26、SafariIPad18 ≡ Safari18
 
      **firefox-mobile 没有这条规则**：wreq 的 FirefoxAndroid135 与 Firefox135
@@ -210,11 +210,24 @@ def resolve(brand, ver, obs=None, allow_source=True):
         fp, rows = next(iter(fps.items()))
         return rows[0][1], f"{len(rows)} 个库一致"
 
-    # 跨平台归一：safari-mobile 取同版本桌面 safari。
+    # **同平台相邻版本推导**，不是跨平台取同版本。
+    #
+    # 这里原来写的是「safari-mobile 取同版本桌面 safari」，而那条前提是**假的**：
+    # 逐版本全扫，iOS 15/16 与桌面明确不同（4:2097152 vs 4:4194304）；本项目
+    # 后来又从 iOS 模拟器实采到 Safari 17.4，settings 顺序、window_update、
+    # 伪头序、头序四个轴同时与桌面不同，且与三家独立库记录的真机 iOS 17 逐字节
+    # 一致。旧规则之所以一直"成立"，是因为 check_premises 只挑了两个版本比，
+    # 其中一个还因库内分歧被静默跳过。
+    #
+    # 换成同平台的最近较低版本：平台轴已实证有分歧，版本轴则实测稳定
+    # （桌面 26→27 无变化）。两条腿都在 check_premises 里复验。
     if brand == "safari-mobile" and not fps:
-        rec, why = resolve("safari", ver, obs, allow_source)
-        if rec:
-            return rec, f"移动端取同版本桌面（{why}）"
+        lower = [v for (b, v) in obs if b == brand and v < ver]
+        if lower:
+            near = max(lower)
+            rec, why = resolve(brand, near, obs, allow_source)
+            if rec:
+                return rec, f"同平台相邻版本 {near}（{why}）"
 
     # Chromium 系（含 -mobile）统一走桌面 Chrome 的源码推导
     engine = brand
@@ -309,17 +322,60 @@ def check_premises(obs=None):
         s = {v["akamai_fingerprint"] for v in hits.values()}
         return next(iter(s)) if len(s) == 1 else None
 
+    def versions(brand):
+        return sorted({v for (b, v) in obs if b == brand})
+
     bad = []
-    for ver in (99, 131):
-        a, b = fp("chrome-mobile", ver), fp("chrome", ver)
-        if a and b and a != b:
-            bad.append(f"Chrome Android {ver} 的 h2 已与桌面分叉 —— "
-                       "「Chromium 系统一用桌面推导」这条规则的前提没了")
-    for ver in (18, 26):
-        a, b = fp("safari-mobile", ver), fp("safari", ver)
-        if a and b and a != b:
-            bad.append(f"Safari iOS {ver} 的 h2 已与桌面分叉 —— "
-                       "「safari-mobile 取桌面」这条规则的前提没了")
+
+    # **逐版本全扫，不挑版本**。这里原来只比 {99,131} 与 {18,26} 四个点，
+    # 而 `fp()` 在库内分歧时返回 None、被静默跳过 —— 于是 safari 那条
+    # 只剩版本 26 一个点在比，它恰好相同，前提就"全部成立"了。
+    # 实测全扫的结果：**iOS 15 与 16 与桌面明确不同**（4:2097152 vs 4:4194304），
+    # 这条前提从来就不成立，只是没人比到那两个版本。
+    # 挑点比对与"零处不符"是同一族陷阱：先看比到了几个点，再看结论。
+    def sweep(mobile, desktop):
+        same = diff = 0
+        for v in versions(mobile):
+            a, b = fp(mobile, v), fp(desktop, v)
+            if a is None or b is None:
+                continue
+            if a == b:
+                same += 1
+            else:
+                diff += 1
+        return same, diff
+
+    same, diff = sweep("chrome-mobile", "chrome")
+    if diff:
+        bad.append(f"Chrome Android 有 {diff} 个版本的 h2 已与桌面分叉 —— "
+                   "「Chromium 系统一用桌面推导」这条规则的前提没了")
+    if same + diff < 2:
+        bad.append(f"chrome-mobile vs chrome 只比到 {same + diff} 个版本 —— "
+                   "比对点太少，「全部成立」说明不了任何事")
+
+    # WebKit 这条是**反向断言**：iOS 与桌面必须仍然不同。旧规则「safari-mobile
+    # 取同版本桌面」已被实采推翻（见 CAPTURE_ENGINE 处的说明），现在改成同平台
+    # 相邻版本推导。哪天两者真的处处相同了，说明该重新评估，而不是让一条
+    # 用不上的规则继续躺着。
+    same, diff = sweep("safari-mobile", "safari")
+    if same + diff < 2:
+        bad.append(f"safari-mobile vs safari 只比到 {same + diff} 个版本 —— "
+                   "比对点太少，判不出两个平台是不是仍有分歧")
+    elif diff == 0:
+        bad.append("Safari iOS 与桌面在所有可比版本上都相同了 —— "
+                   "「iOS 是独立一档」这条判断要重新审")
+
+    # 同平台相邻版本推导的前提：版本轴上确实稳定。桌面 26→27 实测无变化。
+    dv = versions("safari")
+    pairs = [(a, b) for a, b in zip(dv, dv[1:]) if b - a == 1
+             and fp("safari", a) and fp("safari", b)]
+    if not pairs:
+        bad.append("找不到任何一对相邻版本可比 —— "
+                   "「同平台相邻版本可推导」这条前提没有实证支撑")
+    elif all(fp("safari", a) != fp("safari", b) for a, b in pairs):
+        bad.append(f"safari 的每一对相邻版本 {pairs} 的 h2 都不同 —— "
+                   "「同平台相邻版本可推导」这条前提没了")
+
     # 反向断言：firefox 两端**必须**仍然不同。哪天它们一样了，说明数据或解析
     # 变了，那条"Gecko 不适用归一"的注释就该重新审，而不是继续躺在那里。
     a, b = fp("firefox-mobile", 135), fp("firefox", 135)

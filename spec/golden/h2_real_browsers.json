@@ -1,250 +1,307 @@
 {
-  "chrome": {
-    "akamai_fingerprint": "1:65536,2:0,4:6291456,6:262144|15663105|0|m,a,s,p",
-    "alpn": "h2",
-    "frame_sequence": [
-      "SETTINGS",
-      "WINDOW_UPDATE",
-      "HEADERS"
-    ],
-    "header_order": [
-      "sec-ch-ua",
-      "sec-ch-ua-mobile",
-      "sec-ch-ua-platform",
-      "upgrade-insecure-requests",
-      "user-agent",
-      "accept",
-      "sec-fetch-site",
-      "sec-fetch-mode",
-      "sec-fetch-user",
-      "sec-fetch-dest",
-      "accept-encoding",
-      "accept-language",
-      "priority"
-    ],
-    "priorities": [],
-    "pseudo_header_order": [
-      ":method",
-      ":authority",
-      ":scheme",
-      ":path"
-    ],
-    "settings": [
-      [
-        1,
-        65536
-      ],
-      [
-        2,
-        0
-      ],
-      [
-        4,
-        6291456
-      ],
-      [
-        6,
-        262144
-      ]
-    ],
-    "version": "151.0.7922.72",
-    "window_update": 15663105
+ "chrome": {
+  "akamai_fingerprint": "1:65536,2:0,4:6291456,6:262144|15663105|0|m,a,s,p",
+  "alpn": "h2",
+  "frame_sequence": [
+   "SETTINGS",
+   "WINDOW_UPDATE",
+   "HEADERS"
+  ],
+  "header_order": [
+   "sec-ch-ua",
+   "sec-ch-ua-mobile",
+   "sec-ch-ua-platform",
+   "upgrade-insecure-requests",
+   "user-agent",
+   "accept",
+   "sec-fetch-site",
+   "sec-fetch-mode",
+   "sec-fetch-user",
+   "sec-fetch-dest",
+   "accept-encoding",
+   "accept-language",
+   "priority"
+  ],
+  "priorities": [],
+  "pseudo_header_order": [
+   ":method",
+   ":authority",
+   ":scheme",
+   ":path"
+  ],
+  "settings": [
+   [
+    1,
+    65536
+   ],
+   [
+    2,
+    0
+   ],
+   [
+    4,
+    6291456
+   ],
+   [
+    6,
+    262144
+   ]
+  ],
+  "version": "151.0.7922.72",
+  "window_update": 15663105
+ },
+ "chromium": {
+  "akamai_fingerprint": "1:65536,2:0,4:6291456,6:262144|15663105|0|m,a,s,p",
+  "alpn": "h2",
+  "frame_sequence": [
+   "SETTINGS",
+   "WINDOW_UPDATE",
+   "HEADERS"
+  ],
+  "header_order": [
+   "sec-ch-ua",
+   "sec-ch-ua-mobile",
+   "sec-ch-ua-platform",
+   "upgrade-insecure-requests",
+   "user-agent",
+   "accept",
+   "sec-fetch-site",
+   "sec-fetch-mode",
+   "sec-fetch-user",
+   "sec-fetch-dest",
+   "accept-encoding",
+   "accept-language",
+   "priority"
+  ],
+  "priorities": [],
+  "pseudo_header_order": [
+   ":method",
+   ":authority",
+   ":scheme",
+   ":path"
+  ],
+  "settings": [
+   [
+    1,
+    65536
+   ],
+   [
+    2,
+    0
+   ],
+   [
+    4,
+    6291456
+   ],
+   [
+    6,
+    262144
+   ]
+  ],
+  "version": "142.0.7444.175",
+  "window_update": 15663105
+ },
+ "edge": {
+  "akamai_fingerprint": "1:65536,2:0,4:6291456,6:262144|15663105|0|m,a,s,p",
+  "alpn": "h2",
+  "frame_sequence": [
+   "SETTINGS",
+   "WINDOW_UPDATE",
+   "HEADERS"
+  ],
+  "header_order": [
+   "sec-ch-ua",
+   "sec-ch-ua-mobile",
+   "sec-ch-ua-platform",
+   "upgrade-insecure-requests",
+   "user-agent",
+   "accept",
+   "sec-fetch-site",
+   "sec-fetch-mode",
+   "sec-fetch-user",
+   "sec-fetch-dest",
+   "accept-encoding",
+   "accept-language",
+   "priority"
+  ],
+  "priorities": [],
+  "pseudo_header_order": [
+   ":method",
+   ":authority",
+   ":scheme",
+   ":path"
+  ],
+  "settings": [
+   [
+    1,
+    65536
+   ],
+   [
+    2,
+    0
+   ],
+   [
+    4,
+    6291456
+   ],
+   [
+    6,
+    262144
+   ]
+  ],
+  "version": "151.0.4129.59",
+  "window_update": 15663105
+ },
+ "firefox": {
+  "akamai_fingerprint": "1:65536,2:0,4:131072,5:16384|12517377|0|m,p,a,s",
+  "alpn": "h2",
+  "frame_sequence": [
+   "SETTINGS",
+   "WINDOW_UPDATE",
+   "HEADERS"
+  ],
+  "header_order": [
+   "user-agent",
+   "accept",
+   "accept-language",
+   "accept-encoding",
+   "upgrade-insecure-requests",
+   "sec-fetch-dest",
+   "sec-fetch-mode",
+   "sec-fetch-site",
+   "sec-fetch-user",
+   "priority",
+   "te"
+  ],
+  "priorities": [],
+  "pseudo_header_order": [
+   ":method",
+   ":path",
+   ":authority",
+   ":scheme"
+  ],
+  "settings": [
+   [
+    1,
+    65536
+   ],
+   [
+    2,
+    0
+   ],
+   [
+    4,
+    131072
+   ],
+   [
+    5,
+    16384
+   ]
+  ],
+  "version": "149.0",
+  "window_update": 12517377
+ },
+ "safari": {
+  "akamai_fingerprint": "2:0,3:100,4:2097152,9:1|10420225|0|m,s,a,p",
+  "alpn": "h2",
+  "frame_sequence": [
+   "SETTINGS",
+   "WINDOW_UPDATE",
+   "HEADERS"
+  ],
+  "header_order": [
+   "sec-fetch-dest",
+   "user-agent",
+   "accept",
+   "sec-fetch-site",
+   "sec-fetch-mode",
+   "accept-language",
+   "priority",
+   "accept-encoding"
+  ],
+  "priorities": [],
+  "pseudo_header_order": [
+   ":method",
+   ":scheme",
+   ":authority",
+   ":path"
+  ],
+  "settings": [
+   [
+    2,
+    0
+   ],
+   [
+    3,
+    100
+   ],
+   [
+    4,
+    2097152
+   ],
+   [
+    9,
+    1
+   ]
+  ],
+  "version": "27.0",
+  "window_update": 10420225
+ },
+ "safari-ios": {
+  "alpn": "h2",
+  "settings": [
+   [
+    2,
+    0
+   ],
+   [
+    4,
+    2097152
+   ],
+   [
+    3,
+    100
+   ]
+  ],
+  "window_update": 10485760,
+  "priorities": [],
+  "pseudo_header_order": [
+   ":method",
+   ":scheme",
+   ":path",
+   ":authority"
+  ],
+  "header_order": [
+   "accept",
+   "sec-fetch-site",
+   "accept-encoding",
+   "sec-fetch-mode",
+   "user-agent",
+   "accept-language",
+   "sec-fetch-dest"
+  ],
+  "header_values": {
+   "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+   "sec-fetch-site": "none",
+   "accept-encoding": "gzip, deflate, br",
+   "sec-fetch-mode": "navigate",
+   "user-agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1",
+   "accept-language": "en-US,en;q=0.9",
+   "sec-fetch-dest": "document"
   },
-  "chromium": {
-    "akamai_fingerprint": "1:65536,2:0,4:6291456,6:262144|15663105|0|m,a,s,p",
-    "alpn": "h2",
-    "frame_sequence": [
-      "SETTINGS",
-      "WINDOW_UPDATE",
-      "HEADERS"
-    ],
-    "header_order": [
-      "sec-ch-ua",
-      "sec-ch-ua-mobile",
-      "sec-ch-ua-platform",
-      "upgrade-insecure-requests",
-      "user-agent",
-      "accept",
-      "sec-fetch-site",
-      "sec-fetch-mode",
-      "sec-fetch-user",
-      "sec-fetch-dest",
-      "accept-encoding",
-      "accept-language",
-      "priority"
-    ],
-    "priorities": [],
-    "pseudo_header_order": [
-      ":method",
-      ":authority",
-      ":scheme",
-      ":path"
-    ],
-    "settings": [
-      [
-        1,
-        65536
-      ],
-      [
-        2,
-        0
-      ],
-      [
-        4,
-        6291456
-      ],
-      [
-        6,
-        262144
-      ]
-    ],
-    "version": "142.0.7444.175",
-    "window_update": 15663105
-  },
-  "edge": {
-    "akamai_fingerprint": "1:65536,2:0,4:6291456,6:262144|15663105|0|m,a,s,p",
-    "alpn": "h2",
-    "frame_sequence": [
-      "SETTINGS",
-      "WINDOW_UPDATE",
-      "HEADERS"
-    ],
-    "header_order": [
-      "sec-ch-ua",
-      "sec-ch-ua-mobile",
-      "sec-ch-ua-platform",
-      "upgrade-insecure-requests",
-      "user-agent",
-      "accept",
-      "sec-fetch-site",
-      "sec-fetch-mode",
-      "sec-fetch-user",
-      "sec-fetch-dest",
-      "accept-encoding",
-      "accept-language",
-      "priority"
-    ],
-    "priorities": [],
-    "pseudo_header_order": [
-      ":method",
-      ":authority",
-      ":scheme",
-      ":path"
-    ],
-    "settings": [
-      [
-        1,
-        65536
-      ],
-      [
-        2,
-        0
-      ],
-      [
-        4,
-        6291456
-      ],
-      [
-        6,
-        262144
-      ]
-    ],
-    "version": "151.0.4129.59",
-    "window_update": 15663105
-  },
-  "firefox": {
-    "akamai_fingerprint": "1:65536,2:0,4:131072,5:16384|12517377|0|m,p,a,s",
-    "alpn": "h2",
-    "frame_sequence": [
-      "SETTINGS",
-      "WINDOW_UPDATE",
-      "HEADERS"
-    ],
-    "header_order": [
-      "user-agent",
-      "accept",
-      "accept-language",
-      "accept-encoding",
-      "upgrade-insecure-requests",
-      "sec-fetch-dest",
-      "sec-fetch-mode",
-      "sec-fetch-site",
-      "sec-fetch-user",
-      "priority",
-      "te"
-    ],
-    "priorities": [],
-    "pseudo_header_order": [
-      ":method",
-      ":path",
-      ":authority",
-      ":scheme"
-    ],
-    "settings": [
-      [
-        1,
-        65536
-      ],
-      [
-        2,
-        0
-      ],
-      [
-        4,
-        131072
-      ],
-      [
-        5,
-        16384
-      ]
-    ],
-    "version": "149.0",
-    "window_update": 12517377
-  },
-  "safari": {
-    "akamai_fingerprint": "2:0,3:100,4:2097152,9:1|10420225|0|m,s,a,p",
-    "alpn": "h2",
-    "frame_sequence": [
-      "SETTINGS",
-      "WINDOW_UPDATE",
-      "HEADERS"
-    ],
-    "header_order": [
-      "sec-fetch-dest",
-      "user-agent",
-      "accept",
-      "sec-fetch-site",
-      "sec-fetch-mode",
-      "accept-language",
-      "priority",
-      "accept-encoding"
-    ],
-    "priorities": [],
-    "pseudo_header_order": [
-      ":method",
-      ":scheme",
-      ":authority",
-      ":path"
-    ],
-    "settings": [
-      [
-        2,
-        0
-      ],
-      [
-        3,
-        100
-      ],
-      [
-        4,
-        2097152
-      ],
-      [
-        9,
-        1
-      ]
-    ],
-    "version": "27.0",
-    "window_update": 10420225
+  "frame_sequence": [
+   "SETTINGS",
+   "WINDOW_UPDATE",
+   "HEADERS"
+  ],
+  "akamai_fingerprint": "2:0,4:2097152,3:100|10485760|0|m,s,p,a",
+  "version": 17.4,
+  "_provenance": {
+   "how": "iOS 模拟器（Xcode）里的 Safari 打本机 H2Probe；CA 只装进模拟器信任库（simctl keychain add-root-cert），不碰用户钥匙串",
+   "device": "iPhone 15, iOS 17.4 (21E213)",
+   "why_valid": "模拟器是否等于真机，不靠推断：本次采到的 akamai 指纹与 curl_cffi / tls_client / wreq 三家独立库记录的 Safari iOS 17 逐字节一致（4 条），头序也与 4 条库记录逐项一致。三家独立采自真机的数据同时对上，模拟器假象解释不了。",
+   "controls": "iOS 17.4 与 17.5 两个 runtime、iPhone 与 iPad 各采一次，头序完全相同；iPad 的 UA 是桌面形态而头序仍是 iOS 的，说明分叉不是 UA 驱动的",
+   "known_gap": "本机只装了 iOS 17.4/17.5 runtime。iOS 18+ 与 26/27 没有实采 —— 库数据显示 iOS 18 起 settings 里没有了 2:0，26 起与桌面一致，但那是库说的，不是我们采的"
   }
+ }
 }

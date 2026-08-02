@@ -29,6 +29,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from oracle.h2table import observed                              # noqa: E402
 from oracle.headerorder import (ATTESTED, BRAND_ENGINE,          # noqa: E402
+                                CAPTURE_ENGINE,
                                 BROWSER_VALUED, check_consistency,
                                 engine_orders, engine_values, order_for,
                                 sort_headers, values_for)
@@ -59,7 +60,9 @@ def main():
     print(f"实采按引擎自洽   OK（{len(orders)} 个引擎）")
     for eng, (order, who) in sorted(orders.items()):
         print(f"  {eng:9s} {len(order):>2} 个头  ← {', '.join(who)}")
-    if set(orders) != {"chromium", "gecko", "webkit"}:
+    # webkit-ios 是第四档：iOS 的 WebKit 与 macOS 的实测在四个轴上同时不同
+    # （见 headerorder.CAPTURE_ENGINE 的说明），并入 webkit 会让两份采集矛盾。
+    if set(orders) != {"chromium", "gecko", "webkit", "webkit-ios"}:
         bad.append(f"引擎覆盖不全：{sorted(orders)} —— 少一个引擎意味着那一族"
                    "浏览器的头顺序没有实采支撑")
 
@@ -100,9 +103,21 @@ def main():
     print(f"\n实采背书 {len(ATTESTED)} 个品牌，按引擎推断 {len(inferred)} 个")
     if not all(b.endswith("-mobile") or b.startswith("opera") for b in inferred):
         bad.append(f"推断集合里出现了意料外的品牌：{sorted(inferred)}")
-    if any(b in ATTESTED for b in BRAND_ENGINE if b.endswith("-mobile")):
-        bad.append("有移动端品牌被标成实采背书 —— 本项目的真机采集都是桌面，"
-                   "标错会让调用方以为那份顺序是采到的")
+    # 移动端**可以**有实采背书，但必须真有一份移动端采集撑着。
+    #
+    # 这条断言原来写的是"任何 -mobile 品牌都不许标实采背书"，编码的是当时
+    # 的事实（真机采集全是桌面）。事实变了之后它就从"守住区分"变成了
+    # "挡住新证据" —— 采到 iOS Safari 之后，正确的做法是把断言改准，
+    # 而不是把它删掉：要守的性质始终是"标了背书就得真有采集"。
+    mobile_engines = {eng for name, eng in CAPTURE_ENGINE.items()
+                      if name.endswith(("-ios", "-mobile", "-android"))}
+    for b in BRAND_ENGINE:
+        if not b.endswith("-mobile") or b not in ATTESTED:
+            continue
+        if BRAND_ENGINE[b] not in mobile_engines:
+            bad.append(f"{b} 被标成实采背书，但它的引擎 {BRAND_ENGINE[b]} "
+                       "没有任何一份移动端采集 —— 背书必须有采集撑着")
+    print(f"\n移动端实采引擎  {sorted(mobile_engines) or '（无）'}")
 
     # 头取值：只收由浏览器决定的那几项，且同引擎的多份采集必须一致
     try:
