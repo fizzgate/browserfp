@@ -139,6 +139,14 @@ const char *tlsfp_header_order(const char *brand, int *attested);
  * Opera 不在表里 —— 它的嵌入层会再加自己的品牌项，没有实采就不猜。 */
 const char *tlsfp_sec_ch_ua(const char *brand, uint16_t version);
 
+/* (品牌, 头名) → 由**浏览器**决定的取值；不由浏览器决定的头返回 NULL。
+ * 只有 accept / accept-encoding / upgrade-insecure-requests 三项。
+ * accept-language **不在其中**：它取决于系统 locale 与用户设置，抄采集环境的
+ * 值等于把那台机器的 locale 泄漏出去 —— 该由调用方按自己的场景给。
+ * 实测差异举例：WebKit 的 accept-encoding 只有 "gzip, deflate"，
+ * 而 Chromium 与 Gecko 都是 "gzip, deflate, br, zstd"。 */
+const char *tlsfp_header_value(const char *brand, const char *name);
+
 int tlsfp_build_client_hello(const tlsfp_profile *p, const char *sni,
                              const uint8_t *random32, const uint8_t *session_id,
                              uint8_t *out, size_t outlen);

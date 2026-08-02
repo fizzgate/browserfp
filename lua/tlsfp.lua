@@ -68,6 +68,7 @@ int  tlsfp_build_h2_preface(const tlsfp_h2 *h, uint8_t *out, size_t outlen);
 const char *tlsfp_h2_pseudo(const tlsfp_h2 *h);
 const char *tlsfp_header_order(const char *brand, int *attested);
 const char *tlsfp_sec_ch_ua(const char *brand, uint16_t version);
+const char *tlsfp_header_value(const char *brand, const char *name);
 const tlsfp_profile *tlsfp_profile_at(size_t idx);
 const tlsfp_profile *tlsfp_lookup_ja4(const char *ja4);
 size_t tlsfp_profile_count(void);
@@ -290,6 +291,21 @@ function _M.sec_ch_ua(brand, version)
     local p = lib.tlsfp_sec_ch_ua(brand, version)
     if p == nil then return nil, "该品牌/版本没有 sec-ch-ua 数据" end
     return ffi.string(p)
+end
+
+-- 由**浏览器**决定的头取值（accept / accept-encoding /
+-- upgrade-insecure-requests）。不由浏览器决定的返回 nil。
+--
+-- **accept-language 不在其中**：它取决于系统 locale 与用户设置，抄采集环境的
+-- 值等于把那台机器的 locale 泄漏出去 —— 该由调用方按自己的场景给。
+-- sec-fetch-* 同理，取决于请求类型。
+function _M.header_value(brand, name)
+    if not lib then return nil, "libtlsfp.so 未加载" end
+    if type(brand) ~= "string" or type(name) ~= "string" then
+        return nil, "brand 与 name 都必须是字符串"
+    end
+    local p = lib.tlsfp_header_value(brand, name:lower())
+    return p ~= nil and ffi.string(p) or nil
 end
 
 function _M.profile_count()

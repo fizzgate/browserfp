@@ -522,6 +522,47 @@ edge-151       同 151 的 GREASE 品牌，只换品牌名                ✅
 **Opera 不推**：它的嵌入层会往列表里再加自己的品牌项，而本项目没有 Opera 实采 ——
 加几项、叫什么名字都只能猜。
 
+#### UA-CH 什么时候该发、什么时候绝不能发
+
+"少发"和"多发"是对称的两个坑，都实测过：
+
+| 场景 | UA-CH 头 |
+|---|---|
+| Chrome / Chromium / Edge，https 或 localhost | `sec-ch-ua`、`sec-ch-ua-mobile`、`sec-ch-ua-platform` **三个都发** |
+| Chrome，明文 HTTP 打 LAN IP（非安全上下文） | **一个都没有** |
+| Safari 27 | 从不发（11 个头里没有任何 `sec-ch-ua-*`） |
+| Firefox | 不实现 UA-CH |
+
+本项目的伪装出网是 TLS + h2，也就是 https，**必然是安全上下文** —— 这种情况下
+真 Chrome 一定发这三个头，少发本身就是异常。反过来伪装 Safari/Firefox 时绝不能
+发。默认也只发这三个"低熵"提示，`-platform-version`、`-arch` 这些高熵项要服务端
+先用 `Accept-CH` 索要（本次采集里确实只有三个）。
+
+这条规则连同实测记在 `spec/golden/uach_real.json` 的 `_context_rule` 里，
+门禁会断言它没被改动 —— 采到的结论若只写在文档里，改错了没人会发现。
+
+#### 头的取值：只收浏览器决定的那几项
+
+实采五个真实浏览器（Chrome 151 / Chromium 142 / Edge 151 / Firefox 153 /
+Safari 27）之后，能进表的只有三项：
+
+```
+accept                      Chromium 长（带 image/avif、signed-exchange），
+                            Gecko 与 WebKit 短
+accept-encoding             Chromium 与 Gecko: gzip, deflate, br, zstd
+                            **WebKit: gzip, deflate**    ← 强判别位
+upgrade-insecure-requests   1
+```
+
+**`accept-language` 绝不能进表。** 它取决于系统 locale 与用户设置，不是浏览器
+属性 —— 本次采集里 Firefox 显示 `zh-CN,...` 而其它是 `en-US`，那是新建 profile
+取 locale 的差异。把它抄进去等于把采集环境的 locale 泄漏给每一个使用者。
+`sec-fetch-*` 同理，取决于请求类型（导航/子资源/XHR），调用方比我们清楚。
+门禁对这两条都有断言。
+
+同引擎的多份采集在这几项上必须一致 —— chrome/chromium/edge 三份确实逐字节相同，
+这本身就是"由浏览器决定"的验证；不一致就说明那一项不该留在表里。
+
 #### 第三层：请求头顺序
 
 伪装是**三层**的 —— TLS、h2 开场、请求头顺序。前两层都对了、头按自己的顺序发，

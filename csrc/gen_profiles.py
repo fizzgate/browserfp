@@ -97,6 +97,31 @@ def _h2_tables():
     return lines
 
 
+def _header_value_table():
+    """(品牌, 头名) → 由**浏览器**决定的取值。
+
+    只收 accept / accept-encoding / upgrade-insecure-requests。
+    accept-language 不在其中 —— 它取决于系统 locale 与用户设置，把采集环境的
+    值抄进去等于把本机 locale 泄漏出去。sec-fetch-* 取决于请求类型，调用方
+    比我们清楚。判据全来自真机实采，见 oracle/headerorder.py。
+    """
+    sys.path.insert(0, os.path.dirname(HERE))
+    from oracle.headerorder import BRAND_ENGINE, values_for
+
+    lines = ["typedef struct { const char *brand; const char *name;"
+             " const char *value; } tlsfp_hv_entry;",
+             "static const tlsfp_hv_entry tlsfp_hv_table[] = {"]
+    n = 0
+    for brand in sorted(BRAND_ENGINE):
+        for name, val in sorted(values_for(brand).items()):
+            v = val.replace('"', '\\"')
+            lines.append(f'    {{"{brand}", "{name}", "{v}"}},')
+            n += 1
+    lines.append("};")
+    lines.append(f"#define TLSFP_HV_COUNT {n}")
+    return lines
+
+
 def _uach_table():
     """(品牌, 版本) → sec-ch-ua。
 
@@ -432,6 +457,8 @@ def main():
     out.extend(_header_order_table())
     out.append("")
     out.extend(_uach_table())
+    out.append("")
+    out.extend(_header_value_table())
 
     print("\n".join(out))
     print(f"/* 共 {len(profiles)} 条（注册表 {len(registry)} 条，"

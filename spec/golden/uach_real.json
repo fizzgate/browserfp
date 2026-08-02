@@ -19,5 +19,16 @@
   "sec_ch_ua": "\"Not=A?Brand\";v=\"99\", \"Microsoft Edge\";v=\"151\", \"Chromium\";v=\"151\"",
   "version": "151.0.4129.59",
   "how": "本机 Microsoft Edge —— 验品牌名替换后其余不变"
+ },
+ "_context_rule": {
+  "measured": "本机 Chrome 151 实测",
+  "secure_context_loopback": [
+   "sec-ch-ua",
+   "sec-ch-ua-mobile",
+   "sec-ch-ua-platform"
+  ],
+  "insecure_context_lan_ip": [],
+  "safari_27": [],
+  "note": "UA-CH 只在安全上下文（https / localhost）发送；明文 HTTP 打 LAN IP 时一个都没有。默认只发这三个低熵提示，高熵项要服务端用 Accept-CH 索要。"
  }
 }

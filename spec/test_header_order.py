@@ -29,8 +29,9 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from oracle.h2table import observed                              # noqa: E402
 from oracle.headerorder import (ATTESTED, BRAND_ENGINE,          # noqa: E402
-                                check_consistency, engine_orders,
-                                order_for, sort_headers)
+                                BROWSER_VALUED, check_consistency,
+                                engine_orders, engine_values, order_for,
+                                sort_headers, values_for)
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
@@ -102,6 +103,30 @@ def main():
     if any(b in ATTESTED for b in BRAND_ENGINE if b.endswith("-mobile")):
         bad.append("有移动端品牌被标成实采背书 —— 本项目的真机采集都是桌面，"
                    "标错会让调用方以为那份顺序是采到的")
+
+    # 头取值：只收由浏览器决定的那几项，且同引擎的多份采集必须一致
+    try:
+        vals = engine_values()
+        print(f"\n引擎级头取值   {len(vals)} 个引擎 × {len(BROWSER_VALUED)} 项")
+        for eng, kv in sorted(vals.items()):
+            print(f"  {eng:9s} accept-encoding = {kv.get('accept-encoding')}")
+    except Exception as e:
+        bad.append(f"引擎级头取值不自洽：{e}")
+        vals = {}
+    # WebKit 与另外两家在 accept-encoding 上必须不同 —— 这是实测到的判别位，
+    # 哪天它们一样了，说明数据或采集变了，得重新看。
+    if vals:
+        enc = {e: kv.get("accept-encoding") for e, kv in vals.items()}
+        if len({v for v in enc.values() if v}) < 2:
+            bad.append(f"三个引擎的 accept-encoding 全一样了：{enc} —— "
+                       "实测里 WebKit 是 gzip, deflate 而另两家带 br/zstd，"
+                       "变成一样说明采集或归类出了问题")
+    # accept-language 绝不能进表：它是系统 locale，不是浏览器属性
+    if "accept-language" in BROWSER_VALUED:
+        bad.append("accept-language 被列进了浏览器决定的头 —— 它取决于系统"
+                   "locale，抄进去会把采集环境泄漏出去")
+    if any("accept-language" in values_for(b) for b in BRAND_ENGINE):
+        bad.append("表里出现了 accept-language")
 
     # 排序行为：认识的排到位、不认识的留在最后
     got = sort_headers("firefox", ["Accept-Encoding", "User-Agent", "X-Custom",

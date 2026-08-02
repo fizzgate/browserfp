@@ -103,6 +103,49 @@ def check_consistency(orders):
     return bad
 
 
+# 由**浏览器**决定、调用方不该自己编的头。其余的一律不进表：
+#   accept-language  取决于系统 locale 与用户设置，不是浏览器属性 ——
+#                    本次采集里 Firefox 显示 zh-CN 而其它是 en-US，那是新建
+#                    profile 取 locale 的差异，把它当指纹抄会把采集环境泄漏出去
+#   sec-fetch-*      取决于请求类型（导航/子资源/XHR），调用方比我们清楚
+#   cookie / referer 请求上下文
+BROWSER_VALUED = ("accept", "accept-encoding", "upgrade-insecure-requests")
+
+REALHDR = os.path.join(HERE, "..", "spec", "golden", "headers_real.json")
+
+
+def engine_values(path=None):
+    """{引擎: {头名: 取值}}，只收 BROWSER_VALUED 里那几项。
+
+    同引擎的多份采集必须一致（chrome/chromium/edge 同属 Chromium）——
+    不一致说明这一项其实不由浏览器决定，不该留在表里。
+    """
+    with open(path or REALHDR) as f:
+        real = json.load(f)
+    out, bad = {}, []
+    for name, rec in real.items():
+        eng = CAPTURE_ENGINE.get(name)
+        if not eng:
+            continue
+        hdrs = dict(rec["headers"])
+        for k in BROWSER_VALUED:
+            if k not in hdrs:
+                continue
+            cur = out.setdefault(eng, {})
+            if k in cur and cur[k] != hdrs[k]:
+                bad.append(f"{eng} 的 {k} 在两份采集里不同：{cur[k]!r} vs {hdrs[k]!r}")
+            cur[k] = hdrs[k]
+    if bad:
+        raise ValueError("；".join(bad) + " —— 这一项其实不由浏览器决定，"
+                         "不该留在 BROWSER_VALUED 里")
+    return out
+
+
+def values_for(brand):
+    eng = BRAND_ENGINE.get(brand)
+    return engine_values().get(eng, {}) if eng else {}
+
+
 def order_for(brand, real=None):
     """(顺序, 是否有该品牌的实采背书)。品牌不认识返回 (None, False)。"""
     eng = BRAND_ENGINE.get(brand)

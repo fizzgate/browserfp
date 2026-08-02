@@ -40,6 +40,7 @@ def main():
         print("实采表是空的 —— 这不是通过，是没验到", file=sys.stderr)
         return 1
 
+    rule = real.pop("_context_rule", None)
     bad, ok = [], 0
     shapes = set()
     for name, rec in sorted(real.items()):
@@ -59,6 +60,20 @@ def main():
         print(f"  {name:14s} {rec['sec_ch_ua']}")
     for b in bad:
         print(f"  ✗ {b}")
+
+    # 「该不该发」与「发什么」是两个独立的坑，都要有据可查。
+    if not rule:
+        bad.append("golden 里没有 _context_rule —— 那条实测的上下文规则丢了")
+    else:
+        want = ["sec-ch-ua", "sec-ch-ua-mobile", "sec-ch-ua-platform"]
+        if rule.get("secure_context_loopback") != want:
+            bad.append(f"安全上下文下的默认 UA-CH 集合变了：{rule.get('secure_context_loopback')}")
+        if rule.get("insecure_context_lan_ip"):
+            bad.append("实测说非安全上下文也发 UA-CH —— 与本项目的结论矛盾，重新采")
+        if rule.get("safari_27"):
+            bad.append("实测说 Safari 发 UA-CH —— 与本项目的结论矛盾，重新采")
+        print(f"  上下文规则   安全上下文发 {len(want)} 个低熵提示；"
+              f"非安全上下文与 Safari 一个都不发（实测）")
 
     # 洗牌方向实采验不到（本机能拿到的版本置换全是自逆的，散射与收集等价），
     # 只能从源码断言。变异测试实证过：把散射改成收集，三条实采依然 3/3。
