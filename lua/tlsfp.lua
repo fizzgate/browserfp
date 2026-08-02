@@ -274,13 +274,20 @@ end
 -- 按该品牌的顺序排调用方给的头名。顺序里没有的排在最后并保持原序 ——
 -- 不认识的头不能丢掉，也不能塞到中间。
 function _M.sort_headers(brand, names)
+    if type(names) ~= "table" then return names end
     local order = _M.header_order(brand)
     if not order then return names end
     local pos = {}
     for i, h in ipairs(order) do pos[h] = i end
     local known, unknown = {}, {}
     for _, h in ipairs(names) do
-        if pos[h:lower()] then known[#known + 1] = h else unknown[#unknown + 1] = h end
+        -- **非字符串元素要原样放行，不能 h:lower()**：调用方的头名列表里
+        -- 混进一个数字就会抛未捕获的错误，在 worker 里那是 500。
+        if type(h) == "string" and pos[h:lower()] then
+            known[#known + 1] = h
+        else
+            unknown[#unknown + 1] = h
+        end
     end
     table.sort(known, function(a, b) return pos[a:lower()] < pos[b:lower()] end)
     for _, h in ipairs(unknown) do known[#known + 1] = h end
@@ -356,8 +363,23 @@ end
 local e1, e2, e3 = ffi.new("const char*[1]"), ffi.new("const char*[1]"), ffi.new("const char*[1]")
 function _M.coherence(ja4, akamai, header_order)
     if not lib then return nil, "libtlsfp.so 未加载" end
-    local csv = type(header_order) == "table"
-        and table.concat(header_order, ",") or header_order
+    -- **三个参数都必须是字符串或 nil**。FFI 遇到数字/布尔会抛
+    -- "cannot convert 'number' to 'const char *'" —— 未捕获就是 500。
+    -- 传表时也只收其中的字符串项：混进一个 nil，table.concat 会直接报错。
+    local function str_or_nil(v)
+        return type(v) == "string" and v or nil
+    end
+    local csv
+    if type(header_order) == "table" then
+        local parts = {}
+        for _, h in ipairs(header_order) do
+            if type(h) == "string" then parts[#parts + 1] = h end
+        end
+        csv = #parts > 0 and table.concat(parts, ",") or nil
+    else
+        csv = str_or_nil(header_order)
+    end
+    ja4, akamai = str_or_nil(ja4), str_or_nil(akamai)
     e1[0], e2[0], e3[0] = nil, nil, nil
     local r = lib.tlsfp_coherence(ja4, akamai, csv, e1, e2, e3)
     local function str(b) return b[0] ~= nil and ffi.string(b[0]) or nil end

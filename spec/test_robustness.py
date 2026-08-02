@@ -1,4 +1,4 @@
-"""恶劣输入下 C 侧不得崩溃、不得越界 —— 它跑在 nginx worker 里。
+"""恶劣输入下 C 与 Lua 两侧都不得出事 —— 它们跑在 nginx worker 里。
 
 **一次越界不是"这个请求失败"，是整个 worker 挂掉**，同 worker 上所有并发请求
 一起没。所以这条门禁的判据不是"结果对不对"，而是"活着回来且没踩内存"。
@@ -12,11 +12,18 @@
 越界与 (size_t)-1 下标、零长缓冲、差一字节的缓冲、截断到每一个长度的 TLS
 record、长度字段撒谎的 record。
 
+**Lua 那层单独验**：C 挡住了 NULL，不等于 Lua 挡住了错类型。FFI 遇到数字会抛
+`cannot convert 'number' to 'const char *'`，`table.concat` 遇到 nil 会报错，
+`h:lower()` 遇到数字会报错 —— 在 `content_by_lua_block` 里每一个都是未捕获的
+500。实测第一次跑抓到三处：`coherence` 收数字、`coherence` 收含 nil 的表、
+`sort_headers` 收非字符串元素。判据是"返回 nil+err 合格，抛错不合格"。
+
 跑：python -m spec.test_robustness
 """
 
 import os
 import re
+import shutil
 import subprocess
 import sys
 
@@ -29,6 +36,8 @@ FUZZCLI = os.path.join(ROOT, "csrc", "fuzzcli")
 # 调用次数下限：防平凡通过 —— 程序若因为编译宏或早退只跑了几次，
 # "没崩"毫无意义。当前 1543 次。
 MIN_CALLS = 1000
+# Lua 侧同理。当前 2005 次。
+MIN_LUA_CALLS = 1500
 
 
 def main():
@@ -60,15 +69,34 @@ def main():
 
     m = re.search(r"^(\d+)$", p.stdout.strip(), re.M)
     calls = int(m.group(1)) if m else 0
-    print(f"恶劣输入 {calls} 次调用，ASan+UBSan 下"
+    print(f"C 侧 {calls} 次调用，ASan+UBSan 下"
           f"{'全部安全返回' if not bad else '有问题'}")
     if calls < MIN_CALLS:
         bad.append(f"只跑了 {calls} 次（下限 {MIN_CALLS}）—— "
                    "\"没崩\"在这个次数下证明不了什么")
 
+    # Lua 层：判据是"不抛未捕获的错误"，返回 nil+err 合格
+    lua_calls = 0
+    if not shutil.which("luajit"):
+        print("  ？ Lua 层跳过：本机没有 luajit（非失败，但也没验到）")
+    else:
+        lp = subprocess.run(["luajit", os.path.join(HERE, "luafuzz.lua")],
+                            cwd=ROOT, capture_output=True, text=True, timeout=300)
+        lm = re.search(r"^(\d+)$", lp.stdout.strip(), re.M)
+        lua_calls = int(lm.group(1)) if lm else 0
+        print(f"Lua 侧 {lua_calls} 次调用，"
+              f"{'无未捕获错误' if lp.returncode == 0 else '有抛错'}")
+        for line in lp.stdout.splitlines():
+            if line.startswith("BAD "):
+                bad.append(f"Lua 抛错 {line[4:110]}")
+        if lp.returncode != 0 and not any(b.startswith("Lua") for b in bad):
+            bad.append(f"Lua 层退出码 {lp.returncode}：{lp.stderr[-160:]}")
+        if lua_calls < MIN_LUA_CALLS:
+            bad.append(f"Lua 只跑了 {lua_calls} 次（下限 {MIN_LUA_CALLS}）")
+
     for b in bad[:6]:
         print(f"  ✗ {b}")
-    print(f"\n{'C 侧对恶劣输入健壮' if not bad else f'{len(bad)} 处问题'}")
+    print(f"\n{'C 与 Lua 两侧对恶劣输入都健壮' if not bad else f'{len(bad)} 处问题'}")
     return 1 if bad else 0
 
 

@@ -1381,6 +1381,20 @@ alt-svc 存储就绪时序，路在 h3probe 加 TCP 端"，而不是重新试一
 任何事。变异验过两种：去掉 `tlsfp_ja4` 的空指针检查、让 `lookup_ua` 不挡 NULL
 brand，两次都变红。
 
+**Lua 那层要单独验：C 挡住了 NULL，不等于 Lua 挡住了错类型。** 同一批恶劣输入
+喂给 Lua 接口，第一次跑抓到三处未捕获的错误 —— 每一处在
+`content_by_lua_block` 里都是 500：
+
+```
+coherence 收数字        FFI 抛 cannot convert 'number' to 'const char *'
+coherence 收含 nil 的表 table.concat 报错
+sort_headers 收非字符串 h:lower() 报错
+```
+
+判据是"返回 nil+err 合格，抛错不合格"。修完 2005 次调用无一抛错，同样有次数
+下限与变异验证（去掉 `sort_headers` 的类型判断、`coherence` 不再过滤非字符串，
+两次都变红）。
+
 ## 关键方法论
 
 **干净克隆要单独验。** 开发机上攒着两类不进版本控制的东西 —— `spec/cache/`
