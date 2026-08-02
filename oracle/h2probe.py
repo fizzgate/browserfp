@@ -132,7 +132,7 @@ class H2Probe:
                 if flags & 0x4:
                     break
 
-        pseudo, regular = self._decode_headers(header_block)
+        pseudo, regular, values = self._decode_headers(header_block)
         return {
             "alpn": alpn,
             "settings": settings,
@@ -140,6 +140,10 @@ class H2Probe:
             "priorities": priorities,
             "pseudo_header_order": pseudo,
             "header_order": regular,
+            # 取值和顺序一样是指纹（accept / sec-ch-ua 都是版本相关的）。
+            # 之前这里把解出来的值直接丢了 —— 解码本来就产出 (k, v) 对，
+            # 只返回键名等于白采一遍。
+            "header_values": values,
             "frame_sequence": frame_seq,
             "akamai_fingerprint": self._akamai(settings, window_update, priorities, pseudo),
         }
@@ -169,7 +173,8 @@ class H2Probe:
         decoded = Decoder().decode(block, raw=False)
         pseudo = [k for k, _ in decoded if k.startswith(":")]
         regular = [k for k, _ in decoded if not k.startswith(":")]
-        return pseudo, regular
+        values = {k: v for k, v in decoded if not k.startswith(":")}
+        return pseudo, regular, values
 
     @staticmethod
     def _akamai(settings, window_update, priorities, pseudo):

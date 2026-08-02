@@ -1,0 +1,23 @@
+{
+ "chrome-151": {
+  "major": 151,
+  "brand": "Google Chrome",
+  "sec_ch_ua": "\"Not=A?Brand\";v=\"99\", \"Google Chrome\";v=\"151\", \"Chromium\";v=\"151\"",
+  "version": "151.0.7922.72",
+  "how": "本机 Chrome，headless=new 打本地 HTTP（localhost 算安全上下文，UA-CH 照发）"
+ },
+ "chromium-142": {
+  "major": 142,
+  "brand": null,
+  "sec_ch_ua": "\"Not_A Brand\";v=\"99\", \"Chromium\";v=\"142\"",
+  "version": "142.0.7444.175",
+  "how": "本机 Chromium.app —— CHROMIUM_BRANDING 构建没有品牌项，列表只有 2 项，正好验到 size==2 那条分支"
+ },
+ "edge-151": {
+  "major": 151,
+  "brand": "Microsoft Edge",
+  "sec_ch_ua": "\"Not=A?Brand\";v=\"99\", \"Microsoft Edge\";v=\"151\", \"Chromium\";v=\"151\"",
+  "version": "151.0.4129.59",
+  "how": "本机 Microsoft Edge —— 验品牌名替换后其余不变"
+ }
+}
