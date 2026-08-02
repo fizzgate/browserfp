@@ -25,6 +25,12 @@ ROOT = os.path.dirname(HERE)
 CLI = os.path.join(ROOT, "csrc", "ja4cli")
 REGISTRY = os.path.join(HERE, "profiles.json")
 
+# 防平凡通过：注册表被截断或读空时，"0 一致，0 不符"看着是绿的 —— 实测过，
+# 清空 profiles.json 后本门禁照样退出码 0。下限**不是棘轮**，它只回答
+# "比对集是不是还在"，所以取一个远低于真实值（81）又远高于零的数。
+MIN_PROFILES = 50
+
+
 
 def main():
     if not os.path.exists(CLI):
@@ -57,10 +63,17 @@ def main():
         return 1
 
     bad = [(n, e, g) for n, e, g in zip(names, expected, got) if e != g]
+    _n_compared = len(expected)
     print(f"差分比对 {len(expected)} 个 profile："
           f"{len(expected) - len(bad)} 一致，{len(bad)} 不符")
     for n, e, g in bad[:10]:
         print(f"  ✗ {n}\n      Python {e}\n      C      {g}")
+    # 比对集为空时上面每一项都会"通过" —— 实测过：清空
+    # profiles.json 后本门禁照样退出码 0，打印"0 一致，0 不符"。
+    if _n_compared < MIN_PROFILES:
+        print(f"  ✗ 只比对了 {_n_compared} 条（下限 "
+              f"{MIN_PROFILES}）—— 注册表被截断或读空了？")
+        return 1
     return 1 if bad else 0
 
 

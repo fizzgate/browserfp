@@ -26,6 +26,12 @@ ROOT = os.path.dirname(HERE)
 LIB = os.path.join(ROOT, "csrc", "libtlsfp.so")
 REGISTRY = os.path.join(HERE, "profiles.json")
 
+# 防平凡通过：注册表被截断或读空时，"0 一致，0 不符"看着是绿的 —— 实测过，
+# 清空 profiles.json 后本门禁照样退出码 0。下限**不是棘轮**，它只回答
+# "比对集是不是还在"，所以取一个远低于真实值（81）又远高于零的数。
+MIN_PROFILES = 50
+
+
 LUA_SCRIPT = """
 package.path = "%s/lua/?.lua;" .. package.path
 local tlsfp = require "tlsfp"
@@ -89,11 +95,18 @@ def main():
         print(f"Lua 脚本未正常结束：{out.stderr[:300]}", file=sys.stderr)
         return 1
     bad = [l for l in lines if l.startswith("MISMATCH")]
+    _n_compared = len(rows)
     print(f"三方差分 {len(rows)} 个 profile："
           f"{len(rows) - len(bad)} 一致，{len(bad)} 不符")
     for l in bad[:8]:
         _, pid, want, got = l.split("\t")
         print(f"  ✗ {pid}\n      Python/C {want}\n      Lua      {got}")
+    # 比对集为空时上面每一项都会"通过" —— 实测过：清空
+    # profiles.json 后本门禁照样退出码 0，打印"0 一致，0 不符"。
+    if _n_compared < MIN_PROFILES:
+        print(f"  ✗ 只比对了 {_n_compared} 条（下限 "
+              f"{MIN_PROFILES}）—— 注册表被截断或读空了？")
+        return 1
     return 1 if bad else 0
 
 

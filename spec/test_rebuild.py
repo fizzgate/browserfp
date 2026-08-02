@@ -38,6 +38,12 @@ def check(name, profile):
 
 REGISTRY = os.path.join(HERE, "profiles.json")
 
+# 防平凡通过：注册表被截断或读空时，"0 一致，0 不符"看着是绿的 —— 实测过，
+# 清空 profiles.json 后本门禁照样退出码 0。下限**不是棘轮**，它只回答
+# "比对集是不是还在"，所以取一个远低于真实值（81）又远高于零的数。
+MIN_PROFILES = 50
+
+
 
 def main():
     # 优先验注册表——它才是交付给 C 模块的东西；单个 golden 文件只是它的原料。
@@ -64,6 +70,7 @@ def main():
         if diffs:
             failed.append((name, diffs))
 
+    _n_compared = len(cases)
     print(f"重建 {len(cases)} 个 profile：{len(cases) - len(failed)} 通过，"
           f"{len(failed)} 失败")
     for name, diffs in failed:
@@ -71,6 +78,12 @@ def main():
         for field, want, got in diffs:
             print(f"      {field}\n        golden : {str(want)[:110]}"
                   f"\n        重建后 : {str(got)[:110]}")
+    # 比对集为空时上面每一项都会"通过" —— 实测过：清空
+    # profiles.json 后本门禁照样退出码 0，打印"0 一致，0 不符"。
+    if _n_compared < MIN_PROFILES:
+        print(f"  ✗ 只比对了 {_n_compared} 条（下限 "
+              f"{MIN_PROFILES}）—— 注册表被截断或读空了？")
+        return 1
     return 1 if failed else 0
 
 

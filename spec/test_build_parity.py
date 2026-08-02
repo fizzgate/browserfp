@@ -32,6 +32,12 @@ BUILDCLI = os.path.join(ROOT, "csrc", "buildcli")
 SNITEST = os.path.join(ROOT, "csrc", "snitest")
 REGISTRY = os.path.join(HERE, "profiles.json")
 
+# 防平凡通过：注册表被截断或读空时，"0 一致，0 不符"看着是绿的 —— 实测过，
+# 清空 profiles.json 后本门禁照样退出码 0。下限**不是棘轮**，它只回答
+# "比对集是不是还在"，所以取一个远低于真实值（81）又远高于零的数。
+MIN_PROFILES = 50
+
+
 
 def _norm(tls, field):
     v = tls.get(field)
@@ -144,6 +150,7 @@ def main():
     sni_bad = check_sni_insert()
     rnd_bad = check_random_varies()
 
+    _n_compared = n_rt
     print(f"重建闭环       {'OK' if not rt_bad else '失败'}（构造并比对 {n_rt} 条）")
     for b in rt_bad[:8]:
         print(f"  ✗ {b}")
@@ -156,6 +163,12 @@ def main():
 
     failed = len(rt_bad) + len(sni_bad) + len(rnd_bad)
     print(f"\n{'构造器与 golden 一致' if not failed else f'{failed} 处问题'}")
+    # 比对集为空时上面每一项都会"通过" —— 实测过：清空
+    # profiles.json 后本门禁照样退出码 0，打印"0 一致，0 不符"。
+    if _n_compared < MIN_PROFILES:
+        print(f"  ✗ 只比对了 {_n_compared} 条（下限 "
+              f"{MIN_PROFILES}）—— 注册表被截断或读空了？")
+        return 1
     return 1 if failed else 0
 
 
