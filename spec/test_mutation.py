@@ -104,6 +104,64 @@ MUTANTS = [
      "    -- 变异：不排序",
      ["test_lua_parity", "test_robustness"],
      "Lua 侧按引擎顺序排头名"),
+    # —— 以下几条落在此前从没被变异过的轴上：coherence、h2 开场构造、
+    #    QUIC 重组、JA4Q、平台表、注册表去重键、TCP 指纹 ——
+    ("coherence:矛盾不报", "csrc/tlsfp.c",
+     "        else if (strcmp(seen, all[i]) != 0) return 1;   /* 矛盾 */",
+     "        else if (0) return 1;",
+     ["test_coherence"],
+     "三层引擎不一致时必须报矛盾（split-brain 正是这么漏出去的）"),
+
+    ("h2:开场不发 WINDOW_UPDATE", "csrc/tlsfp.c",
+     "    if (p->window) {\n",
+     "    if (0) {\n",
+     ["test_h2_build"],
+     "h2 开场里的 WINDOW_UPDATE 帧要按 profile 发"),
+
+    ("QUIC:重组不校验收齐", "oracle/quic.py",
+     "    if len(buf) < want:",
+     "    if False:",
+     ["test_quic", "test_h3"],
+     "多个 Initial 拆包时，无空洞不等于收齐（Firefox 会拆）"),
+
+    ("QUIC:空洞检查去掉", "oracle/quic.py",
+     "    if not all(seen):",
+     "    if False:",
+     ["test_quic", "test_h3"],
+     "CRYPTO 片段有空洞必须拒绝"),
+
+    ("JA4Q:首字符不换", "oracle/quic.py",
+     '    return "q" + ja4[1:] if ja4.startswith("t") else ja4',
+     "    return ja4",
+     ["test_quic", "test_h3", "test_registry_fresh"],
+     "QUIC 的 JA4 首字符是 q 不是 t"),
+
+    ("UA-CH:平台表 iPhone 排到 Mac 之后", "oracle/uach.py",
+     '    ("iPhone", None), ("iPad", None), ("iPod", None),\n'
+     '    ("Android", "Android"),\n'
+     '    ("Windows NT", "Windows"),\n'
+     '    ("Macintosh", "macOS"),\n'
+     '    ("Mac OS X", "macOS"),',
+     '    ("Android", "Android"),\n'
+     '    ("Windows NT", "Windows"),\n'
+     '    ("Macintosh", "macOS"),\n'
+     '    ("Mac OS X", "macOS"),\n'
+     '    ("iPhone", None), ("iPad", None), ("iPod", None),',
+     ["test_uach_platform", "test_uach"],
+     "iOS 的 UA 里带 Mac OS X，iPhone 必须先判"),
+
+    ("注册表:去重键不排序集合字段", "oracle/registry.py",
+     '        {f: (sorted(fp.get(f) or []) if f in SET_FIELDS else fp.get(f))\n'
+     '         for f in FIELDS}, sort_keys=True)',
+     "        {f: fp.get(f) for f in FIELDS}, sort_keys=True)",
+     ["test_registry_fresh", "test_rebuild", "test_derive"],
+     "集合类字段要排序后才能当去重键，否则同一指纹被拆成多条"),
+
+    ("JA4T:不取 window scale", "oracle/ja4t.py",
+     "        elif kind == OPT_WSCALE and len(val) == 1:",
+     "        elif False:",
+     ["test_ja4t"],
+     "window scale 只在 SYN 包里，是 JA4T 的第四段"),
 ]
 
 

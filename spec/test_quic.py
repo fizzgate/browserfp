@@ -22,7 +22,8 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from oracle.browsers import discover                          # noqa: E402
 from oracle.clienthello import fingerprint                    # noqa: E402
-from oracle.quic import QuicError, initial_secrets, ja4q, parse_initial  # noqa: E402
+from oracle.quic import (QuicError, initial_secrets, ja4q,     # noqa: E402
+                         parse_initial, reassemble_client_hello)
 from oracle.quicprobe import QuicProbe                        # noqa: E402
 
 
@@ -52,6 +53,44 @@ def t_rejects_non_initial():
             pass          # 其他异常也算拒绝，只要没静默返回
     return not bad, ("非 Initial 包均被拒绝" if not bad
                      else f"被错误接受: {bad}")
+
+
+def t_reassemble_incomplete():
+    """CRYPTO 片段没收齐必须拒绝 —— **"无空洞"不等于"收齐"**。
+
+    Chromium 把整条 ClientHello 塞进一个 Initial，Firefox 会拆成多个。只按
+    "已收到的字节之间有没有空洞"判断的话，第一个 Initial 单独看完全没有空洞，
+    于是会"成功"重组出一条被截断的 ClientHello，指纹静默算错。
+
+    这个缺陷这轮真出过、也真修了 —— 但代码变异实测：把长度校验那行去掉，
+    **所有门禁照样全绿**。语料里只存了指纹、没存原始数据报，重组器从来没被
+    喂过不完整的输入。修了却没人看着，等于等它悄悄回归。
+
+    构造一条自洽的握手消息（type=0x01 + 3 字节长度），只喂前一半。
+    """
+    body = b"\x03\x03" + b"\xaa" * 300          # 假 ClientHello 体
+    full = bytes([0x01]) + len(body).to_bytes(3, "big") + body
+    cases = {
+        "只收到前一半（无空洞但没收齐）": [(0, full[:len(full) // 2])],
+        "中间缺一段（有空洞）": [(0, full[:50]), (100, full[100:])],
+        "空片段": [],
+    }
+    bad = []
+    for name, chunks in cases.items():
+        try:
+            reassemble_client_hello(chunks)
+            bad.append(name)
+        except QuicError:
+            pass
+    # 阳性对照：完整的必须能过，否则上面三条"全被拒"是平凡通过
+    try:
+        rec = reassemble_client_hello([(0, full)])
+        if rec[0] != 0x16 or rec[5] != 0x01:
+            bad.append("完整输入重组出的不是 TLS record 包着的 ClientHello")
+    except QuicError as e:
+        bad.append(f"完整输入被误拒：{e}")
+    return not bad, ("不完整片段均被拒、完整片段正常" if not bad
+                     else f"有问题: {bad}")
 
 
 def t_real_browser():
@@ -87,6 +126,7 @@ def t_real_browser():
 def main():
     tests = [("RFC 9001 官方向量", t_rfc_vectors),
              ("拒绝非 Initial（阴性）", t_rejects_non_initial),
+             ("重组：没收齐必须拒（阴性）", t_reassemble_incomplete),
              ("真机端到端", t_real_browser)]
     failed = 0
     for name, fn in tests:

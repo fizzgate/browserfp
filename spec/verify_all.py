@@ -81,7 +81,7 @@ def _run(mod, timeout=300):
 # 第 1 层是自动发现的，默认 300s 够用；这几个要在临时副本里反复起子进程，
 # 单独放宽。超时会被算成失败 —— 那是对的（挂死不是通过），但不能因为
 # 默认值太紧而误报。
-SLOW_GATES = {"test_mutation": 1200}
+SLOW_GATES = {"test_mutation": 1800}
 
 
 def gates(include_network):
