@@ -32,7 +32,24 @@ MIN_PROFILES = 50
 
 
 
+def _make():
+    """**门禁自己跑 make**，不能依赖跑的人记得编。
+
+    实测：改坏 `tlsfp.c` 里 JA4 的 cipher 排序，本门禁照样 82/82 全绿 ——
+    它比的是上一次编出来的旧 `ja4cli`。这是本项目第 5 次撞"用了 stale 产物
+    所以断言失灵"，前四次分别是 fuzzcli、profiles 表、libtlsfp.so 与 .o。
+    退出码非零必须判失败，不能只看产物在不在（编译失败时旧产物还在原地）。
+    """
+    r = subprocess.run(["make", "-s"], cwd=os.path.join(ROOT, "csrc"),
+                       capture_output=True, text=True, timeout=300)
+    if r.returncode != 0:
+        print(f"make 失败：{(r.stderr or r.stdout)[-300:]}", file=sys.stderr)
+        return False
+    return True
+
 def main():
+    if not _make():
+        return 2
     if not os.path.exists(CLI):
         print(f"缺 {CLI}；先在 csrc 下编译：\n"
               f"  cc -O2 -I$(brew --prefix openssl@3)/include -o ja4cli "

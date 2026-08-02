@@ -63,7 +63,26 @@ CLI = os.path.join(ROOT, "csrc", "uacli")
 FIXTURES = os.path.join(HERE, "fixtures", "prod_user_agents.json")
 
 
+def _make():
+    """**门禁自己跑 make**，不能依赖跑的人记得编。
+
+    本门禁比的是 `uacli` 的输出。C 侧的 UA 表由 gen_profiles 生成后编进
+    `uacli`，源码改了而没重编，比的就是上一版的表 —— 与 `test_c_parity` 同
+    一个形态（那边实测过：改坏 JA4 的 cipher 排序，82/82 照样全绿）。这是本
+    项目第 5 次撞"用了 stale 产物所以断言失灵"。退出码非零必须判失败，不能
+    只看产物在不在 —— 编译失败时旧产物还好端端待在原地。
+    """
+    r = subprocess.run(["make", "-s"], cwd=os.path.join(ROOT, "csrc"),
+                       capture_output=True, text=True, timeout=300)
+    if r.returncode != 0:
+        print(f"make 失败：{(r.stderr or r.stdout)[-300:]}", file=sys.stderr)
+        return False
+    return True
+
+
 def main():
+    if not _make():
+        return 2
     if not os.path.exists(CLI):
         print(f"缺 {CLI}；先在 csrc 下 make uacli", file=sys.stderr)
         return 2

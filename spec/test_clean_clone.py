@@ -37,7 +37,7 @@ ROOT = os.path.dirname(HERE)
 
 # 不在干净副本里跑的：自己（套娃）、另一个也复制副本的元门禁、
 # 以及联网/起容器的那些（它们各有自己的跳过逻辑，放这里只会拖时间）
-EXCLUDE = {"test_clean_clone", "test_trivial_pass",
+EXCLUDE = {"test_clean_clone", "test_trivial_pass", "test_mutation",
            "test_live_handshake", "test_build_live", "test_h2_live",
            "test_masquerade_live", "test_openresty", "test_cf_discrimination",
            "test_version_ceiling", "test_chromium_h2", "test_gecko_h2",

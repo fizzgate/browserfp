@@ -83,13 +83,20 @@ def main():
         skipped = 1
         print(f"  ？ 判据重算跳过（{type(e).__name__}: {str(e)[:60]}）")
     if fresh is not None:
+        # **整条记录都要比，不能只比 akamai 串**。第一版只比
+        # `akamai_fingerprint`，而 PRIORITY 帧不体现在那个串的差异里 ——
+        # 代码变异实测：把源码推导路径的 priorities 写死成空表，94 条记录的
+        # PRIORITY 全没了，本门禁照样全绿。又是"比了一个相邻但不等价的东西"。
         for brand in set(stored) | set(fresh):
             a, b = stored.get(brand, {}), fresh.get(brand, {})
             for ver in set(a) | set(b):
-                x = (a.get(ver) or {}).get("akamai_fingerprint")
-                y = (b.get(ver) or {}).get("akamai_fingerprint")
+                x, y = a.get(ver), b.get(ver)
                 if x != y:
-                    drift.append(f"{brand} {ver}: 表={x} 现算={y}")
+                    diff = sorted({k for k in set(x or {}) | set(y or {})
+                                   if (x or {}).get(k) != (y or {}).get(k)})
+                    drift.append(f"{brand} {ver}: 字段 {diff} 不一致"
+                                 f"（表 {[(x or {}).get(k) for k in diff]} "
+                                 f"现算 {[(y or {}).get(k) for k in diff]}）")
                 else:
                     resynced += 1
         for d in drift[:6]:

@@ -23,7 +23,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from oracle.clienthello import fingerprint, parse_client_hello  # noqa: E402
+from oracle.clienthello import is_grease, fingerprint, parse_client_hello  # noqa: E402
 from oracle.coverage import FIELDS, SET_FIELDS                  # noqa: E402
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -93,6 +93,23 @@ def check_sni_insert():
             continue
         if ch["sni"] != host:
             bad.append(f"{host}: 构造出的 SNI 是 {ch['sni']!r}，未被写入")
+        # **位置也要查，不能只查"进去了"**。真实浏览器把 server_name 排在首个
+        # GREASE 之后、其余扩展之前；插错位置的握手照样能连通、SNI 照样解得出，
+        # 但扩展序列变了，指纹就不对了。代码变异实测：把插入点改成"最前面"，
+        # 本门禁原来一点反应都没有 —— 它只问了"有没有"，没问"在哪"。
+        raw = ch["raw_extensions"]
+        # **期望位置必须从"去掉 SNI 之后的原序"算**，不能从 raw[0] 算 ——
+        # 第一版就是拿 raw[0] 判的：SNI 一旦被插到第 0 位，raw[0] 就不再是
+        # GREASE，期望值跟着变成 0，断言自证通过。变异实测它一点反应都没有。
+        # 拿变异后的输出去推期望值，等于让被测者自己出题。
+        orig = [e for e in raw if e != 0x0000]
+        want_at = 1 if orig and is_grease(orig[0]) else 0
+        if 0x0000 not in raw:
+            bad.append(f"{host}: 扩展序列里没有 server_name")
+        elif raw.index(0x0000) != want_at:
+            bad.append(f"{host}: SNI 在第 {raw.index(0x0000)} 位，应在第 "
+                       f"{want_at} 位（首个 GREASE 之后）"
+                       f"；序列 {[hex(e) for e in raw[:4]]}")
         seen_len[host] = len(rec)
     # 域名长度不同，总长必须跟着变；全都一样说明 SNI 根本没进去
     if len(set(seen_len.values())) == 1 and len(seen_len) > 1:

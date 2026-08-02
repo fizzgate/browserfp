@@ -78,6 +78,12 @@ def _run(mod, timeout=300):
     return out.returncode == 0, _pick_verdict(lines)
 
 
+# 第 1 层是自动发现的，默认 300s 够用；这几个要在临时副本里反复起子进程，
+# 单独放宽。超时会被算成失败 —— 那是对的（挂死不是通过），但不能因为
+# 默认值太紧而误报。
+SLOW_GATES = {"test_mutation": 1200}
+
+
 def gates(include_network):
     names = sorted(f[:-3] for f in os.listdir(HERE)
                    if f.startswith("test_") and f.endswith(".py"))
@@ -94,7 +100,7 @@ def main(argv):
     ok_n = bad = 0
     failed = []
     for name in gates(include_network=False):
-        ok, tail = _run(f"spec.{name}")
+        ok, tail = _run(f"spec.{name}", timeout=SLOW_GATES.get(name, 300))
         if ok:
             ok_n += 1
         else:
