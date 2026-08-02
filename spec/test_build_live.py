@@ -31,6 +31,7 @@ openssl 是真实客户端、真实 TLS，它在同样节奏下一起挂 —— 
 
 import os
 import socket
+import ssl
 import subprocess
 import sys
 import time
@@ -43,7 +44,15 @@ SNITEST = os.path.join(ROOT, "csrc", "snitest")
 
 # 选站原则与 test_live_handshake 一致：至少一个严格校验 SNI 的，
 # 至少一个宽松的作对照，好把"站点策略"与"我们的实现缺陷"分开。
-DEFAULT_HOSTS = ("cloudflare.com", "example.com", "github.com")
+# 选站有两条硬要求，都可验证（见 check_hosts）：
+#   至少一个**严格校验 SNI** —— 无 SNI 时回 handshake_failure。缺了它，
+#     "SNI 根本没发"这个缺陷会被有默认证书的站点掩盖（曾经就是这么被掩盖的）
+#   至少一个**宽松的**作对照，好把"站点策略"与"我们的实现缺陷"分开
+#
+# github.com 被换掉了：本机对它的连接已是持续性阻断，不是瞬时抖动 ——
+# openssl 直连三次里两次也失败（真实客户端对照）。留着它这条门禁会周期性
+# 假红，而假红久了就会被无视。换成同样严格且可达的 www.iana.org。
+DEFAULT_HOSTS = ("cloudflare.com", "example.com", "www.iana.org")
 
 # 每次连接之间的间隔，见模块头的测量：低于这个值 github 会按速率丢连接。
 PACE = 3.0
@@ -104,6 +113,32 @@ def attempt(brand, version, host):
     return kind, detail
 
 
+def check_hosts(hosts, timeout=12):
+    """选站的两条要求当场验，不靠注释里的记忆。
+
+    站点策略会变（换 CDN、加默认证书），"这批站点里有严格校验 SNI 的"这句话
+    如果只写在注释里，哪天全变宽松了也没人知道 —— 那时这条门禁看着还在跑，
+    实际上已经测不出"SNI 没发"这个缺陷了。
+    """
+    strict, loose, unreachable = [], [], []
+    for h in hosts:
+        ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+        ctx.check_hostname = False
+        ctx.verify_mode = ssl.CERT_NONE
+        try:
+            socket.create_connection((h, 443), timeout=timeout).close()
+        except Exception:
+            unreachable.append(h)
+            continue
+        try:
+            s = ctx.wrap_socket(socket.create_connection((h, 443), timeout=timeout))
+            s.close()
+            loose.append(h)
+        except Exception:
+            strict.append(h)
+    return strict, loose, unreachable
+
+
 def main(argv):
     stale = _ensure_fresh()
     if stale:
@@ -114,7 +149,19 @@ def main(argv):
         return 2
 
     hosts = argv[1].split(",") if len(argv) > 1 else DEFAULT_HOSTS
-    print(f"C 构造的伪装 ClientHello × {len(hosts)} 个真实站点\n")
+    strict, loose, unreachable = check_hosts(hosts)
+    print(f"C 构造的伪装 ClientHello × {len(hosts)} 个真实站点")
+    print(f"  严格校验 SNI: {strict or '（无）'}   宽松: {loose or '（无）'}"
+          + (f"   连不上: {unreachable}" if unreachable else ""))
+    if not strict:
+        print("\n✗ 这批站点没有一个严格校验 SNI —— \"SNI 根本没发\" 这个缺陷"
+              "会被有默认证书的站点掩盖，等于没测。换站点。", file=sys.stderr)
+        return 1
+    if not loose:
+        print("\n✗ 没有宽松站点作对照 —— 分不清失败是站点策略还是我们的缺陷。",
+              file=sys.stderr)
+        return 1
+    print()
 
     ok_n, rejected, netbad = 0, [], []
     for brand, version in TARGETS:
