@@ -19,7 +19,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from oracle.covscan import TARGETS, h2scan, scan                       # noqa: E402
+from oracle.covscan import TARGETS, h2scan, quic_coverage, scan                       # noqa: E402
 from oracle.uamap import UAMapper                              # noqa: E402
 
 # 当前水位：每个品牌允许的最大缺漏版本数。
@@ -51,6 +51,30 @@ H2_BASELINE = {
     # 只剩 safari 12-14 —— 与 TLS 层的缺口是同一批，已证无路径（见 README）
     "safari": 3, "safari-mobile": 3,
 }
+
+
+# QUIC / h3 的水位，按**引擎**记 —— 这两层没有版本表。
+# 与上面两张表一样是"只许升不许降"：这一层此前完全不在覆盖度报告里，
+# 而没有覆盖度的层等于隐形，悄悄退化也看不出来。
+# webkit（Safari）不在其中：它既没有强制走 h3 的开关，自签 CA 又要改系统
+# 信任设置才认 —— 那是侵入性操作，不做。补上了再把它加进来。
+QUIC_ENGINES = {"quic": {"chromium", "gecko"}, "h3": {"chromium", "gecko"}}
+
+
+def check_quic():
+    cov = quic_coverage()
+    bad = []
+    for layer, want in QUIC_ENGINES.items():
+        got = set(cov.get(layer) or {})
+        missing = want - got
+        if missing:
+            bad.append(f"{layer} 少了引擎 {sorted(missing)}（现有 {sorted(got)}）"
+                       " —— 覆盖倒退了")
+        extra = got - want
+        if extra:
+            bad.append(f"{layer} 多出引擎 {sorted(extra)} —— 覆盖变好了，"
+                       "确认是真采到而非归类错误后，把 QUIC_ENGINES 改大")
+    return cov, bad
 
 
 def check_scan_range(mapper):
@@ -118,12 +142,22 @@ def main():
         print(f"\n✗ {brand} 的 h2 缺口 {n} 超过水位 {limit} —— "
               "要么补 h2 数据，要么查清是不是映射改动把版本挪到了无 h2 的条目上。")
 
+    cov, quic_bad = check_quic()
+    print(f"\nQUIC/h3 按引擎")
+    for layer in ("quic", "h3"):
+        got = cov.get(layer) or {}
+        print(f"  {layer:5s} " + ("  ".join(f"{e}:{','.join(v)}"
+                                            for e, v in sorted(got.items()))
+                                  or "（空）"))
+    for b in quic_bad:
+        print(f"  ✗ {b}")
+
     rng = check_scan_range(mapper)
     print(f"\n扫描范围覆盖已有数据  {'OK' if not rng else '失败'}")
     for b in rng:
         print(f"  ✗ {b}")
 
-    failed = worse or rng or h2_worse
+    failed = worse or rng or h2_worse or quic_bad
     print(f"\n{'覆盖未倒退' if not failed else '覆盖或扫描范围有问题'}")
     return 1 if failed else 0
 

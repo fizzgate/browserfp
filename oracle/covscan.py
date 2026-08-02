@@ -126,6 +126,43 @@ def scan(brand, mapper):
     return missing, lo, hi
 
 
+def quic_coverage(registry=None):
+    """QUIC / h3 两层的覆盖情况，按**引擎**报 —— 这一层没有版本表。
+
+    为什么单独一个函数：这两层此前完全不在覆盖度报告里，而"没有覆盖度的层"
+    等于隐形 —— 悄悄退化也没人看得出来。它们与 TLS/h2 不同，profile 不进
+    UA 版本表（mode 不是 initial），只服务入站识别，所以按引擎数报最诚实。
+
+    返回 {"quic": {引擎: [版本…]}, "h3": {引擎: [版本…]}}。
+    """
+    if registry is None:
+        with open(os.path.join(os.path.dirname(HERE), "spec",
+                               "profiles.json")) as f:
+            registry = json.load(f)
+
+    def engine_of(name):
+        n = name.lower()
+        if any(k in n for k in ("firefox", "gecko")):
+            return "gecko"
+        if any(k in n for k in ("safari", "ios", "ipad")):
+            return "webkit"
+        return "chromium"
+
+    out = {"quic": {}, "h3": {}}
+    for rec in registry:
+        if rec.get("mode") != "quic":
+            continue
+        eng = engine_of(rec["id"].split(":", 1)[1])
+        vers = sorted({str(v).split(".")[0] for v in (rec.get("versions") or [])})
+        out["quic"].setdefault(eng, []).extend(vers)
+        if rec.get("h3"):
+            out["h3"].setdefault(eng, []).extend(vers)
+    for layer in out:
+        for eng in out[layer]:
+            out[layer][eng] = sorted(set(out[layer][eng]))
+    return out
+
+
 def h2scan(brand, mapper=None, registry=None):
     """哪些版本在 h2 表里查不到。
 

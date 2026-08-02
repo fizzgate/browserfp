@@ -125,6 +125,21 @@ def main(argv):
         elif line.startswith("合计"):
             print(f"    {line.strip()}")
 
+    # QUIC / h3 按引擎报 —— 这两层没有版本表，藏起来就等于没人看着它退化
+    out = subprocess.run(
+        [PY, "-c",
+         "import sys;sys.path.insert(0,'.');"
+         "from oracle.covscan import quic_coverage;"
+         "c=quic_coverage();"
+         "print('  QUIC/h3（按引擎，无版本表）');"
+         "print('    QUIC ' + '  '.join(f'{e}:{\",\".join(v)}' "
+         "for e,v in sorted(c['quic'].items())));"
+         "print('    h3   ' + '  '.join(f'{e}:{\",\".join(v)}' "
+         "for e,v in sorted(c['h3'].items())));"
+         "print('    缺 webkit（Safari）—— 无强制开关，且自签 CA 需改系统信任')"],
+        capture_output=True, text=True, timeout=120, cwd=ROOT, env=env)
+    print(out.stdout.rstrip() or "  （QUIC 覆盖度取不到）")
+
     if live:
         print("\n" + "=" * 62)
         print("第 3 层：端到端与生产形态")
