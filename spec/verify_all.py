@@ -142,7 +142,7 @@ def main(argv):
          "for e,v in sorted(c['quic'].items())));"
          "print('    h3   ' + '  '.join(f'{e}:{\",\".join(v)}' "
          "for e,v in sorted(c['h3'].items())));"
-         "print('    缺 webkit（Safari）—— 无强制开关，且自签 CA 需改系统信任')"],
+         "print('    缺 webkit（Safari）—— 证书信任已解决，实测它根本不发 QUIC')"],
         capture_output=True, text=True, timeout=120, cwd=ROOT, env=env)
     print(out.stdout.rstrip() or "  （QUIC 覆盖度取不到）")
 
@@ -163,7 +163,6 @@ def main(argv):
                 ("spec.test_live_handshake", "对真实站点逐 profile 握手", 1800),
                 ("spec.test_build_live", "C 构造的伪装握手", 900),
                 ("spec.test_h2_live", "C 构造的 h2 开场被服务端接受", 900),
-                ("spec.test_masquerade_live", "四层合并伪装真发请求", 900),
                 ("spec.test_openresty", "真实 OpenResty worker", 1800),
                 ("spec.test_version_ceiling", "扫描上限 vs 上游最新版", 300),
                 ("spec.test_chromium_h2", "Chromium h2 推导 vs 实采", 900),

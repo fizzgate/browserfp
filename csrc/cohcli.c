@@ -1,5 +1,4 @@
-/* 从 stdin 读 "ja4<TAB>akamai<TAB>order_csv"（空段用 -），打出
-   "verdict<TAB>tls<TAB>h2<TAB>hdr" */
+/* 从 stdin 读 "ja4<TAB>akamai"（空段用 -），打出 "verdict<TAB>tls<TAB>h2" */
 #include "tlsfp.h"
 #include <stdio.h>
 #include <string.h>
@@ -17,12 +16,12 @@ int main(void) {
         line[strcspn(line, "\r\n")] = 0;
         if (!line[0]) continue;
         char *p = line;
-        char *ja4 = cut(&p), *ak = cut(&p), *od = cut(&p);
-        const char *t = NULL, *h = NULL, *d = NULL;
-        int r = tlsfp_coherence(ja4, ak, od, &t, &h, &d);
-        printf("%s\t%s\t%s\t%s\n",
+        char *ja4 = cut(&p), *ak = cut(&p);
+        const char *t = NULL, *h = NULL;
+        int r = tlsfp_coherence(ja4, ak, &t, &h);
+        printf("%s\t%s\t%s\n",
                r == 0 ? "ok" : r == 1 ? "mismatch" : "unknown",
-               t ? t : "-", h ? h : "-", d ? d : "-");
+               t ? t : "-", h ? h : "-");
     }
     return 0;
 }

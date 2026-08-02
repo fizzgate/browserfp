@@ -27,17 +27,11 @@ for i = 1, N do
     try("by_ua", tlsfp.by_ua, a, b)
     try("client_hello", tlsfp.client_hello, a, b, "x")
     try("h2_preface", tlsfp.h2_preface, a, b)
-    try("sec_ch_ua", tlsfp.sec_ch_ua, a, b)
-    try("header_value", tlsfp.header_value, a, b)
   end
-  try("header_order", tlsfp.header_order, a)
-  try("ua_platform", tlsfp.ua_platform, a)
   try("identify_h2", tlsfp.identify_h2, a)
   try("identify", tlsfp.identify, a)
   try("ja4", tlsfp.ja4, a)
-  try("sort_headers", tlsfp.sort_headers, a, {"Accept", a, 1})
-  try("coherence", tlsfp.coherence, a, a, a)
-  try("coherence-table", tlsfp.coherence, a, a, {a, "accept"})
+  try("coherence", tlsfp.coherence, a, a)
 end
 
 -- 截断的 TLS record 逐长度喂给识别器

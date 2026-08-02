@@ -555,288 +555,61 @@ binder 的恢复态握手，服务端验不过会退回完整握手，**比干�
 以及一条**反向断言** —— 最粗的那条必须真的很粗（当前 50 个组合），若哪天每条
 akamai 只对应一两个版本，说明数据变了，"只能认引擎"这句保守话该重新审。
 
-#### 四层要合起来验一次
+#### 范围边界：请求头不归我们管
 
-每层都有自己的门禁，但**层与层之间的耦合分层测试恰好都测不到**：头顺序表里有
-`sec-ch-ua`，取值却要从另一个按 (品牌, 版本) 查的接口拿；伪头序来自 h2 层、普通
-头顺序来自头顺序层，HEADERS 帧里必须先伪后普。`test_masquerade_live` 把四层输出
-真的拼成一个请求发出去。
+伪装曾经做过四层：TLS 字节、h2 开场、请求头顺序、头取值（含 `sec-ch-ua`）。
+**后两层已整层删除**，理由来自使用场景：本库服务的是网关转发，请求头是真实
+浏览器发来的、原样转出去 —— 我们既不排序也不添加，于是也没有"我们这一侧的
+头顺序"需要伪造。自己合成 `sec-ch-ua` 只会凭空多出一处可能与来访请求对不上的
+东西，那是给自己造破绽。
 
-**它当场抓出一个跨采集的上下文错配。** `upgrade-insecure-requests` 不是纯浏览器
-属性，它看目标协议：
+删掉的是：C 的 `tlsfp_header_order` / `tlsfp_header_value` / `tlsfp_sec_ch_ua` /
+`tlsfp_ua_platform` / `tlsfp_engine_of_headers` 与配套 CLI，Lua 的同名绑定，
+oracle 下的 `headerorder.py` / `uach.py` / `hdrcollect.py`，
+spec 下的 `uach.json` 与 golden 里的 `headers_real.json` / `uach_real.json`，
+以及 `test_header_order` / `test_uach` / `test_uach_platform` /
+`test_masquerade_live` 四条门禁。（这些名字下面不带路径前缀是有意的 ——
+文档门禁会核对 `oracle/…` 形式的路径是否存在，而它们已经不存在了。）
 
-```
-明文 HTTP（localhost 采集）      五个浏览器全发
-HTTPS / h2（h2 实采）           Chromium 与 Gecko 发，**WebKit 不发**
-```
+`tlsfp_coherence` 从三层降为**两层**（TLS 与 h2）。它仍是有价值的：TLS 说
+Chromium 而 h2 说 Gecko，一眼就假 —— 那两层都是**连接握手**的一部分，由我们
+自己发出，与请求头不是一回事。
 
-本项目的伪装出网是 HTTPS，拿明文 HTTP 的采集去填 https 请求，Safari 伪装就会多出
-一个真 Safari 在 https 上不会发的头 —— 与 UA-CH 那条"多发也是异常"同一类问题。
-`values_for()` 因此带协议参数，默认 https。
+留下的边界要记清楚，免得下次又混：**h2 的 SETTINGS、WINDOW_UPDATE、PRIORITY、
+伪头序（`:method/:scheme/:path/:authority`）仍然是指纹**，它们构成 Akamai
+指纹，属于我们要伪造的范围；被删掉的是**普通请求头**的顺序与取值。
 
-**"服务端收不收"验不了头顺序。** 变异测试实证：把顺序整个反排，三个站点依然
-全绿 —— HTTP/2 不在乎头的先后，顺序只影响"像不像浏览器"。所以这条性质另配一个
-**独立 oracle**：拼出来的顺序必须与真机实采一致（取交集比对）。不能拿
-`order_for()` 自比，compose() 本来就是按它排的，那是循环论证。
+#### 移动端第一份真机实采：h2 与 TLS 的结论正好相反
 
-同一个方法在本项目里已经用过两次 —— sec-ch-ua 的洗牌方向也是"实采验不到、
-改用源码断言"。**一条性质如果现有手段验不了，就换一个能验它的 oracle，
-而不是把它当成验过了。**
-
-#### 第四层：头的取值（`sec-ch-ua`）
-
-顺序对了、值不对照样露馅。`sec-ch-ua` 是其中最要命的一项：里面有一个**按主版本号
-确定性生成的 GREASE 品牌**，既非固定串也非随机串 —— 手写必然对不上，而它就明晃晃
-摆在请求头里。
-
-算法全在 `components/embedder_support/user_agent_utils.cc`，只依赖主版本号：
-
-```
-greasey_brand = "Not" + chars[v%11] + "A" + chars[(v+1)%11] + "Brand"
-                chars = [" ", "(", ":", "-", ".", "/", ")", ";", "=", "?", "_"]
-greasey_ver   = ["8", "99", "24"][v%3]
-列表 = [greasey, {"Chromium", v}, {品牌, v}]，按 orders[v%6] 洗牌
-```
-
-表本身也从源码抠，不写死 —— `greasey_chars` 改过一次，写死会在老版本上算错。
-
-**先验证再使用**：拿本机三个真实浏览器实采比对，刻意覆盖三条不同分支：
-
-```
-chrome-151     三项 + 品牌 "Google Chrome"                    ✅
-chromium-142   两项 —— CHROMIUM_BRANDING 构建无品牌项          ✅
-edge-151       同 151 的 GREASE 品牌，只换品牌名                ✅
-```
-
-采集用本地 HTTP 服务就够：UA-CH 只在安全上下文发送，而 **localhost 算安全上下文**。
-
-**变异测试暴露了一条实采验不到的性质。** 把洗牌从散射
-（`shuffled[order[i]] = list[i]`）改成收集，三条实采**依然 3/3 全绿** —— 因为本机
-能拿到的版本置换恰好全是自逆的（151%6=1 是对换、142 走两项分支是恒等）。要区分得
-有 `major%6 ∈ {3,4}` 的版本，本机没有、Chrome for Testing 的下载源又连不上。改成
-**从源码断言赋值方向**，把"实采验不到"变成"源码变了就会红"。
-
-只跑正向测试的话，这个错会以"一半版本对、一半错"的形式潜伏下去 —— 比全错更难发现。
-
-代码形态换过一次而**算法实质没变**：132 起在 `GetRandomOrder()` 里，131 及更早
-内联在 `GenerateBrandVersionList()` 里，置换表、`seed%6`、散射赋值一字不差。
-第一版只认前者，把 97–131 整段判成"不支持"，而它们其实推得出来。当前覆盖 97–153
-共 57 个版本；96 及更早的 GREASE 表还没出现，弃权。
-
-**Opera 不推**：它的嵌入层会往列表里再加自己的品牌项，而本项目没有 Opera 实采 ——
-加几项、叫什么名字都只能猜。
-
-#### 检测方能主动出招：`Accept-CH`
-
-前面几层都是"我们发什么"。但服务端可以**主动索要**：回一个 `Accept-CH`，看客户端
-会不会像浏览器那样补发高熵提示。实测（服务端回 `Accept-CH` + `Critical-CH`）：
-
-```
-第 1 个请求      3 个低熵提示
-              ↓  Critical-CH 让 Chrome **立刻重发同一个请求**
-第 2 个请求      9 个（补齐 6 个高熵）
-之后同源每个请求  9 个
-```
-
-补发的六项里，**只有一项推得出来**：
-
-```
-可推    sec-ch-ua-full-version-list
-        与 sec-ch-ua 同一套算法，只是版本换成完整版本 —— 但 GREASE 那项要补
-        ".0.0.0"（源码 GetProcessedGreasedBrandVersion：单段版本追加零段）。
-        只差这一处，而这一处恰好最不像手写值。实采逐字节验过。
-
-推不出  sec-ch-ua-platform-version   实采是 "27.0.0"（真实 macOS 版本），
-                                     而 UA 缩减后恒为 10_15_7 —— 这是真正的
-                                     额外熵，只能由调用方按场景给一个可信值
-        sec-ch-ua-arch / -bitness    取决于伪装目标机器的 CPU，不是浏览器属性
-        sec-ch-ua-model              桌面恒空串、移动端是机型，同上
-```
-
-这条边界写进 golden 的 `not_derivable` 并由门禁断言 —— 删掉它，后来人会默认
-"这些也能推"，然后编一个值出来。
-
-#### `sec-ch-ua-platform` / `-mobile` 必须与 UA 同源
-
-真浏览器这两处同源：UA 字符串与 UA-CH 都由同一个平台判定生成。伪装时最容易的
-出错方式是**一处照抄 UA、另一处硬编码** —— UA 说 Windows 而 platform 说 macOS，
-是不用任何统计就能抓的交叉矛盾。所以这两项也由库推，不让调用方填：
-
-```
-Mozilla/5.0 (Windows NT 10.0; ...) Chrome/151     → "Windows"  ?0
-Mozilla/5.0 (Linux; Android 14; Pixel 8) ...      → "Android"  ?1
-Mozilla/5.0 (iPhone; CPU iPhone OS 26_0 ...)      → 没有
-```
-
-平台串取自源码（`GetPlatformForUAMetadata`：macOS 写死 `"macOS"`、Android 是
-`"Android"`、其余走 `GetOSType()`），门禁断言它们仍在源码里 —— 那段有 TODO
-说想改名，改了就该红而不是继续发一个不存在的值。
-
-**匹配顺序踩过两处**，都单独立了断言：
-
-· `iPhone/iPad` 必须排在 `Mac` 前 —— iOS 的 UA 里写着 `like Mac OS X`，
-  不先拦下来会给 iPhone 推出 `"macOS"`；而 iOS 上所有浏览器都是 WebKit、
-  根本不发 UA-CH，正确答案是"没有"
-· `Android` 必须排在 `Linux` 前 —— Android 的 UA 里也写着 `Linux`
-
-C 与 Python 用的是两张独立的表，顺序又是关键，所以门禁逐条比对（10/10）。
-
-#### UA-CH 什么时候该发、什么时候绝不能发
-
-"少发"和"多发"是对称的两个坑，都实测过：
-
-| 场景 | UA-CH 头 |
-|---|---|
-| Chrome / Chromium / Edge，https 或 localhost | `sec-ch-ua`、`sec-ch-ua-mobile`、`sec-ch-ua-platform` **三个都发** |
-| Chrome，明文 HTTP 打 LAN IP（非安全上下文） | **一个都没有** |
-| Safari 27 | 从不发（11 个头里没有任何 `sec-ch-ua-*`） |
-| Firefox | 不实现 UA-CH |
-
-本项目的伪装出网是 TLS + h2，也就是 https，**必然是安全上下文** —— 这种情况下
-真 Chrome 一定发这三个头，少发本身就是异常。反过来伪装 Safari/Firefox 时绝不能
-发。默认也只发这三个"低熵"提示，`-platform-version`、`-arch` 这些高熵项要服务端
-先用 `Accept-CH` 索要（本次采集里确实只有三个）。
-
-这条规则连同实测记在 `spec/golden/uach_real.json` 的 `_context_rule` 里，
-门禁会断言它没被改动 —— 采到的结论若只写在文档里，改错了没人会发现。
-
-#### 采集环境本身也要被验一遍
-
-那五份实采是无头浏览器打本地 HTTP 采的（Safari 除外）。**无头会改变发出去的
-头**，不查清楚就用，等于把采集环境当成浏览器行为。同机有头 vs 无头逐字段比：
-
-```
-被污染          user-agent（HeadlessChrome/…）、accept-language（新 profile 的
-                locale）、cookie（新 profile 没有）
-完全相同        头名顺序（交集 13 个）、accept、accept-encoding、
-                upgrade-insecure-requests、sec-fetch-*、
-                sec-ch-ua-mobile、sec-ch-ua-platform
-```
-
-结论：污染的三项**恰好都不在本项目实际使用的表里**（`accept-language` 早就因为
-"是系统 locale 不是浏览器属性"被排除了，这次拿到了第二重证据 —— 有头是
-`zh-CN,...`、无头是 `en-US,...`，同一台机器同一个浏览器）。
-
-这条测量写进 `headers_real.json` 的 `_capture_note`，门禁断言它与取值表不相交，
-并且断言 `user-agent` 确实被记在污染清单里 —— 那个字段看着最像"现成可用的
-真实 UA"，最容易被后来人直接拿去用。
-
-**污染的是取值，不是位置。** 门禁第一版查的是"被污染的头名有没有出现在顺序表
-里"，把三条正常的顺序全判成有问题 —— `user-agent` 的位置本身没被污染，实测
-有头与无头的交集顺序完全一致。
-
-顺带白捡一个验证点：有头那次 `open -a` 复用了**更新前就在跑的 Chrome 150 进程**
-（磁盘上的二进制已经是 151）。于是拿到了 M150 的真实 `sec-ch-ua`，推导逐字节
-命中 —— 而且它是**有头**采的，交叉证明了无头不影响 `sec-ch-ua`。
-
-#### 头的取值：只收浏览器决定的那几项
-
-实采五个真实浏览器（Chrome 151 / Chromium 142 / Edge 151 / Firefox 153 /
-Safari 27）之后，能进表的只有三项：
-
-```
-accept                      Chromium 长（带 image/avif、signed-exchange），
-                            Gecko 与 WebKit 短
-accept-encoding             Chromium 与 Gecko: gzip, deflate, br, zstd
-                            **WebKit: gzip, deflate**    ← 强判别位
-upgrade-insecure-requests   1
-```
-
-**`accept-language` 绝不能进表。** 它取决于系统 locale 与用户设置，不是浏览器
-属性 —— 本次采集里 Firefox 显示 `zh-CN,...` 而其它是 `en-US`，那是新建 profile
-取 locale 的差异。把它抄进去等于把采集环境的 locale 泄漏给每一个使用者。
-`sec-fetch-*` 同理，取决于请求类型（导航/子资源/XHR），调用方比我们清楚。
-门禁对这两条都有断言。
-
-同引擎的多份采集在这几项上必须一致 —— chrome/chromium/edge 三份确实逐字节相同，
-这本身就是"由浏览器决定"的验证；不一致就说明那一项不该留在表里。
-
-#### 第三层：请求头顺序
-
-伪装是**三层**的 —— TLS、h2 开场、请求头顺序。前两层都对了、头按自己的顺序发，
-照样能被判。
-
-```
-tlsfp_build_client_hello()   ClientHello 字节
-tlsfp_build_h2_preface()     PREFACE + SETTINGS + WINDOW_UPDATE + PRIORITY
-tlsfp_header_order()         请求头的相对顺序          ← 本节
-```
-
-**库里那 240 条 `header_order` 不能用。** 它看着像现成数据，实际上是**各库
-自己的发头顺序**，不是浏览器的。把所有观测当成偏序约束一检验就露馅：
-
-```
-chrome    79 条观测 → 顺序矛盾 398 处
-          curl_cffi:chrome100 说 sec-fetch-dest 在 sec-fetch-mode 前，
-          wreq:Chrome100 说反过来
-firefox   33 条观测 → 矛盾 183 处
-safari    28 条观测 → 矛盾 203 处
-```
-
-同一个浏览器同一个版本，两家库给出相反的先后 —— 那不可能都是浏览器的行为。
-门禁里因此有一条**反向断言**：这些矛盾数必须保持在高位。它防的是"哪天有人看见
-240 条数据觉得浪费、把它接回来"；真降到 0 才说明数据源变了，那时才该重新评估。
-
-**实采则是干净的**，而且这一层按**引擎**建模、不按版本：
-
-```
-chromium   13 个头   ← chrome 151 / chromium 142 / edge 151 三份逐项相同
-gecko      11 个头   ← firefox 149
-webkit      8 个头   ← safari 27
-```
-
-Chromium 那三份相隔 9 个大版本仍然一致，是"引擎级且跨版本稳定"的实证。
-
-**只回答相对顺序，不回答发哪些头。** 实际发哪些头由请求类型决定（导航请求有
-`upgrade-insecure-requests` 与 `sec-fetch-user`，子资源请求没有）—— 库数据里那些
-看似"品牌差异"的东西，多半就是请求类型不同造成的。调用方比我们清楚它要发什么，
-本库只把认识的那些摆到对的位置，不认识的保持原序排在最后。
-
-**移动端曾经全部标成"按引擎推断"**，理由是真机采集都是桌面浏览器，而"移动端
-大概率与桌面相同（`sec-ch-ua-mobile` 变的是值不是名）"只是猜测，不是实证。
-
-**后来采到了，猜测的方向整个是反的。** iOS 模拟器里的 Safari 是真的 iOS WebKit
-构建，从它采到的 h2 与头序，与 macOS Safari **在四个轴上同时不同**：
+移动端此前一份实采都没有，而"移动端与桌面大概率相同"这句猜测**方向是反的**。
+iOS 模拟器里的 Safari 是真的 iOS WebKit 构建，从它采到的 h2 与 macOS Safari
+**在三个轴上同时不同**：
 
 | | macOS Safari 27 | iOS Safari 17.4 |
 |---|---|---|
 | SETTINGS 顺序 | `2:0,3:100,4:2097152,9:1` | `2:0,4:2097152,3:100` |
 | WINDOW_UPDATE | 10420225 | 10485760 |
 | 伪头序 | `m,s,a,p` | `m,s,p,a` |
-| 头序 | `sec-fetch-dest` 打头 | `sec-fetch-dest` 收尾 |
 
 **模拟器算不算真机，不靠推断。** 本次采到的 akamai 指纹与 curl_cffi /
-tls_client / wreq **三家独立库**记录的 Safari iOS 17 逐字节一致（4 条），头序也
-与 4 条库记录逐项一致 —— 三家各自采自真机的数据同时对上，模拟器假象解释不了。
-另做了两组对照：iOS 17.4 与 17.5、iPhone 与 iPad 各采一次，头序完全相同；
-**iPad 的 UA 是桌面形态而头序仍是 iOS 的**，说明这个分叉不是 UA 驱动的。
+tls_client / wreq **三家独立库**记录的 Safari iOS 17 逐字节一致（4 条）——
+三家各自采自真机的数据同时对上，模拟器假象解释不了。另做了两组对照：
+iOS 17.4 与 17.5、iPhone 与 iPad 各采一次，结果完全相同。
 
-于是 `webkit-ios` 成为第四个引擎，`safari-mobile` 第一次有了实采背书。
-
-**那条"移动端不得标实采背书"的门禁断言，是改准而不是删掉。** 它原本编码的是
-当时的事实（采集全是桌面）；事实变了之后，它就从"守住区分"变成了"挡住新证据"。
-要守的性质始终是**标了背书就得真有采集**，所以改成：`-mobile` 品牌可以被标背书，
-但它的引擎必须真有一份移动端采集撑着。
-
-采集本身此前**只有一份 `_capture_note` 描述、没有可重跑的脚本** —— 那份真值源
-不可复现，想补一个浏览器只能从头再搭一次。现在是 `oracle/hdrcollect.py`，
-自证方式是拿桌面 Chrome 重采一遍与 golden 逐项比（只差一个 `host`，它在 h2 里
-是伪头 `:authority`）。CA 只装进**模拟器**的信任库（`simctl keychain
-add-root-cert`），不碰用户钥匙串。
-
-已知缺口写在 golden 的 `_provenance` 里：本机只有 iOS 17.4/17.5 两个 runtime，
-iOS 18+ 与 26/27 没有实采。
-
-采集本身固化成 `oracle/simcollect.py`（TLS / h2 / 头序三层，CA 只装进模拟器），
-**"模拟器等于真机"那条论证也固化成了门禁** `test_simulator`。这一步不是形式主义：
-那条论证是会过期的 —— 库更新一版、golden 被改一次，依据就可能不成立，而那份
-iOS 数据仍会以"实采背书"的身份被头序、h2、注册表三处继续用下去。门禁不重新采集
-（重采要人盯着模拟器），验的是**入库那份仍与三家独立库一致**。阴性对照：把
-golden 里的 iOS h2 指纹改成桌面的值，门禁立刻红。
+采集固化成 `oracle/simcollect.py`（TLS 与 h2 两层，CA 只装进**模拟器**的信任库
+`simctl keychain add-root-cert`，不碰用户钥匙串），**"模拟器等于真机"那条论证
+也固化成了门禁** `test_simulator`。这一步不是形式主义：那条论证是会过期的 ——
+库更新一版、golden 被改一次，依据就可能不成立，而那份 iOS 数据仍会以"实采背书"
+的身份被 h2 与注册表继续用下去。门禁不重新采集（重采要人盯着模拟器），验的是
+**入库那份仍与三家独立库一致**。阴性对照：把 golden 里的 iOS h2 指纹改成桌面的
+值，门禁立刻红。
 
 写 `verify()` 时还自摆了一道：比对对象最初写成"任何带 ios 的 curl_cffi Safari
 别名"，抓到的是 **iOS 18** 那条，于是报"JA4 不再相同" —— 而那本来就该不同。
 **比对对象挑错，看起来和真的回归一模一样。** 改成按采到的版本精确匹配。
+
+已知缺口写在 golden 的 `_provenance` 里：本机只有 iOS 17.4/17.5 两个 runtime，
+iOS 18+ 与 26/27 没有实采。
 
 #### TLS 层上 iOS 与桌面 Safari 是同一个指纹，分歧只在 HTTP 层
 

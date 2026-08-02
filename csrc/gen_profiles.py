@@ -114,87 +114,6 @@ def _h2_tables():
     return lines
 
 
-def _header_value_table():
-    """(品牌, 头名) → 由**浏览器**决定的取值。
-
-    只收 accept / accept-encoding / upgrade-insecure-requests。
-    accept-language 不在其中 —— 它取决于系统 locale 与用户设置，把采集环境的
-    值抄进去等于把本机 locale 泄漏出去。sec-fetch-* 取决于请求类型，调用方
-    比我们清楚。判据全来自真机实采，见 oracle/headerorder.py。
-    """
-    sys.path.insert(0, os.path.dirname(HERE))
-    from oracle.headerorder import BRAND_ENGINE, values_for
-
-    lines = ["typedef struct { const char *brand; const char *name;"
-             " const char *value; } tlsfp_hv_entry;",
-             "static const tlsfp_hv_entry tlsfp_hv_table[] = {"]
-    n = 0
-    for brand in sorted(BRAND_ENGINE):
-        for name, val in sorted(values_for(brand).items()):
-            v = val.replace('"', '\\"')
-            lines.append(f'    {{"{brand}", "{name}", "{v}"}},')
-            n += 1
-    lines.append("};")
-    lines.append(f"#define TLSFP_HV_COUNT {n}")
-    return lines
-
-
-def _uach_table():
-    """(品牌, 版本) → sec-ch-ua。
-
-    这一项手写必然错：里面的 GREASE 品牌是按主版本号确定性生成的
-    （"Not" + chars[v%11] + "A" + chars[(v+1)%11] + "Brand"，版本取
-    ["8","99","24"][v%3]），既非固定串也非随机串。推导见 oracle/uach.py，
-    已用本机 Chrome 151 / Chromium 142 / Edge 151 三份实采验过。
-    Opera 不在表里 —— 它的嵌入层会再加自己的品牌项，而本项目没有 Opera 实采。
-    """
-    path = os.path.join(os.path.dirname(HERE), "spec", "uach.json")
-    if not os.path.exists(path):
-        raise SystemExit(f"缺 {path}；先跑 python -m oracle.uach --build")
-    with open(path) as f:
-        table = json.load(f)
-    lines = ["typedef struct { const char *brand; uint16_t version;"
-             " const char *value; } tlsfp_uach_entry;",
-             "static const tlsfp_uach_entry tlsfp_uach_table[] = {"]
-    n = 0
-    for brand in sorted(table):
-        for ver in sorted(table[brand], key=int):
-            v = table[brand][ver].replace('"', '\\"')
-            lines.append(f'    {{"{brand}", {ver}, "{v}"}},')
-            n += 1
-    lines.append("};")
-    lines.append(f"#define TLSFP_UACH_COUNT {n}")
-    return lines
-
-
-def _header_order_table():
-    """品牌 → 请求头相对顺序（逗号分隔）。
-
-    **只从真机实采推**，不碰库里那 240 条 header_order —— 那些是各库自己的
-    发头顺序，互相矛盾（chrome 一项就 398 处），详见 oracle/headerorder.py。
-    按引擎建模：Chromium 系共用一份，Gecko 与 WebKit 各一份。
-    """
-    sys.path.insert(0, os.path.dirname(HERE))
-    from oracle.headerorder import BRAND_ENGINE, order_for
-
-    lines = ["typedef struct { const char *brand; const char *order;"
-             " int attested; const char *engine; } tlsfp_hdr_entry;",
-             "static const tlsfp_hdr_entry tlsfp_hdr_table[] = {"]
-    n = 0
-    for brand in sorted(BRAND_ENGINE):
-        order, attested = order_for(brand)
-        if not order:
-            continue
-        eng = ("chromium" if brand.split("-")[0] in ("chrome", "edge", "opera")
-               else "gecko" if brand.startswith("firefox") else "webkit")
-        lines.append(f'    {{"{brand}", "{",".join(order)}", '
-                     f'{1 if attested else 0}, "{eng}"}},')
-        n += 1
-    lines.append("};")
-    lines.append(f"#define TLSFP_HDR_COUNT {n}")
-    return lines
-
-
 def c_u32_array(name, vals):
     """h2 的 SETTINGS 值与 window_update 都可能超过 16 位，必须用 u32。"""
     if not vals:
@@ -490,12 +409,6 @@ def main():
     out.append(f"#define TLSFP_UA_COUNT {len(ua_rows)}")
     out.append("")
     out.extend(_h2_tables())
-    out.append("")
-    out.extend(_header_order_table())
-    out.append("")
-    out.extend(_uach_table())
-    out.append("")
-    out.extend(_header_value_table())
 
     print("\n".join(out))
     print(f"/* 共 {len(profiles)} 条（注册表 {len(registry)} 条，"

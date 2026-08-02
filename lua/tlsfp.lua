@@ -67,16 +67,10 @@ typedef struct {
 
 const tlsfp_h2 *tlsfp_lookup_h2(const char *brand, uint16_t version);
 const tlsfp_h2 *tlsfp_identify_h2(const char *akamai);
-const char *tlsfp_engine_of_headers(const char *order_csv, int *n_match);
-int tlsfp_coherence(const char *ja4, const char *akamai, const char *order_csv,
-                    const char **tls_engine, const char **h2_engine,
-                    const char **hdr_engine);
+int tlsfp_coherence(const char *ja4, const char *akamai,
+                    const char **tls_engine, const char **h2_engine);
 int  tlsfp_build_h2_preface(const tlsfp_h2 *h, uint8_t *out, size_t outlen);
 const char *tlsfp_h2_pseudo(const tlsfp_h2 *h);
-const char *tlsfp_header_order(const char *brand, int *attested);
-const char *tlsfp_sec_ch_ua(const char *brand, uint16_t version);
-const char *tlsfp_header_value(const char *brand, const char *name);
-int tlsfp_ua_platform(const char *ua, const char **platform, const char **mobile);
 const tlsfp_profile *tlsfp_profile_at(size_t idx);
 const tlsfp_profile *tlsfp_lookup_ja4(const char *ja4);
 size_t tlsfp_profile_count(void);
@@ -261,88 +255,6 @@ function _M.h2_preface(brand, version)
     return ffi.string(h2_buf, n), ps ~= nil and ffi.string(ps) or nil
 end
 
--- 请求头的相对顺序。伪装是三层的：TLS、h2 开场、请求头顺序 —— 前两层对了、
--- 头按自己的顺序发，照样能被判。
---
--- 只回答"这些头之间谁在前"：实际发哪些头由调用方决定（导航请求与子资源请求
--- 带的头不同），本库不替它决定。第二个返回值 attested 为 true 表示该品牌有
--- 真机实采背书，false 表示按引擎推断（移动端全是推断）。
---
--- @return table 顺序数组, boolean 是否实采背书   或  nil, err
-function _M.header_order(brand)
-    if not lib then return nil, "libtlsfp.so 未加载" end
-    if type(brand) ~= "string" then return nil, "brand 必须是字符串" end
-    local p = lib.tlsfp_header_order(brand, conf_buf)
-    if p == nil then return nil, "不认识的品牌" end
-    local out = {}
-    for h in ffi.string(p):gmatch("[^,]+") do out[#out + 1] = h end
-    return out, conf_buf[0] == 1
-end
-
--- 按该品牌的顺序排调用方给的头名。顺序里没有的排在最后并保持原序 ——
--- 不认识的头不能丢掉，也不能塞到中间。
-function _M.sort_headers(brand, names)
-    if type(names) ~= "table" then return names end
-    local order = _M.header_order(brand)
-    if not order then return names end
-    local pos = {}
-    for i, h in ipairs(order) do pos[h] = i end
-    local known, unknown = {}, {}
-    for _, h in ipairs(names) do
-        -- **非字符串元素要原样放行，不能 h:lower()**：调用方的头名列表里
-        -- 混进一个数字就会抛未捕获的错误，在 worker 里那是 500。
-        if type(h) == "string" and pos[h:lower()] then
-            known[#known + 1] = h
-        else
-            unknown[#unknown + 1] = h
-        end
-    end
-    table.sort(known, function(a, b) return pos[a:lower()] < pos[b:lower()] end)
-    for _, h in ipairs(unknown) do known[#known + 1] = h end
-    return known
-end
-
--- sec-ch-ua 的值。手写必然错 —— 里面的 GREASE 品牌按主版本号确定性生成
--- （既非固定串也非随机串），而它就摆在请求头里。
--- 版本口径同 by_ua：衍生浏览器传内核 Chrome 版本。
--- Opera 没有：它的嵌入层会再加自己的品牌项，本项目没有 Opera 实采，不猜。
-function _M.sec_ch_ua(brand, version)
-    if not lib then return nil, "libtlsfp.so 未加载" end
-    if type(brand) ~= "string" or type(version) ~= "number" then
-        return nil, "brand 必须是字符串、version 必须是数字"
-    end
-    local p = lib.tlsfp_sec_ch_ua(brand, version)
-    if p == nil then return nil, "该品牌/版本没有 sec-ch-ua 数据" end
-    return ffi.string(p)
-end
-
--- 由**浏览器**决定的头取值（accept / accept-encoding /
--- upgrade-insecure-requests）。不由浏览器决定的返回 nil。
---
--- **accept-language 不在其中**：它取决于系统 locale 与用户设置，抄采集环境的
--- 值等于把那台机器的 locale 泄漏出去 —— 该由调用方按自己的场景给。
--- sec-fetch-* 同理，取决于请求类型。
-function _M.header_value(brand, name)
-    if not lib then return nil, "libtlsfp.so 未加载" end
-    if type(brand) ~= "string" or type(name) ~= "string" then
-        return nil, "brand 与 name 都必须是字符串"
-    end
-    local p = lib.tlsfp_header_value(brand, name:lower())
-    return p ~= nil and ffi.string(p) or nil
-end
-
--- UA → sec-ch-ua-platform / sec-ch-ua-mobile。两处必须与 UA 里声明的系统
--- 同源 —— 一处照抄 UA、另一处硬编码，会出现"UA 说 Windows、platform 说
--- macOS"这种一眼假的组合。iOS 与认不出的系统返回 nil（那一族不发 UA-CH）。
-local plat_buf = ffi.new("const char*[1]")
-local mob_buf = ffi.new("const char*[1]")
-function _M.ua_platform(ua)
-    if not lib then return nil, "libtlsfp.so 未加载" end
-    if type(ua) ~= "string" then return nil, "ua 必须是字符串" end
-    if lib.tlsfp_ua_platform(ua, plat_buf, mob_buf) == 0 then return nil end
-    return ffi.string(plat_buf[0]), ffi.string(mob_buf[0])
-end
-
 -- 按观测到的 akamai 指纹反查（入站识别）。
 --
 -- **认得出引擎，认不出版本**：实测 644 个 (品牌,版本) 只归成 19 个 akamai，
@@ -368,31 +280,20 @@ end
 --             "unknown"  可用信息不足（少于两层认得出来）
 -- 第二个返回值是 {tls=…, h2=…, headers=…}，认不出的为 nil ——
 -- 报"哪一层不一致"比只报一个布尔有用得多。
-local e1, e2, e3 = ffi.new("const char*[1]"), ffi.new("const char*[1]"), ffi.new("const char*[1]")
-function _M.coherence(ja4, akamai, header_order)
+local e1, e2 = ffi.new("const char*[1]"), ffi.new("const char*[1]")
+function _M.coherence(ja4, akamai)
     if not lib then return nil, "libtlsfp.so 未加载" end
-    -- **三个参数都必须是字符串或 nil**。FFI 遇到数字/布尔会抛
+    -- **两个参数都必须是字符串或 nil**。FFI 遇到数字/布尔会抛
     -- "cannot convert 'number' to 'const char *'" —— 未捕获就是 500。
-    -- 传表时也只收其中的字符串项：混进一个 nil，table.concat 会直接报错。
     local function str_or_nil(v)
         return type(v) == "string" and v or nil
     end
-    local csv
-    if type(header_order) == "table" then
-        local parts = {}
-        for _, h in ipairs(header_order) do
-            if type(h) == "string" then parts[#parts + 1] = h end
-        end
-        csv = #parts > 0 and table.concat(parts, ",") or nil
-    else
-        csv = str_or_nil(header_order)
-    end
     ja4, akamai = str_or_nil(ja4), str_or_nil(akamai)
-    e1[0], e2[0], e3[0] = nil, nil, nil
-    local r = lib.tlsfp_coherence(ja4, akamai, csv, e1, e2, e3)
+    e1[0], e2[0] = nil, nil
+    local r = lib.tlsfp_coherence(ja4, akamai, e1, e2)
     local function str(b) return b[0] ~= nil and ffi.string(b[0]) or nil end
     return (r == 0 and "ok") or (r == 1 and "mismatch") or "unknown",
-           {tls = str(e1), h2 = str(e2), headers = str(e3)}
+           {tls = str(e1), h2 = str(e2)}
 end
 
 function _M.profile_count()

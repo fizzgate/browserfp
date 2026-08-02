@@ -89,33 +89,12 @@ http {
                 local tlsfp = require "tlsfp"
                 tlsfp.load("/app/csrc/libtlsfp.so")
                 local a = ngx.req.get_uri_args()
-                -- 全部三层都由库自己产出，再交给库自审
+                -- 两层都由库自己产出，再交给库自审
                 local prof = tlsfp.by_ua(a.brand, tonumber(a.version))
-                local _, ak = nil, nil
-                local rec, pseudo = tlsfp.h2_preface(a.brand, tonumber(a.version))
                 local h2 = tlsfp.identify_h2(a.akamai or "")
-                local order = tlsfp.header_order(a.mix_brand or a.brand)
-                local v, e = tlsfp.coherence(prof and prof.ja4 or nil,
-                                             a.akamai, order)
+                local v, e = tlsfp.coherence(prof and prof.ja4 or nil, a.akamai)
                 ngx.say(v .. "\\t" .. tostring(e.tls) .. "\\t"
-                        .. tostring(e.h2) .. "\\t" .. tostring(e.headers)
-                        .. "\\t" .. tostring(h2 and h2.engine))
-            }
-        }
-
-        location /hdr {
-            content_by_lua_block {
-                local tlsfp = require "tlsfp"
-                tlsfp.load("/app/csrc/libtlsfp.so")
-                local a = ngx.req.get_uri_args()
-                local order, att = tlsfp.header_order(a.brand)
-                local enc = tlsfp.header_value(a.brand, "accept-encoding")
-                local uach = tlsfp.sec_ch_ua(a.brand, tonumber(a.version))
-                local plat, mob = tlsfp.ua_platform(a.ua or "")
-                ngx.say(table.concat(order or {}, ",") .. "\\t"
-                        .. tostring(att) .. "\\t" .. tostring(enc) .. "\\t"
-                        .. tostring(uach) .. "\\t" .. tostring(plat)
-                        .. "\\t" .. tostring(mob))
+                        .. tostring(e.h2) .. "\\t" .. tostring(h2 and h2.engine))
             }
         }
 
@@ -149,14 +128,12 @@ def _build_linux_so(workdir):
     """在 gcc 容器里编译 Linux 版 .so —— 本机的 Mach-O 在 Linux 上加载不了。"""
     # gen_profiles.py 需要的全部东西都要带进去，**包括它 import 的 Python 模块**。
     # 漏一个的表现只有一句"Linux 版 .so 编译失败"，没有更多信息 —— 加
-    # h2table.json 那次是这么撞上的，加头顺序/头取值/sec-ch-ua 那几张表时
-    # 又撞了一次（这回还多了 oracle/ 与 spec/golden/，因为生成器要 import
-    # oracle.headerorder，而它自己又去读 golden）。
+    # h2table.json 那次是这么撞上的。
     for sub in ("csrc", "lua", "oracle"):
         shutil.copytree(os.path.join(ROOT, sub), os.path.join(workdir, sub),
                         ignore=shutil.ignore_patterns("__pycache__", "go*"))
     os.makedirs(os.path.join(workdir, "spec"), exist_ok=True)
-    for name in ("profiles.json", "h2table.json", "uach.json"):
+    for name in ("profiles.json", "h2table.json"):
         shutil.copy(os.path.join(HERE, name),
                     os.path.join(workdir, "spec", name))
     for sub in ("segments", "golden"):
@@ -274,64 +251,6 @@ def _check_h2(opener):
     return bad, len(cases)
 
 
-def _check_headers(opener):
-    """四个头层入口也要在真 worker 里验一遍。
-
-    此前它们只在裸 luajit 上跑过，而本项目早有教训：裸 luajit 验得了 FFI
-    语义，验不到平台/ABI 匹配与 nginx worker 内的加载 —— 第一次跑
-    test_openresty 就是撞在 macOS 的 .so 挂进 Linux 容器上。
-
-    这里另外验一件裸 luajit 上也能错、但只有拼起来才看得出的事：
-    `sec_ch_ua` 按 (品牌,版本) 查、`header_order` 按品牌查、`ua_platform`
-    按 UA 推 —— 三个口径必须能拼成一个自洽的请求。
-    """
-    import json as _json
-    from oracle.covscan import TARGETS
-    from oracle.headerorder import order_for, values_for
-    from oracle.uach import platform_hint
-
-    bad, n = [], 0
-    for brand in ("chrome", "chrome-mobile", "firefox", "safari"):
-        ver = 26 if brand.startswith("safari") else 151
-        ua = TARGETS[brand][0].format(v=ver)
-        url = (f"http://127.0.0.1:{PORT}/hdr?brand={brand}&version={ver}"
-               f"&ua={urllib.parse.quote(ua)}")
-        try:
-            line = opener.open(url, timeout=20).read().decode().strip()
-        except Exception as e:
-            bad.append(f"{brand}: 请求失败 {type(e).__name__}")
-            continue
-        parts = line.split("\t")
-        if len(parts) != 6:
-            bad.append(f"{brand}: worker 返回 {line[:70]}")
-            continue
-        got_order, got_att, got_enc, got_uach, got_plat, got_mob = parts
-        n += 1
-
-        want_order, want_att = order_for(brand)
-        if got_order.split(",") != want_order:
-            bad.append(f"{brand}: 头顺序与 Python 不一致")
-        if (got_att == "true") != want_att:
-            bad.append(f"{brand}: 实采背书标记不一致")
-        want_enc = values_for(brand).get("accept-encoding")
-        if got_enc != (want_enc or "nil"):
-            bad.append(f"{brand}: accept-encoding {got_enc!r} != {want_enc!r}")
-        want_plat, want_mob = platform_hint(ua)
-        if got_plat != (want_plat or "nil") or got_mob != (want_mob or "nil"):
-            bad.append(f"{brand}: 平台提示 ({got_plat},{got_mob}) != "
-                       f"({want_plat},{want_mob})")
-
-        # 拼起来必须自洽：Chromium 系有 sec-ch-ua 就必须有平台提示，
-        # 非 Chromium 两者都得没有
-        is_chromium = brand.split("-")[0] in ("chrome", "edge")
-        has_uach = got_uach != "nil"
-        if is_chromium != has_uach:
-            bad.append(f"{brand}: sec-ch-ua {'不该有却有' if has_uach else '该有却没有'}")
-        if has_uach and got_plat == "nil":
-            bad.append(f"{brand}: 有 sec-ch-ua 却推不出平台 —— 拼出来的请求会缺头")
-    return bad, n
-
-
 def _check_concurrency(port, rounds=60):
     """并发打不同品牌，每个响应必须属于它自己的请求。
 
@@ -395,7 +314,7 @@ def _check_concurrency(port, rounds=60):
 
 
 def _check_coherence(opener):
-    """在真 worker 里跑库的自审：库自己产出的三层必须自洽，跨引擎必须被抓。
+    """在真 worker 里跑库的自审：库自己产出的两层必须自洽，跨引擎必须被抓。
 
     **两侧都要在生产形态下验**。只验"自己产出的判 ok"，一个恒返回 ok 的实现
     也能全绿 —— 而那正是最坏的情况：使用者以为自审过了。所以这里额外拼一组
@@ -406,33 +325,35 @@ def _check_coherence(opener):
         h2t = _json.load(f)
 
     bad, n = [], 0
+    # mix 非空时用**另一个引擎的 akamai**配这个品牌的 TLS —— 跨引擎必须被抓。
+    # 原来的跨引擎用例混的是头序，那一层已随请求头层删除。
     for brand, ver, mix, want in (
             ("chrome", 151, None, "ok"),
             ("firefox", 135, None, "ok"),
             ("safari", 26, None, "ok"),
-            ("chrome", 151, "firefox", "mismatch")):   # 跨引擎，必须被抓
-        ak = (h2t.get(brand, {}).get(str(ver)) or {}).get("akamai_fingerprint")
+            ("chrome", 151, ("firefox", 135), "mismatch")):
+        src = mix or (brand, ver)
+        ak = (h2t.get(src[0], {}).get(str(src[1])) or {}).get("akamai_fingerprint")
         if not ak:
-            bad.append(f"{brand} {ver}: h2 表里没有，用例失效")
+            bad.append(f"{src[0]} {src[1]}: h2 表里没有，用例失效")
             continue
         url = (f"http://127.0.0.1:{PORT}/coh?brand={brand}&version={ver}"
-               f"&akamai={urllib.parse.quote(ak)}"
-               + (f"&mix_brand={mix}" if mix else ""))
+               f"&akamai={urllib.parse.quote(ak)}")
         try:
             line = opener.open(url, timeout=20).read().decode().strip()
         except Exception as e:
             bad.append(f"{brand} {ver}: 请求失败 {type(e).__name__}")
             continue
         parts = line.split("\t")
-        if len(parts) != 5:
+        if len(parts) != 4:
             bad.append(f"{brand} {ver}: worker 返回 {line[:70]}")
             continue
         n += 1
-        verdict, tls_e, h2_e, hdr_e, id_e = parts
-        tag = f"{brand} {ver}" + (f" + 头序={mix}" if mix else "")
+        verdict, tls_e, h2_e, id_e = parts
+        tag = f"{brand} {ver}" + (f" + h2={mix[0]} {mix[1]}" if mix else "")
         if verdict != want:
             bad.append(f"{tag}: 自审判 {verdict}，应为 {want}"
-                       f"（tls={tls_e} h2={h2_e} hdr={hdr_e}）")
+                       f"（tls={tls_e} h2={h2_e}）")
         # identify_h2 也顺带验：它认出的引擎必须与 coherence 里那一层一致
         if id_e != h2_e:
             bad.append(f"{tag}: identify_h2 说 {id_e}，coherence 里是 {h2_e}")
@@ -503,14 +424,12 @@ def main():
         for b in h2_bad:
             print(f"    ✗ {b}")
 
-        hdr_bad, hdr_n = _check_headers(opener)
-        print(f"  头层四入口 {hdr_n - len(hdr_bad)}/{hdr_n} 品牌与 Python 一致"
-              f"（顺序/取值/sec-ch-ua/平台提示）")
-        for b in hdr_bad:
-            print(f"    ✗ {b}")
+        hdr_bad = []
+        print("  （请求头层已删除：网关转发的是真实浏览器发来的头，"
+              "本库不排序也不添加）")
 
         coh_bad, coh_n = _check_coherence(opener)
-        print(f"  三层自审 {coh_n - len(coh_bad)}/{coh_n} 组（含 1 组跨引擎"
+        print(f"  两层自审 {coh_n - len(coh_bad)}/{coh_n} 组（含 1 组跨引擎"
               f"必须判 mismatch）")
         for b in coh_bad:
             print(f"    ✗ {b}")

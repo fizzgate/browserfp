@@ -60,7 +60,7 @@ typedef struct {
     uint16_t client_version;
     uint16_t session_id_len;
     /* 该 profile 属于哪个引擎。实测 81 条无一跨引擎，所以良定义 ——
-       它是三层一致性检查（tlsfp_coherence）的基础。 */
+       它是两层一致性检查（tlsfp_coherence）的基础。 */
     const char *engine;
 } tlsfp_profile;
 
@@ -133,56 +133,22 @@ const tlsfp_h2 *tlsfp_lookup_h2(const char *brand, uint16_t version);
  * 定位版本，调用方不该拿 ver_lo 当"就是这个版本"用。 */
 const tlsfp_h2 *tlsfp_identify_h2(const char *akamai);
 
-/* 观测到的请求头顺序（逗号分隔）→ 引擎。按**子序列**匹配：真实请求只会发
- * 完整顺序里的一部分。匹配到多个引擎时返回 NULL 并把个数写进 n_match ——
- * 实测 600 个随机子序列里 549 个能唯一定位，短子集（3 个头）容易多解，
- * 那种情况必须报"多解"而不是硬选一个。 */
-const char *tlsfp_engine_of_headers(const char *order_csv, int *n_match);
-
-/* 三层各自认出的引擎是否自洽 —— 检测方正是这么查的：TLS 说 Chromium 而
- * h2 说 Gecko，一眼就假。也可以拿它自查自己拼出来的伪装。
+/* TLS 与 h2 两层各自认出的引擎是否自洽 —— 检测方正是这么查的：TLS 说
+ * Chromium 而 h2 说 Gecko，一眼就假。也可以拿它自查自己拼出来的伪装。
  * 任一参数传 NULL 表示该层没有观测。
- * 返回 0=三层（有观测的那些）一致，1=矛盾，-1=可用信息不足以判断。
- * 三个 out 参数回填各层认出的引擎，认不出填 NULL —— 报"哪一层不一致"
- * 比只报一个布尔有用得多。 */
-int tlsfp_coherence(const char *ja4, const char *akamai, const char *order_csv,
-                    const char **tls_engine, const char **h2_engine,
-                    const char **hdr_engine);
-
+ * 返回 0=有观测的那些层一致，1=矛盾，-1=可用信息不足以判断。
+ * 两个 out 参数回填各层认出的引擎，认不出填 NULL —— 报"哪一层不一致"
+ * 比只报一个布尔有用得多。
+ *
+ * **不含请求头那一层**：本库的使用场景是网关转发，请求头是真实浏览器发来的、
+ * 原样转出去，我们既不排序也不添加 —— 于是也没有"我们这一侧的头顺序"可查。
+ * 曾经有过 order_csv 参数与配套的 tlsfp_engine_of_headers / header_order /
+ * sec_ch_ua / header_value / ua_platform，整层已按使用场景删除。 */
+int tlsfp_coherence(const char *ja4, const char *akamai,
+                    const char **tls_engine, const char **h2_engine);
 /* 伪头序（缩写形式，如 "m,a,s,p"）。做成函数而不是让调用方直接读结构体字段：
  * Lua 侧的 ffi.cdef 里结构体是截断声明，按偏移读后面的字段会读到垃圾。 */
 const char *tlsfp_h2_pseudo(const tlsfp_h2 *h);
-
-/* 请求头的相对顺序，逗号分隔（如 "sec-ch-ua,...,priority"）。
- * 伪装是三层的：TLS、h2 开场、请求头顺序。前两层对了、头按自己的顺序发，
- * 照样能被判。
- * 只回答"这些头之间谁在前" —— 实际发哪些头由调用方决定（导航请求与子资源
- * 请求带的头不同），本库不替它决定。
- * attested 非空时回填 1/0：1 = 该品牌有真机实采背书，0 = 按引擎推断
- * （移动端全是推断，本项目的真机采集都是桌面浏览器）。 */
-const char *tlsfp_header_order(const char *brand, int *attested);
-
-/* (品牌, 版本) → sec-ch-ua 的值；没有该组合返回 NULL。
- * 这一项手写必然错：里面的 GREASE 品牌按主版本号确定性生成，既非固定串也非
- * 随机串。版本口径同 tlsfp_lookup_ua（衍生浏览器传内核 Chrome 版本）。
- * Opera 不在表里 —— 它的嵌入层会再加自己的品牌项，没有实采就不猜。 */
-const char *tlsfp_sec_ch_ua(const char *brand, uint16_t version);
-
-/* (品牌, 头名) → 由**浏览器**决定的取值；不由浏览器决定的头返回 NULL。
- * 只有 accept / accept-encoding / upgrade-insecure-requests 三项。
- * accept-language **不在其中**：它取决于系统 locale 与用户设置，抄采集环境的
- * 值等于把那台机器的 locale 泄漏出去 —— 该由调用方按自己的场景给。
- * 实测差异举例：WebKit 的 accept-encoding 只有 "gzip, deflate"，
- * 而 Chromium 与 Gecko 都是 "gzip, deflate, br, zstd"。 */
-const char *tlsfp_header_value(const char *brand, const char *name);
-
-/* UA 字符串 → sec-ch-ua-platform / sec-ch-ua-mobile 的值。
- * 这两处必须与 UA 里声明的系统**同源** —— 真浏览器两处都由同一个平台判定
- * 生成，伪装时一处照抄 UA、另一处硬编码，就会出现"UA 说 Windows、platform
- * 说 macOS"这种不用统计就能抓的矛盾。
- * iOS（UA 里含 iPhone/iPad/iPod）返回 0：那一族全是 WebKit，不发 UA-CH。
- * 认不出的系统也返回 0，不猜。返回 1 时 platform/mobile 被填好。 */
-int tlsfp_ua_platform(const char *ua, const char **platform, const char **mobile);
 
 int tlsfp_build_client_hello(const tlsfp_profile *p, const char *sni,
                              const uint8_t *random32, const uint8_t *session_id,

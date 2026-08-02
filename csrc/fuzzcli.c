@@ -43,21 +43,11 @@ int main(void) {
             CALL(tlsfp_lookup_ua(strs[i], vers[v], NULL));
             CALL(tlsfp_lookup_ua_ex(strs[i], vers[v], &conf, 1));
             CALL(tlsfp_lookup_h2(strs[i], vers[v]));
-            CALL(tlsfp_sec_ch_ua(strs[i], vers[v]));
         }
         CALL(tlsfp_lookup_ja4(strs[i]));
         CALL(tlsfp_identify_h2(strs[i]));
-        CALL(tlsfp_engine_of_headers(strs[i], &natt));
-        CALL(tlsfp_engine_of_headers(strs[i], NULL));
-        CALL(tlsfp_header_order(strs[i], &natt));
-        CALL(tlsfp_header_order(strs[i], NULL));
-        CALL(tlsfp_ua_platform(strs[i], &p, &m));
-        CALL(tlsfp_ua_platform(strs[i], NULL, NULL));
         for (size_t j = 0; j < NS; j++)
-            CALL(tlsfp_header_value(strs[i], strs[j]));
-        for (size_t j = 0; j < NS; j++)
-            CALL(tlsfp_coherence(strs[i], strs[j], strs[(i + j) % NS],
-                                 &p, &m, &p));
+            CALL(tlsfp_coherence(strs[i], strs[j], &p, &m));
     }
 
     /* 越界与边界下标 */

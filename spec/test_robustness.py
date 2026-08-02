@@ -24,7 +24,8 @@ record。
 `cannot convert 'number' to 'const char *'`，`table.concat` 遇到 nil 会报错，
 `h:lower()` 遇到数字会报错 —— 在 `content_by_lua_block` 里每一个都是未捕获的
 500。实测第一次跑抓到三处：`coherence` 收数字、`coherence` 收含 nil 的表、
-`sort_headers` 收非字符串元素。判据是"返回 nil+err 合格，抛错不合格"。
+`sort_headers` 收非字符串元素（后两个随请求头层一起删了，教训留着）。
+判据是"返回 nil+err 合格，抛错不合格"。
 
 跑：python -m spec.test_robustness
 """
@@ -45,7 +46,10 @@ FUZZCLI = os.path.join(ROOT, "csrc", "fuzzcli")
 # "没崩"毫无意义。当前 1543 次。
 MIN_CALLS = 1500000
 # Lua 侧同理。当前 2005 次。
-MIN_LUA_CALLS = 1500
+# 请求头那一层整层删掉之后 Lua 的 API 面变小了，调用数随之从 1500+ 降到 1400+。
+# 下限跟着调，但**不是往下追平**：它回答的仍是"喂了足够多的恶劣输入吗"，
+# 取一个明显低于实测又远高于零的数。
+MIN_LUA_CALLS = 1200
 # 每个解析分支至少要被走到这么多次。当前最少的 supported_versions 是 88 万。
 MIN_BRANCH_HITS = 10000
 

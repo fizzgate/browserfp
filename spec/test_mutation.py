@@ -87,30 +87,11 @@ MUTANTS = [
      ["test_h2_table", "test_h2_build", "test_coherence"],
      "源码推导出的 PRIORITY 帧不能被丢掉（Firefox 发 6 条）"),
 
-    ("UA-CH:散射退化成原序", "oracle/uach.py",
-     "        shuffled[order[i]] = item        # 散射：第 i 项放到 order[i]",
-     "        shuffled[i] = item",
-     ["test_uach"],
-     "sec-ch-ua 的三项要按种子置换，不是原序"),
-
-    ("头序:整个反排", "oracle/headerorder.py",
-     "    return orders[eng][0], brand in ATTESTED",
-     "    return orders[eng][0][::-1], brand in ATTESTED",
-     ["test_header_order"],
-     "请求头顺序取实采的顺序"),
-
-    ("Lua:sort_headers 不排序", "lua/tlsfp.lua",
-     "    table.sort(known, function(a, b) return pos[a:lower()] < pos[b:lower()] end)",
-     "    -- 变异：不排序",
-     ["test_lua_parity", "test_robustness"],
-     "Lua 侧按引擎顺序排头名"),
-    # —— 以下几条落在此前从没被变异过的轴上：coherence、h2 开场构造、
-    #    QUIC 重组、JA4Q、平台表、注册表去重键、TCP 指纹 ——
     ("coherence:矛盾不报", "csrc/tlsfp.c",
-     "        else if (strcmp(seen, all[i]) != 0) return 1;   /* 矛盾 */",
-     "        else if (0) return 1;",
+     "    return strcmp(t, h) != 0;            /* 1=矛盾 */",
+     "    return 0;",
      ["test_coherence"],
-     "三层引擎不一致时必须报矛盾（split-brain 正是这么漏出去的）"),
+     "TLS 与 h2 两层引擎不一致时必须报矛盾（split-brain 正是这么漏出去的）"),
 
     ("h2:开场不发 WINDOW_UPDATE", "csrc/tlsfp.c",
      "    if (p->window) {\n",
@@ -135,20 +116,6 @@ MUTANTS = [
      "    return ja4",
      ["test_quic", "test_h3", "test_registry_fresh"],
      "QUIC 的 JA4 首字符是 q 不是 t"),
-
-    ("UA-CH:平台表 iPhone 排到 Mac 之后", "oracle/uach.py",
-     '    ("iPhone", None), ("iPad", None), ("iPod", None),\n'
-     '    ("Android", "Android"),\n'
-     '    ("Windows NT", "Windows"),\n'
-     '    ("Macintosh", "macOS"),\n'
-     '    ("Mac OS X", "macOS"),',
-     '    ("Android", "Android"),\n'
-     '    ("Windows NT", "Windows"),\n'
-     '    ("Macintosh", "macOS"),\n'
-     '    ("Mac OS X", "macOS"),\n'
-     '    ("iPhone", None), ("iPad", None), ("iPod", None),',
-     ["test_uach_platform", "test_uach"],
-     "iOS 的 UA 里带 Mac OS X，iPhone 必须先判"),
 
     ("注册表:去重键不排序集合字段", "oracle/registry.py",
      '        {f: (sorted(fp.get(f) or []) if f in SET_FIELDS else fp.get(f))\n'

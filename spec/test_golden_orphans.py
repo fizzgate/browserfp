@@ -20,14 +20,6 @@ REGISTRY_SRC = os.path.join(ROOT, "oracle", "registry.py")
 
 # 故意不入注册表的文件 → 理由。加入这里必须写清为什么。
 EXPECTED_UNUSED = {
-    "headers_real.json":
-        "五个真实浏览器（Chrome 151 / Chromium 142 / Edge 151 / Firefox 153 / "
-        "Safari 27）的完整请求头实采，不进指纹注册表 —— 它是 oracle/headerorder.py "
-        "推头顺序与头取值的唯一可信来源（库里那 240 条 header_order 自相矛盾）",
-    "uach_real.json":
-        "sec-ch-ua 的真机实采（本机 Chrome 151 / Chromium 142 / Edge 151），"
-        "不进指纹注册表 —— 它验的是 oracle/uach.py 的源码推导对不对，"
-        "由 spec/test_uach.py 读取",
     "curl_cffi.json":
         "带 SNI 采集，仅用于与 nosni 版对比确认 SNI 在扩展序列中的位置规律；"
         "注册表统一使用 nosni 版，以便与真机采集（无法带域名 SNI）逐字段可比",

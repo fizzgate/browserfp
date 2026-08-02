@@ -1,9 +1,9 @@
-"""iOS 模拟器里的 Safari 真机采集：TLS / h2 / 请求头三层。
+"""iOS 模拟器里的 Safari 真机采集：TLS 与 h2 两层。
 
-移动端此前一份实采都没有，`headers_real.json` 里"移动端与桌面大概率相同"那句
-猜测**方向整个是反的**：iOS Safari 与 macOS Safari 的 h2 与头序在四个轴上同时
-不同（SETTINGS 顺序、WINDOW_UPDATE、伪头序、普通头序），而 TLS 层反倒完全相同。
-没有实采就看不出这种"一层同、另一层不同"的分裂。
+移动端此前一份实采都没有，而"移动端与桌面大概率相同"这句猜测**方向是反的**：
+iOS Safari 与 macOS Safari 的 h2 在三个轴上同时不同（SETTINGS 顺序、
+WINDOW_UPDATE、伪头序），而 TLS 层反倒完全相同。没有实采就看不出这种
+"一层同、另一层不同"的分裂。
 
 **模拟器算不算真机，本模块不做假设，靠交叉验证回答**：采到的 h2 指纹与
 curl_cffi / tls_client / wreq 三家独立库记录的 Safari iOS 17 逐字节一致，TLS 的
@@ -25,7 +25,6 @@ JA4 与 `curl_cffi:safari172_ios` 完全相同。三家各自采自真机的数�
     python -m oracle.simcollect --list              # 可用的模拟器
     python -m oracle.simcollect --tls               # 采 ClientHello（nosni）
     python -m oracle.simcollect --h2                # 采 h2 开场
-    python -m oracle.simcollect --headers           # 采请求头顺序（h1 口径）
     python -m oracle.simcollect --verify            # 与已入库的 golden 逐字段比
 """
 
@@ -97,19 +96,6 @@ def collect_h2(udid, port=8772):
         return p.pop(timeout=180)
 
 
-def collect_headers(udid, port=8773):
-    """请求头顺序（明文 h1 口径）。h2 那份的顺序在 collect_h2 里已经有了 ——
-    这条用来交叉核对：两者只该差 `connection` 与 `upgrade-insecure-requests`
-    这类协议/scheme 相关项，桌面 Safari 上实测正是如此。"""
-    import threading
-
-    from oracle.hdrcollect import collect
-    # collect() 会阻塞等请求，所以先排一个定时器去开 URL。iOS 模拟器直连宿主
-    # 回环即可（安卓模拟器才要走 10.0.2.2）。
-    threading.Timer(2.0, lambda: open_url(udid, f"http://127.0.0.1:{port}/")).start()
-    return collect(port=port, timeout=180)
-
-
 def verify():
     """把已入库的 iOS golden 与库数据交叉核对一遍 —— 模拟器有效性的复验。
 
@@ -169,7 +155,6 @@ def main(argv):
     ap.add_argument("--list", action="store_true")
     ap.add_argument("--tls", action="store_true")
     ap.add_argument("--h2", action="store_true")
-    ap.add_argument("--headers", action="store_true")
     ap.add_argument("--verify", action="store_true")
     args = ap.parse_args(argv[1:])
 
@@ -188,7 +173,7 @@ def main(argv):
                       else f"{len(bad)} 处问题"))
         return 1 if bad else 0
 
-    if not (args.tls or args.h2 or args.headers):
+    if not (args.tls or args.h2):
         ap.print_help()
         return 2
 
@@ -199,9 +184,6 @@ def main(argv):
         print(json.dumps(collect_tls(udid), ensure_ascii=False, default=str))
     if args.h2:
         print(json.dumps(collect_h2(udid), ensure_ascii=False))
-    if args.headers:
-        rec = collect_headers(udid)
-        print(json.dumps(rec, ensure_ascii=False) if rec else "超时")
     return 0
 
 
