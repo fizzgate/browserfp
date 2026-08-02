@@ -29,6 +29,7 @@ ServerHello 与 `:status`，`test_build_live` 看回的是 ServerHello 还是 Al
 
 import json
 import os
+import re
 import socket
 import subprocess
 import sys
@@ -129,6 +130,16 @@ OK, MISMATCH, NET = "ok", "mismatch", "net"
 # 所以这里按段比 ja4_r，并且**只**豁免这一处、还要断言豁免之后确实一致 ——
 # 笼统地"忽略第三段"会把真差异一起放过。
 PEER_EXCLUDES_FROM_JA4C = {0x0015}
+
+# 第二处分歧：**ALPN 那两位**。规范说取 ClientHello 里 ALPN 列表的**首项**，
+# 而回显服务填的是**协商结果**。证据是它自己给的：`tls_client:chrome_133` 提供
+# `h3, h2, http/1.1`，对端回显里明明记着 `"protocols": ["h3","h2","http/1.1"]`，
+# JA4 却写 `h2` —— 那正是 TCP 上协商出来的协议。
+#
+# 与 padding 同样：对伪装无害（我们发的字节与真浏览器相同，同一实现算两边同值），
+# 只影响"拿我们表里的 ja4 去比对公开库"。判定要求**对端自己记录的首项与我们一致**，
+# 不是见到 ALPN 不同就放过。
+PEER_USES_NEGOTIATED_ALPN = True
 
 
 def parse_akamai(fp, peer):
@@ -248,6 +259,24 @@ def fetch(profile, h2_profile, host, pid=None, use_c=False):
             pass
 
 
+def prefix_diff(data, ours, peer_prefix):
+    """JA4 前缀（`t13d1516h2`）逐位比。相同或只差已知分歧返回 None。"""
+    our_prefix = ours["ja4"].split("_")[0]
+    if peer_prefix == our_prefix:
+        return None
+    if peer_prefix[:-2] != our_prefix[:-2]:
+        return (f"前缀不同（版本/SNI/计数）：对端 {peer_prefix} 我们 {our_prefix}")
+    # 只差 ALPN 两位 —— 查对端自己记录的 ALPN 首项是不是与我们一致
+    txt = json.dumps(data, ensure_ascii=False)
+    m = re.search(r'"protocols"\s*:\s*\[([^\]]*)\]', txt)
+    offered = [x.strip().strip('"') for x in m.group(1).split(",")] if m else []
+    ours_first = (ours.get("alpn") or [""])[0]
+    if PEER_USES_NEGOTIATED_ALPN and offered and offered[0] == ours_first:
+        return None                      # 已知分歧：对端填的是协商结果
+    return (f"ALPN 两位不同：对端 {peer_prefix[-2:]} 我们 {our_prefix[-2:]}"
+            f"（对端记录的 ALPN 列表 {offered}）")
+
+
 def ja4r_diff(data, ours):
     """对端的 ja4_r 与我们逐段比。只差已知分歧返回 None，否则返回差异描述。
 
@@ -271,10 +300,12 @@ def ja4r_diff(data, ours):
     if p_sig != o_sig:
         return f"签名算法不同：对端 {p_sig[:50]}… 我们 {o_sig[:50]}…"
     if ",".join(f"{e:04x}" for e in o_ext) == p_ext:
-        return "三段都相同却哈希不同 —— 哈希算法本身有问题"
+        # 三段都相同，那差异只可能在**前缀**（版本/SNI标志/计数/ALPN 两位）。
+        # 第一版这里写的是"哈希算法本身有问题"，那是误导 —— 我压根没比前缀。
+        return prefix_diff(data, ours, parts[0])
     trimmed = [e for e in o_ext if e not in PEER_EXCLUDES_FROM_JA4C]
     if ",".join(f"{e:04x}" for e in trimmed) == p_ext:
-        return None                      # 只差已知的 padding 分歧
+        return prefix_diff(data, ours, parts[0])
     return (f"扩展列表不同（已扣除 padding 仍不同）：\n"
             f"      对端 {p_ext}\n      我们 {','.join(f'{e:04x}' for e in o_ext)}")
 
