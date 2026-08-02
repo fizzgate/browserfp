@@ -59,6 +59,35 @@ def main():
         print(f"重建失败：{type(e).__name__}: {str(e)[:120]}", file=sys.stderr)
         return 1
 
+    # 我们自己的实采，h2 必须就是我们采到的那份。
+    #
+    # 同一个 TLS 指纹下可以挂着 h2 互相矛盾的别名 —— Safari 桌面与 iOS 的
+    # ClientHello **完全相同**，h2 却不同。注册表合并时原来是"先到先得"，
+    # 实测把 real:safari-ios 挂上了桌面 Safari 15/16 的 h2。错值挂在最可信的
+    # 来源名下，比库之间互相矛盾更难查，而此前没有任何门禁会发现。
+    own_bad, own_n = [], 0
+    with open(os.path.join(HERE, "golden", "h2_real_browsers.json")) as f:
+        own_h2 = json.load(f)
+    for rec in stored:
+        src, _, name = rec["id"].partition(":")
+        if src not in ("real", "linux") or not rec.get("h2"):
+            continue
+        want = (own_h2.get(name) or {}).get("akamai_fingerprint")
+        if not want:
+            continue
+        own_n += 1
+        got = rec["h2"].get("akamai_fingerprint")
+        if got != want:
+            own_bad.append(f"{rec['id']}: 注册表挂的 h2 不是我们采到的那份\n"
+                           f"      实采   {want}\n"
+                           f"      注册表 {got}")
+    print(f"实采 h2 归属   {own_n - len(own_bad)}/{own_n} 条正确")
+    for m in own_bad:
+        print(f"  ✗ {m}")
+    if own_n < 3:
+        print(f"  ✗ 只核到 {own_n} 条实采 —— 比对集太小，等于没验")
+        own_bad.append("比对集太小")
+
     a = {r["id"]: _ident(r) for r in stored}
     b = {r["id"]: _ident(r) for r in fresh}
     only_stored = sorted(set(a) - set(b))
@@ -84,7 +113,7 @@ def main():
     for x in bad:
         print(f"  ✗ {x}")
     print(f"\n{'落盘产物与 golden 同步' if not bad else f'{len(bad)} 处问题'}")
-    return 1 if bad else 0
+    return 1 if (bad or own_bad) else 0
 
 
 if __name__ == "__main__":

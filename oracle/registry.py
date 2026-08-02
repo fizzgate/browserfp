@@ -135,7 +135,22 @@ def build():
             h2 = h2_data.get(name)
             if h2 is None and isinstance(entry, dict):
                 h2 = entry.get("h2")
-            if h2 and not rec["h2"]:
+            # **实采优先，不是先到先得。** 这里原来是 `not rec["h2"]` ——
+            # 谁先被遍历到谁说了算。而同一个 TLS 指纹下可以挂着 h2 互相矛盾的
+            # 别名：Safari 桌面与 iOS 的 ClientHello **完全相同**，h2 却不同
+            # （SETTINGS 顺序、window_update、伪头序全不一样）。实测后果是
+            # 我们自己采的 real:safari-ios 被挂上了桌面 Safari 15/16 的 h2，
+            # 再被 h2table 当成"实采"读走 —— 错值挂在最可信的来源名下，
+            # 比库之间互相矛盾更难查。
+            is_real = source in ("real", "linux")
+            if h2 and (not rec["h2"] or (is_real and not rec.get("_h2_real"))):
+                if rec["h2"] and rec["h2"].get("akamai_fingerprint") \
+                        != h2.get("akamai_fingerprint"):
+                    print(f"  ⚠️ {rec['id']}：TLS 指纹相同但 h2 不同，"
+                          f"改用实采 {source}:{name} 的 h2\n"
+                          f"       原 {rec['h2'].get('akamai_fingerprint')}\n"
+                          f"       新 {h2.get('akamai_fingerprint')}")
+                rec["_h2_real"] = is_real
                 rec["h2"] = {
                     "akamai_fingerprint": h2.get("akamai_fingerprint"),
                     "settings": h2.get("settings"),
@@ -149,6 +164,10 @@ def build():
 def main():
     registry = build()
     out = sorted(registry.values(), key=lambda r: r["id"])
+    # 合并期的内部标记不进产物 —— 落盘文件是给 C 生成器与门禁读的契约，
+    # 混进实现细节会让 diff 里出现看不懂的字段。
+    for rec in out:
+        rec.pop("_h2_real", None)
 
     # 必须在写盘之前标注 —— 先前放在 json.dump 之后，导致 profiles.json 里
     # 一条 covers_versions 都没有，而终端输出看起来一切正常。
