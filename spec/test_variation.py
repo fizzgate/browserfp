@@ -245,6 +245,32 @@ def main():
         print(f"  Lua 路径 {engine:9s} 变={sorted(hex(x) for x in varying & spec['must_vary'])} "
               f"序列种类={len(seqs)}/{n}")
 
+    # —— 反方向：h2 开场**必须恒定** ——
+    #
+    # 同一套方法扫 h2 层：三个引擎各连采 6~8 次，settings / window_update /
+    # priorities / 伪头序 / 帧序 / akamai 指纹**没有一项在变**。所以我们发固定值
+    # 是对的 —— 这一层没有第 8 处。
+    #
+    # 但要把这条**反过来钉住**：哪天有人照着 TLS 层的经验"顺手"给 h2 也加随机，
+    # 那是把它变成一个不存在的浏览器。与 gecko 不发 GREASE 那条同理。
+    h2cli = os.path.join(ROOT, "csrc", "h2cli")
+    if not os.path.exists(h2cli):
+        bad.append("缺 csrc/h2cli，h2 恒定性没验到")
+    else:
+        for engine, spec in sorted(EXPECT.items()):
+            ua = spec.get("ua")
+            if not ua:
+                continue
+            outs = set()
+            for _ in range(4):
+                r = subprocess.run([h2cli], input=f"{ua[0]} {ua[1]}\n",
+                                   capture_output=True, text=True, timeout=60)
+                outs.add(r.stdout.strip())
+            if len(outs) != 1:
+                bad.append(f"{engine} 的 h2 开场有 {len(outs)} 种 —— "
+                           "三个引擎实测都恒定，随机化它等于造一个不存在的浏览器")
+            print(f"  h2 恒定  {engine:9s} 4 次构造 {len(outs)} 种")
+
     if len(EXPECT) < 3:
         bad.append(f"只覆盖了 {len(EXPECT)} 个引擎 —— 差一个不扫，"
                    "那一族的缺陷就等于不存在")
