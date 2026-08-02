@@ -67,6 +67,7 @@ const tlsfp_h2 *tlsfp_lookup_h2(const char *brand, uint16_t version);
 int  tlsfp_build_h2_preface(const tlsfp_h2 *h, uint8_t *out, size_t outlen);
 const char *tlsfp_h2_pseudo(const tlsfp_h2 *h);
 const char *tlsfp_header_order(const char *brand, int *attested);
+const char *tlsfp_sec_ch_ua(const char *brand, uint16_t version);
 const tlsfp_profile *tlsfp_profile_at(size_t idx);
 const tlsfp_profile *tlsfp_lookup_ja4(const char *ja4);
 size_t tlsfp_profile_count(void);
@@ -275,6 +276,20 @@ function _M.sort_headers(brand, names)
     table.sort(known, function(a, b) return pos[a:lower()] < pos[b:lower()] end)
     for _, h in ipairs(unknown) do known[#known + 1] = h end
     return known
+end
+
+-- sec-ch-ua 的值。手写必然错 —— 里面的 GREASE 品牌按主版本号确定性生成
+-- （既非固定串也非随机串），而它就摆在请求头里。
+-- 版本口径同 by_ua：衍生浏览器传内核 Chrome 版本。
+-- Opera 没有：它的嵌入层会再加自己的品牌项，本项目没有 Opera 实采，不猜。
+function _M.sec_ch_ua(brand, version)
+    if not lib then return nil, "libtlsfp.so 未加载" end
+    if type(brand) ~= "string" or type(version) ~= "number" then
+        return nil, "brand 必须是字符串、version 必须是数字"
+    end
+    local p = lib.tlsfp_sec_ch_ua(brand, version)
+    if p == nil then return nil, "该品牌/版本没有 sec-ch-ua 数据" end
+    return ffi.string(p)
 end
 
 function _M.profile_count()

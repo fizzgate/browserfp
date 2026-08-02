@@ -332,6 +332,16 @@ static size_t put_frame_head(uint8_t *p, uint32_t len, uint8_t type,
     return n;
 }
 
+const char *tlsfp_sec_ch_ua(const char *brand, uint16_t version) {
+    if (!brand) return NULL;
+    for (size_t i = 0; i < TLSFP_UACH_COUNT; i++) {
+        const tlsfp_uach_entry *e = &tlsfp_uach_table[i];
+        if (e->version == version && strcmp(e->brand, brand) == 0)
+            return e->value;
+    }
+    return NULL;
+}
+
 const char *tlsfp_header_order(const char *brand, int *attested) {
     if (!brand) return NULL;
     for (size_t i = 0; i < TLSFP_HDR_COUNT; i++) {

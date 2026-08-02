@@ -6,7 +6,7 @@ LDFLAGS ?= -L$(OPENSSL_PREFIX)/lib -lcrypto
 # **每个门禁用到的二进制都必须在 all 里**。uacli / lookup_test 曾经不在，
 # 结果 `make` 从不重建它们，门禁跑的是上一次手工编译的陈旧二进制——改了
 # tlsfp.c 的行为，门禁却报旧行为，既能假绿也能假红。
-all: ja4cli uacli lookup_test buildcli h2cli hdrcli libtlsfp.so
+all: ja4cli uacli lookup_test buildcli h2cli hdrcli uachcli libtlsfp.so
 
 # **改了数据源就用 `make regen`，别手工 rm profiles.inc**。实测两次踩同一个坑：
 # 手工删掉 inc 再 make，重建出来的仍是旧内容（wildcard 在 make 启动时求值，
@@ -47,10 +47,13 @@ h2cli: tlsfp.o h2cli.c
 hdrcli: tlsfp.o hdrcli.c
 	$(CC) $(CFLAGS) -o $@ hdrcli.c tlsfp.o $(LDFLAGS)
 
+uachcli: tlsfp.o uachcli.c
+	$(CC) $(CFLAGS) -o $@ uachcli.c tlsfp.o $(LDFLAGS)
+
 lookup_test: tlsfp.o lookup_test.c
 	$(CC) $(CFLAGS) -o $@ lookup_test.c tlsfp.o $(LDFLAGS)
 
 clean:
-	rm -f *.o ja4cli uacli lookup_test buildcli h2cli hdrcli libtlsfp.so profiles.inc
+	rm -f *.o ja4cli uacli lookup_test buildcli h2cli hdrcli uachcli libtlsfp.so profiles.inc
 
 .PHONY: all clean

@@ -35,6 +35,7 @@ greasey_ver   = ["8", "99", "24"][seed % 3]
 跑：python -m oracle.uach [主版本号...]
 """
 
+import json
 import os
 import re
 import sys
@@ -94,16 +95,21 @@ def _orders3(text):
     `permuted_order` 外部传入，还带 Finch 参数与企业策略开关。那时的形态没在
     这里实现 —— 按项目规矩弃权，不猜。
     """
-    if "GetRandomOrder" not in text:
-        raise LookupError("这个版本没有 GetRandomOrder —— sec-ch-ua 的生成算法"
-                          "在当时是另一套（permuted_order 外传 + Finch 参数），"
-                          "本模块不支持，弃权而不是猜")
-    m = re.search(r"std::array<std::array<size_t,\s*3>,\s*(\d+)>\s*orders\s*"
-                  r"\{(.*?)\}\};", text, re.S)
-    if not m:
-        raise LookupError("源码里找不到 size==3 的置换表")
-    nums = [int(x) for x in re.findall(r"\d+", m.group(2))]
-    return [tuple(nums[i:i + 3]) for i in range(0, len(nums), 3)]
+    # 两种代码形态，**算法实质相同**：
+    #   132 起   GetRandomOrder() 里 std::array<std::array<size_t,3>,6> orders
+    #   ~131 及前 GenerateBrandVersionList() 里内联的
+    #            std::vector<std::vector<int>> orders
+    # 表内容、seed%6 的取法、散射赋值都一字不差 —— 只是代码搬了家。
+    # 第一版只认前者，于是把 120-131 整段判成"不支持"，而它们其实推得出来。
+    for pat in (r"std::array<std::array<size_t,\s*3>,\s*\d+>\s*orders\s*\{(.*?)\}\};",
+                r"std::vector<std::vector<int>>\s*orders\{(.*?)\};"):
+        m = re.search(pat, text, re.S)
+        if m:
+            nums = [int(x) for x in re.findall(r"\d+", m.group(1))]
+            if len(nums) % 3 == 0 and nums:
+                return [tuple(nums[i:i + 3]) for i in range(0, len(nums), 3)]
+    raise LookupError("认不出置换表的形态 —— 两种已知写法都没匹配上，"
+                      "不能默认还是那 6 个置换")
 
 
 def assert_scatter(text):
@@ -114,16 +120,21 @@ def assert_scatter(text):
     而不是等着某些版本静默算错。
     """
     i = text.find("ShuffleBrandList")
-    if i < 0:
-        raise LookupError("源码里找不到 ShuffleBrandList")
-    body = text[i:i + 1200]
-    m = re.search(r"(\w+)\[(\w+)\[i\]\]\s*=\s*(\w+)\[i\]", body)
-    if m:
-        return True                      # shuffled[order[i]] = list[i]，散射
-    if re.search(r"(\w+)\[i\]\s*=\s*(\w+)\[(\w+)\[i\]\]", body):
-        raise LookupError("ShuffleBrandList 改成了收集（shuffled[i] = "
-                          "list[order[i]]）—— 本模块的散射实现要跟着翻转")
-    raise LookupError("认不出 ShuffleBrandList 的赋值形态，不能默认还是散射")
+    if i >= 0:
+        body = text[i:i + 1200]
+        if re.search(r"(\w+)\[(\w+)\[i\]\]\s*=\s*(\w+)\[i\]", body):
+            return True                  # shuffled[order[i]] = list[i]，散射
+        if re.search(r"(\w+)\[i\]\s*=\s*(\w+)\[(\w+)\[i\]\]", body):
+            raise LookupError("ShuffleBrandList 改成了收集 —— 散射实现要翻转")
+        raise LookupError("认不出 ShuffleBrandList 的赋值形态")
+    # 老形态：GenerateBrandVersionList 里直接写
+    #   greased_brand_version_list[order[0]] = greasey_bv;  ...
+    # 同样是散射（下标在左），只是没有独立的洗牌函数。
+    # **全局搜而不是从 GenerateBrandVersionList 起搜**：那个名字第一次出现
+    # 往往是前向声明，离定义很远，按它开窗会整段错过。
+    if re.search(r"\w+\[order\[\d\]\]\s*=\s*\w+", text):
+        return True
+    raise LookupError("既没有 ShuffleBrandList，也认不出内联的散射赋值")
 
 
 def sec_ch_ua(major, brand=BRAND, full_version=None):
@@ -158,8 +169,53 @@ def sec_ch_ua(major, brand=BRAND, full_version=None):
     return ", ".join(f'"{b}";v="{v}"' for b, v in shuffled)
 
 
+# 品牌 → sec-ch-ua 里的品牌串。
+#   chrome / edge  有本机实采背书
+#   opera          **不推**：Opera 的嵌入层会往列表里再加自己的品牌项，
+#                  而本项目没有 Opera 实采，加几项、叫什么名字都只能猜
+# 移动端与桌面**同值**：GetUserAgentBrandList 生成品牌列表时不分平台，
+# 平台差异体现在另一个头（sec-ch-ua-mobile）上。这是源码结构，不是推测。
+UACH_BRANDS = {
+    "chrome": "Google Chrome", "chrome-mobile": "Google Chrome",
+    "edge": "Microsoft Edge", "edge-mobile": "Microsoft Edge",
+}
+
+
+def build(dest=None):
+    """算出 {品牌: {版本: sec-ch-ua}}，落成 JSON 供 C 生成器与门禁共用。
+
+    与 h2table 同样的理由：推导要联网取 Chromium 源码，C 的构建流程不该依赖
+    网络；落成文件也便于 diff。
+    """
+    from oracle.covscan import NEVER_RELEASED, TARGETS
+    out = {}
+    for brand, brand_str in UACH_BRANDS.items():
+        _tpl, lo, hi = TARGETS[brand]
+        skip = NEVER_RELEASED.get(brand, set())
+        rows = {}
+        for v in range(lo, hi + 1):
+            if v in skip:
+                continue
+            try:
+                rows[str(v)] = sec_ch_ua(v, brand_str)
+            except Exception:
+                continue                 # 算不出就不写，不猜
+        out[brand] = rows
+    if dest:
+        with open(dest, "w") as f:
+            json.dump(out, f, indent=1, ensure_ascii=False, sort_keys=True)
+            f.write("\n")
+    return out
+
+
 def main(argv):
-    majors = [int(x) for x in argv[1:]] or [131, 146, 151]
+    if "--build" in argv:
+        dest = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                            "..", "spec", "uach.json")
+        t = build(dest)
+        print("  已写出：" + "  ".join(f"{b}={len(v)}" for b, v in sorted(t.items())))
+        return 0
+    majors = [int(x) for x in argv[1:] if not x.startswith("-")] or [131, 146, 151]
     for m in majors:
         try:
             print(f"  M{m:<4} {sec_ch_ua(m)}")

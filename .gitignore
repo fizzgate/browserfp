@@ -11,6 +11,7 @@ csrc/lookup_test
 csrc/buildcli
 csrc/h2cli
 csrc/hdrcli
+csrc/uachcli
 csrc/uacli
 csrc/snitest
 csrc/profiles.inc

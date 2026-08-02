@@ -75,6 +75,28 @@ def main():
     if ok and len({b for _, b in shapes if b}) < 2:
         bad.append("只验到一个品牌名 —— 品牌替换那条路没被覆盖")
 
+    # C 表由 gen_profiles 独立生成，必须与 Python 逐条一致 —— 只验 Python
+    # 的话，C 侧漏一条或转义错了照样绿，而生产跑的是 C 那份。
+    import subprocess
+    table_path = os.path.join(os.path.dirname(HERE), "spec", "uach.json")
+    exe = os.path.join(os.path.dirname(HERE), "csrc", "uachcli")
+    r = subprocess.run(["make", "-s"], cwd=os.path.join(os.path.dirname(HERE), "csrc"),
+                       capture_output=True, text=True, timeout=300)
+    if r.returncode != 0 or not os.path.exists(exe):
+        bad.append(f"C 侧没构建出来：{(r.stderr or r.stdout)[-120:]}")
+    else:
+        with open(table_path) as f:
+            table = json.load(f)
+        cases = [(b, v) for b in sorted(table) for v in sorted(table[b], key=int)]
+        out = subprocess.run([exe], input="\n".join(f"{b} {v}" for b, v in cases),
+                             capture_output=True, text=True, timeout=60).stdout.splitlines()
+        diff = sum(1 for (b, v), got in zip(cases, out) if got != table[b][v])
+        print(f"  C/Python 一致  {len(cases) - diff}/{len(cases)}")
+        if diff:
+            bad.append(f"C 表与 Python 差 {diff} 条")
+        if len(cases) < 100:
+            bad.append(f"表里只有 {len(cases)} 条 —— 太少，怀疑生成时大面积弃权")
+
     print(f"\n{'sec-ch-ua 推导可信' if not bad else f'{len(bad)} 处问题'}")
     return 1 if bad else 0
 

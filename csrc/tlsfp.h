@@ -133,6 +133,12 @@ const char *tlsfp_h2_pseudo(const tlsfp_h2 *h);
  * （移动端全是推断，本项目的真机采集都是桌面浏览器）。 */
 const char *tlsfp_header_order(const char *brand, int *attested);
 
+/* (品牌, 版本) → sec-ch-ua 的值；没有该组合返回 NULL。
+ * 这一项手写必然错：里面的 GREASE 品牌按主版本号确定性生成，既非固定串也非
+ * 随机串。版本口径同 tlsfp_lookup_ua（衍生浏览器传内核 Chrome 版本）。
+ * Opera 不在表里 —— 它的嵌入层会再加自己的品牌项，没有实采就不猜。 */
+const char *tlsfp_sec_ch_ua(const char *brand, uint16_t version);
+
 int tlsfp_build_client_hello(const tlsfp_profile *p, const char *sni,
                              const uint8_t *random32, const uint8_t *session_id,
                              uint8_t *out, size_t outlen);

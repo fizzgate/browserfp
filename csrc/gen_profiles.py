@@ -97,6 +97,34 @@ def _h2_tables():
     return lines
 
 
+def _uach_table():
+    """(品牌, 版本) → sec-ch-ua。
+
+    这一项手写必然错：里面的 GREASE 品牌是按主版本号确定性生成的
+    （"Not" + chars[v%11] + "A" + chars[(v+1)%11] + "Brand"，版本取
+    ["8","99","24"][v%3]），既非固定串也非随机串。推导见 oracle/uach.py，
+    已用本机 Chrome 151 / Chromium 142 / Edge 151 三份实采验过。
+    Opera 不在表里 —— 它的嵌入层会再加自己的品牌项，而本项目没有 Opera 实采。
+    """
+    path = os.path.join(os.path.dirname(HERE), "spec", "uach.json")
+    if not os.path.exists(path):
+        raise SystemExit(f"缺 {path}；先跑 python -m oracle.uach --build")
+    with open(path) as f:
+        table = json.load(f)
+    lines = ["typedef struct { const char *brand; uint16_t version;"
+             " const char *value; } tlsfp_uach_entry;",
+             "static const tlsfp_uach_entry tlsfp_uach_table[] = {"]
+    n = 0
+    for brand in sorted(table):
+        for ver in sorted(table[brand], key=int):
+            v = table[brand][ver].replace('"', '\\"')
+            lines.append(f'    {{"{brand}", {ver}, "{v}"}},')
+            n += 1
+    lines.append("};")
+    lines.append(f"#define TLSFP_UACH_COUNT {n}")
+    return lines
+
+
 def _header_order_table():
     """品牌 → 请求头相对顺序（逗号分隔）。
 
@@ -402,6 +430,8 @@ def main():
     out.extend(_h2_tables())
     out.append("")
     out.extend(_header_order_table())
+    out.append("")
+    out.extend(_uach_table())
 
     print("\n".join(out))
     print(f"/* 共 {len(profiles)} 条（注册表 {len(registry)} 条，"
