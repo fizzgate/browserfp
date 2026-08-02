@@ -7,9 +7,14 @@
 实测过：清空 `spec/golden/real_browsers.json` 后，把不联网的门禁全跑一遍，
 **没有一个变红**。
 
-判据是拿 `oracle.registry.build()` 现算一遍，与落盘的逐条比。只比对**指纹身份**
-（id、别名集合、13 个确定性字段），不比对 `versions` 这类会随判据微调的注解 ——
-那些变动是正常演进，钉太死会变成每次改判据都要重跑的噪声。
+判据是拿 `oracle.registry.build()` 现算一遍，与落盘的逐条比。比的是**指纹身份**
+（id、别名集合、13 个确定性字段）**加上 h2/h3 载荷**，不比 `versions` 这类会随
+判据微调的注解 —— 那些变动是正常演进，钉太死会变成每次改判据都要重跑的噪声。
+
+h2/h3 载荷是后加的：第一版只比 TLS 那 13 个字段，于是清空
+`spec/golden/h3_real_browsers.json` 之后本门禁**照样绿** —— 那份 golden 明明被
+`registry.py` 读，却没有任何门禁看着它。实测确认过：清 quic 那份会红（TLS 指纹
+变了），清 h3 那份不会（h3 不在比对集里）。
 
 跑：python -m spec.test_registry_fresh
 """
@@ -35,9 +40,11 @@ def _norm(tls, field):
 
 
 def _ident(rec):
-    """一条 profile 的"身份"：id + 别名集合 + 13 个确定性字段。"""
+    """一条 profile 的"身份"：id + 别名集合 + 13 个确定性字段 + h2/h3 载荷。"""
+    h2 = (rec.get("h2") or {}).get("akamai_fingerprint")
+    h3 = (rec.get("h3") or {}).get("h3_text")
     return (rec["id"], tuple(sorted(rec.get("aliases") or [])),
-            tuple(str(_norm(rec["tls"], f)) for f in FIELDS))
+            tuple(str(_norm(rec["tls"], f)) for f in FIELDS), h2, h3)
 
 
 def main():

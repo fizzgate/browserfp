@@ -7449,7 +7449,7 @@
       ],
       "settings": {
         "1": 65536,
-        "109968663132": 563659858,
+        "43123740061": 2279865684,
         "51": 1,
         "6": 262144,
         "7": 100
@@ -7561,7 +7561,24 @@
     ],
     "default_config": true,
     "h2": null,
-    "h3": null,
+    "h3": {
+      "h3_text": "1:65536,7:20,8:1,51:1,16765559:1,727725890:0|m,s,a,p",
+      "has_grease_setting": false,
+      "pseudo_header_order": [
+        ":method",
+        ":scheme",
+        ":authority",
+        ":path"
+      ],
+      "settings": {
+        "1": 65536,
+        "16765559": 1,
+        "51": 1,
+        "7": 20,
+        "727725890": 0,
+        "8": 1
+      }
+    },
     "id": "real_quic:firefox",
     "mode": "quic",
     "provenance": "real-capture",

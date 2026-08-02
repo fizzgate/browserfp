@@ -55,15 +55,17 @@ SOURCES = {
     "spec/golden/uach_real.json": ("json-empty", ["test_uach"]),
     "spec/golden/h2_wreq.json": ("json-empty", ["test_header_order"]),
     "spec/golden/real_browsers.json": ("json-empty", ["test_registry_fresh"]),
+    "spec/golden/quic_real_browsers.json": ("json-empty", ["test_registry_fresh"]),
+    "spec/golden/h3_real_browsers.json": ("json-empty", ["test_registry_fresh"]),
 }
 
 # 不是"数据源"的数据文件，要写明理由 —— 否则新增一个源没人扫，就成了
 # Edge/Opera 那种"扫描器漏掉一个轴，那个轴上的缺陷就不存在"。
+# **这张表写错过**：h3/quic 那两份曾被我声明成"无人读"，实际上 registry.py
+# 一直在读（h3 装到 profile 的 h3 字段、quic 建 real_quic:* 那几条）。判据不能
+# 靠印象，要实测"清空之后有没有门禁变红" —— 那次实测同时暴露了 test_registry_fresh
+# 只比 TLS 字段、不比 h2/h3 载荷的问题。
 NOT_A_SOURCE = {
-    "golden/h3_real_browsers.json":
-        "h3 的实采存档。test_h3 跑的是实时探测、不读这份文件 —— 它留着是为了"
-        "将来做 h3 层时有历史基线，现在确实无人读，golden_orphans 里也这么声明的",
-    "golden/quic_real_browsers.json": "同上，QUIC 形态的实采存档",
     "golden/curl_cffi.json":
         "带 SNI 的采集，只用于与 nosni 版对比确认 SNI 在扩展序列里的位置；"
         "注册表统一用 nosni 版",
