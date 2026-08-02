@@ -65,7 +65,7 @@ cohcli: tlsfp.o cohcli.c
 # 越界读写在只读表上常常无声无息 —— 而它跑在 nginx worker 里。
 fuzzcli: tlsfp.c fuzzcli.c profiles.inc
 	$(CC) -O1 -g -fsanitize=address,undefined -fno-omit-frame-pointer \
-	  $(CFLAGS) -o $@ fuzzcli.c tlsfp.c $(LDFLAGS)
+	  -DTLSFP_FUZZ_COUNTERS $(CFLAGS) -o $@ fuzzcli.c tlsfp.c $(LDFLAGS)
 
 snitest: tlsfp.o snitest.c
 	$(CC) $(CFLAGS) -o $@ snitest.c tlsfp.o $(LDFLAGS)

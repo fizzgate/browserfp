@@ -147,5 +147,12 @@ int main(void) {
     CALL(tlsfp_ja4(NULL, 't', ja4, sizeof(ja4)));
 
     printf("%d\n", calls);
+#ifdef TLSFP_FUZZ_COUNTERS
+    /* 分支覆盖：每个 case 都必须被恶意输入走到过，否则"没崩"证明不了它安全 */
+    extern unsigned long tlsfp_ext_hits[6];
+    printf("EXT");
+    for (int i = 0; i < 6; i++) printf(" %lu", tlsfp_ext_hits[i]);
+    printf("\n");
+#endif
     return 0;
 }

@@ -27,6 +27,17 @@ static void list_push(tlsfp_u16list *l, uint16_t v) {
     if (l->len < TLSFP_MAX_ITEMS) l->items[l->len++] = v;
 }
 
+#ifdef TLSFP_FUZZ_COUNTERS
+unsigned long tlsfp_ext_hits[6];         /* SNI/groups/sigalgs/alpn/versions/其它 */
+/* **计数必须放在每个 case 的体内**，不能放在 switch 之前：放前面计的是
+   "看见了这个扩展"，而不是"解析体真的执行了" —— 实测把四个 case 的体改空之后，
+   放在 switch 前的计数器照样满额，断言完全失灵。这与并发检查那次"比错字段"
+   是同一类错误：测了一个相邻但不等价的东西。 */
+#define TLSFP_EXT_SEEN(i) (tlsfp_ext_hits[i]++)
+#else
+#define TLSFP_EXT_SEEN(id) ((void)0)
+#endif
+
 static uint16_t rd16(const uint8_t *p) { return (uint16_t)((p[0] << 8) | p[1]); }
 
 /* 解析 supported_groups / signature_algorithms 这类「2 字节长度 + u16 数组」的扩展。
@@ -94,17 +105,25 @@ int tlsfp_parse_client_hello(const uint8_t *rec, size_t len,
             out->has_grease = 1;
         } else {
             list_push(&out->extensions, eid);
+            /* 只在健壮性构建里计数：用来断言变异**真的走到了**每一个分支。
+               "没崩"若是因为某个 case 从没被执行过，那是平凡通过 ——
+               本项目在别处（h2 的 PRIORITY、sec-ch-ua 的两项分支）栽过同样
+               的坑，所以这里把它变成可断言的数字。生产构建里整段消失。 */
             switch (eid) {
             case 0x0000:                     /* server_name */
+                TLSFP_EXT_SEEN(0);
                 out->has_sni = 1;
                 break;
             case 0x000a:                     /* supported_groups */
+                TLSFP_EXT_SEEN(1);
                 parse_u16_vector(ebody, elen, &out->curves, 1);
                 break;
             case 0x000d:                     /* signature_algorithms */
+                TLSFP_EXT_SEEN(2);
                 parse_u16_vector(ebody, elen, &out->sig_algs, 0);
                 break;
             case 0x0010:                     /* ALPN：只取第一项 */
+                TLSFP_EXT_SEEN(3);
                 if (elen >= 3) {
                     size_t l = ebody[2];
                     if (l > 0 && 3 + l <= elen) {
@@ -117,6 +136,7 @@ int tlsfp_parse_client_hello(const uint8_t *rec, size_t len,
                 }
                 break;
             case 0x002b:                     /* supported_versions */
+                TLSFP_EXT_SEEN(4);
                 if (elen >= 1) {
                     /* **长度字段要夹到扩展体之内**：n 来自报文（1 字节，
                        最大 255），不夹的话恶意 ClientHello 声称 255 就能读到

@@ -46,6 +46,8 @@ FUZZCLI = os.path.join(ROOT, "csrc", "fuzzcli")
 MIN_CALLS = 1500000
 # Lua 侧同理。当前 2005 次。
 MIN_LUA_CALLS = 1500
+# 每个解析分支至少要被走到这么多次。当前最少的 supported_versions 是 88 万。
+MIN_BRANCH_HITS = 10000
 
 
 def main():
@@ -84,6 +86,22 @@ def main():
         if kw in combined:
             hit = next((l for l in combined.splitlines() if kw in l), kw)
             bad.append(f"{why}：{hit[:110]}")
+
+    # **分支覆盖**：解析器里那 5 个扩展 case 每个都要被恶意输入走到过。
+    # "没崩"若是因为某个 case 从没执行，那是平凡通过 —— 本项目在别处
+    # （h2 的 PRIORITY、sec-ch-ua 的两项列表）栽过同样的坑。
+    em = re.search(r"^EXT((?: \d+)+)$", p.stdout, re.M)
+    if not em:
+        bad.append("没拿到分支覆盖计数 —— 健壮性构建少了 TLSFP_FUZZ_COUNTERS？")
+    else:
+        hits = [int(x) for x in em.group(1).split()]
+        names = ["server_name", "supported_groups", "signature_algorithms",
+                 "alpn", "supported_versions"]
+        cold = [n for n, h in zip(names[:5], hits[:5]) if h < MIN_BRANCH_HITS]
+        print("  分支覆盖：" + "  ".join(f"{n}={h}" for n, h in zip(names, hits[:5])))
+        if cold:
+            bad.append(f"这些解析分支没被恶意输入走到（<{MIN_BRANCH_HITS} 次）："
+                       f"{cold} —— 它们的\"没崩\"证明不了任何事")
 
     m = re.search(r"^(\d+)$", p.stdout.strip(), re.M)
     calls = int(m.group(1)) if m else 0
