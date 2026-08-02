@@ -84,6 +84,25 @@ http {
             }
         }
 
+        location /coh {
+            content_by_lua_block {
+                local tlsfp = require "tlsfp"
+                tlsfp.load("/app/csrc/libtlsfp.so")
+                local a = ngx.req.get_uri_args()
+                -- 全部三层都由库自己产出，再交给库自审
+                local prof = tlsfp.by_ua(a.brand, tonumber(a.version))
+                local _, ak = nil, nil
+                local rec, pseudo = tlsfp.h2_preface(a.brand, tonumber(a.version))
+                local h2 = tlsfp.identify_h2(a.akamai or "")
+                local order = tlsfp.header_order(a.mix_brand or a.brand)
+                local v, e = tlsfp.coherence(prof and prof.ja4 or nil,
+                                             a.akamai, order)
+                ngx.say(v .. "\\t" .. tostring(e.tls) .. "\\t"
+                        .. tostring(e.h2) .. "\\t" .. tostring(e.headers)
+                        .. "\\t" .. tostring(h2 and h2.engine))
+            }
+        }
+
         location /hdr {
             content_by_lua_block {
                 local tlsfp = require "tlsfp"
@@ -313,6 +332,51 @@ def _check_headers(opener):
     return bad, n
 
 
+def _check_coherence(opener):
+    """在真 worker 里跑库的自审：库自己产出的三层必须自洽，跨引擎必须被抓。
+
+    **两侧都要在生产形态下验**。只验"自己产出的判 ok"，一个恒返回 ok 的实现
+    也能全绿 —— 而那正是最坏的情况：使用者以为自审过了。所以这里额外拼一组
+    跨引擎的（TLS/h2 取 chrome、头顺序取 firefox），worker 必须报 mismatch。
+    """
+    import json as _json
+    with open(os.path.join(HERE, "h2table.json")) as f:
+        h2t = _json.load(f)
+
+    bad, n = [], 0
+    for brand, ver, mix, want in (
+            ("chrome", 151, None, "ok"),
+            ("firefox", 135, None, "ok"),
+            ("safari", 26, None, "ok"),
+            ("chrome", 151, "firefox", "mismatch")):   # 跨引擎，必须被抓
+        ak = (h2t.get(brand, {}).get(str(ver)) or {}).get("akamai_fingerprint")
+        if not ak:
+            bad.append(f"{brand} {ver}: h2 表里没有，用例失效")
+            continue
+        url = (f"http://127.0.0.1:{PORT}/coh?brand={brand}&version={ver}"
+               f"&akamai={urllib.parse.quote(ak)}"
+               + (f"&mix_brand={mix}" if mix else ""))
+        try:
+            line = opener.open(url, timeout=20).read().decode().strip()
+        except Exception as e:
+            bad.append(f"{brand} {ver}: 请求失败 {type(e).__name__}")
+            continue
+        parts = line.split("\t")
+        if len(parts) != 5:
+            bad.append(f"{brand} {ver}: worker 返回 {line[:70]}")
+            continue
+        n += 1
+        verdict, tls_e, h2_e, hdr_e, id_e = parts
+        tag = f"{brand} {ver}" + (f" + 头序={mix}" if mix else "")
+        if verdict != want:
+            bad.append(f"{tag}: 自审判 {verdict}，应为 {want}"
+                       f"（tls={tls_e} h2={h2_e} hdr={hdr_e}）")
+        # identify_h2 也顺带验：它认出的引擎必须与 coherence 里那一层一致
+        if id_e != h2_e:
+            bad.append(f"{tag}: identify_h2 说 {id_e}，coherence 里是 {h2_e}")
+    return bad, n
+
+
 def main():
     if not _docker_ok():
         print("无 docker，跳过（非失败）", file=sys.stderr)
@@ -383,7 +447,13 @@ def main():
         for b in hdr_bad:
             print(f"    ✗ {b}")
 
-        failed = bad or ch_bad or h2_bad or hdr_bad
+        coh_bad, coh_n = _check_coherence(opener)
+        print(f"  三层自审 {coh_n - len(coh_bad)}/{coh_n} 组（含 1 组跨引擎"
+              f"必须判 mismatch）")
+        for b in coh_bad:
+            print(f"    ✗ {b}")
+
+        failed = bad or ch_bad or h2_bad or hdr_bad or coh_bad
         print(f"\n{'C 模块在生产形态下与 Python 一致' if not failed else '存在分歧'}")
         return 1 if failed else 0
     finally:
