@@ -43,23 +43,70 @@ def _vec(body, len_bytes):
     raise ValueError(len_bytes)
 
 
-def _build_key_share(curves):
-    """按 profile 的曲线顺序造 key_share。
+def _parse_key_share(body):
+    """golden 的 key_share 体 → [(group, pub_len)]，顺序照原样。"""
+    out, i = [], 2                       # 跳过 client_shares 的 2 字节长度
+    while i + 4 <= len(body):
+        g = int.from_bytes(body[i:i + 2], "big")
+        n = int.from_bytes(body[i + 2:i + 4], "big")
+        out.append((g, n))
+        i += 4 + n
+    return out
 
-    真实客户端只为**前若干条**曲线发公钥（Chrome 发 X25519MLKEM768 + X25519
-    两条），不是每条都发。这里照抄 golden 的 key_share 结构由调用方给出；
-    没有 golden body 时退化为给第一条非 GREASE 曲线发一个占位公钥。
+
+def _build_key_share(golden_body, key_shares=None):
+    """**按 golden 的形状**重建 key_share：分组、顺序、每条的长度全部照抄，
+    只换公钥内容。
+
+    这里原来写的是"给 curves[0] 发一个占位公钥"，实测后果是重建出来的
+    key_share 与真机**形状完全不同**：
+
+        chrome131   真机 GREASE(1) + X25519MLKEM768(1216) + X25519(32)
+                    重建 只有 X25519MLKEM768
+        safari-ios  真机 GREASE(1) + X25519(32)
+                    重建 只有 X25519
+
+    JA4 不哈希 key_share 的内容，所以三方差分、重建闭环、真机握手全部照样绿 ——
+    而 **Chrome 恒发一个 GREASE key_share，丢掉它本身就是破绽**，少发一组
+    也与它自己的 supported_groups 对不上。C 侧一直是照抄 golden 的，于是
+    C 与 Python 产出的字节形状长期不同，同样没人发现。
+
+    key_shares: {group: pubkey_bytes}，真出网**必须**由调用方给 —— golden 里
+    那把公钥是采集当时的，我们没有对应私钥，拿它握手算不出共享密钥。
+    没给的组用随机字节占位：那只能用于指纹验证，绝不能拿去真握手。
+    长度与 golden 不符时**报错而不是接受** —— 长度一变形状就变了。
     """
-    sizes = {0x001D: 32, 0x0017: 65, 0x0018: 97, 0x0019: 133, 0x11EC: 1216}
-    entries = b""
-    for c in curves[:1]:
-        if is_grease(c):
-            continue
-        entries += _u16(c) + _vec(secrets.token_bytes(sizes.get(c, 32)), 2)
-    return _vec(entries, 2)
+    shape = _parse_key_share(golden_body)
+    if not shape:
+        return golden_body
+    # **给进来的分组必须在 profile 里存在**。调用方以为注入了、实际被忽略，
+    # 是最难查的一类错：握手会拿 golden 里那把旧公钥去算共享密钥，而那把私钥
+    # 不在我们手里 —— 症状是"握手莫名其妙失败"，与 key_share 毫无表面关联。
+    for g in (key_shares or {}):
+        if not any(g == gg for gg, _ in shape):
+            raise ValueError(
+                f"key_share 组 0x{g:04x} 不在该 profile 的 key_share 里 "
+                f"（有的是 {[hex(gg) for gg, _ in shape]}）—— "
+                "静默忽略会让调用方以为注入成功了")
+    out = b""
+    for group, plen in shape:
+        if key_shares and group in key_shares:
+            pub = key_shares[group]
+            if len(pub) != plen:
+                raise ValueError(
+                    f"key_share 组 0x{group:04x} 的公钥长度 {len(pub)} 与 golden "
+                    f"的 {plen} 不符 —— 长度一变 ClientHello 的形状就变了")
+        elif is_grease(group):
+            # GREASE 条目照抄 golden（内容按 RFC 8701 是 1 字节 0x00）
+            pub = golden_body[
+                golden_body.index(_u16(group) + _u16(plen)) + 4:][:plen]
+        else:
+            pub = secrets.token_bytes(plen)
+        out += _u16(group) + _vec(pub, 2)
+    return _vec(out, 2)
 
 
-def build_client_hello(profile, sni=None):
+def build_client_hello(profile, sni=None, key_shares=None):
     """按 profile 组装一条完整的 TLS record（含 5 字节 record 头）。
 
     profile 用的是 oracle.clienthello.fingerprint() 的输出结构，也就是 golden
@@ -81,7 +128,7 @@ def build_client_hello(profile, sni=None):
             entry = bytes([0]) + _vec(name, 2)
             body = _vec(entry, 2)
         elif ext_id == 0x0033:
-            body = _build_key_share(profile.get("curves", []))
+            body = _build_key_share(bodies.get(ext_id, b""), key_shares)
         elif ext_id in VOLATILE_EXTENSIONS:
             body = bodies.get(ext_id, b"")
         else:

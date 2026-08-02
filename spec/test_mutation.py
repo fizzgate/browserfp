@@ -66,6 +66,18 @@ MUTANTS = [
      ["test_build_parity"],
      "重建 ClientHello 时 SNI 排在首个 GREASE 之后"),
 
+    ("key_share:只重建第一条", "oracle/chbuild.py",
+     "    shape = _parse_key_share(golden_body)",
+     "    shape = _parse_key_share(golden_body)[:1]",
+     ["test_keyshare"],
+     "key_share 的分组/顺序/长度必须与真机一致（Chrome 恒发一条 GREASE）"),
+
+    ("key_share:注入长度不校验", "oracle/chbuild.py",
+     "            if len(pub) != plen:",
+     "            if False:",
+     ["test_keyshare"],
+     "注入的公钥长度与 profile 不符必须报错，不能将就"),
+
     ("解析:supported_versions 长度不夹紧", "csrc/tlsfp.c",
      "                    if (n + 1 > elen) n = elen - 1;",
      "                    /* 变异：不夹紧 */",

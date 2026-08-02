@@ -150,6 +150,30 @@ int tlsfp_coherence(const char *ja4, const char *akamai,
  * Lua 侧的 ffi.cdef 里结构体是截断声明，按偏移读后面的字段会读到垃圾。 */
 const char *tlsfp_h2_pseudo(const tlsfp_h2 *h);
 
+/* 调用方提供的 key_share 公钥。真出网**必须**用这个 —— profile 里那把公钥是
+ * 采集当时的，我们没有对应私钥，拿它握手算不出共享密钥；而且一把固定公钥
+ * 反复出现，本身比不伪装还显眼。 */
+typedef struct {
+    uint16_t       group;    /* 0x001d=X25519, 0x11ec=X25519MLKEM768, … */
+    const uint8_t *pub;
+    size_t         pub_len;  /* 必须与 profile 抓到的那一条等长 */
+} tlsfp_keyshare;
+
+/* 重建 ClientHello。
+ *
+ * `ks`/`n_ks` 为空时，key_share 里的公钥**照抄 profile**（采集当时的那把）——
+ * 那只能用于指纹自检与重建闭环，**绝不能拿去真握手**。
+ *
+ * 给了 `ks` 时：分组、顺序、每条长度仍然照 profile 的形状走，只替换公钥内容。
+ * 长度对不上、或某个分组在 profile 里根本没有，一律返回 -1 而**不是**将就 ——
+ * 形状一变就不再是那个浏览器了，静默接受等于悄悄产出一个假指纹。
+ * GREASE 那条不接受注入：按 RFC 8701 它的内容本来就是固定的。 */
+int tlsfp_build_client_hello_ex(const tlsfp_profile *p, const char *sni,
+                                const uint8_t *random32, const uint8_t *session_id,
+                                const tlsfp_keyshare *ks, size_t n_ks,
+                                uint8_t *out, size_t outlen);
+
+/* 等价于 ks=NULL 的 _ex —— 见上面关于"不能拿去真握手"的说明。 */
 int tlsfp_build_client_hello(const tlsfp_profile *p, const char *sni,
                              const uint8_t *random32, const uint8_t *session_id,
                              uint8_t *out, size_t outlen);

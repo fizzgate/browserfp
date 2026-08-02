@@ -458,6 +458,60 @@ static size_t put_u16(uint8_t *p, uint16_t v) {
 int tlsfp_build_client_hello(const tlsfp_profile *p, const char *sni,
                              const uint8_t *random32, const uint8_t *session_id,
                              uint8_t *out, size_t outlen) {
+    return tlsfp_build_client_hello_ex(p, sni, random32, session_id,
+                                       NULL, 0, out, outlen);
+}
+
+/* 按 profile 的 key_share 形状重写公钥。形状（分组/顺序/每条长度）一律照抄，
+   只换内容 —— 少一组、多一组、长度变一位，都不再是那个浏览器。
+   写不下或形状对不上返回 -1。 */
+static int rewrite_key_share(const uint8_t *body, uint16_t blen,
+                             const tlsfp_keyshare *ks, size_t n_ks,
+                             uint8_t *out, uint16_t *outlen) {
+    if (blen < 2) return -1;
+    size_t i = 2, o = 2;
+    while (i + 4 <= blen) {
+        uint16_t g = (uint16_t)((body[i] << 8) | body[i + 1]);
+        uint16_t n = (uint16_t)((body[i + 2] << 8) | body[i + 3]);
+        if (i + 4 + n > blen) return -1;
+        const uint8_t *pub = body + i + 4;
+        if (!tlsfp_is_grease(g)) {
+            for (size_t k = 0; k < n_ks; k++) {
+                if (ks[k].group != g) continue;
+                if (ks[k].pub_len != n) return -1;   /* 长度必须相同 */
+                pub = ks[k].pub;
+                break;
+            }
+        }
+        if (o + 4 + n > 65535) return -1;
+        out[o++] = (uint8_t)(g >> 8); out[o++] = (uint8_t)(g & 0xff);
+        out[o++] = (uint8_t)(n >> 8); out[o++] = (uint8_t)(n & 0xff);
+        memcpy(out + o, pub, n); o += n;
+        i += 4 + n;
+    }
+    if (i != blen) return -1;                        /* 尾部有残渣 */
+    /* **每个给进来的分组都必须在 profile 里存在**。调用方以为注入了、实际
+       被忽略，是最难查的一类错：握手会用一把 profile 里的旧公钥去算共享密钥。 */
+    for (size_t k = 0; k < n_ks; k++) {
+        int found = 0;
+        for (size_t j = 2; j + 4 <= blen; ) {
+            uint16_t g = (uint16_t)((body[j] << 8) | body[j + 1]);
+            uint16_t n = (uint16_t)((body[j + 2] << 8) | body[j + 3]);
+            if (g == ks[k].group) { found = 1; break; }
+            j += 4 + n;
+        }
+        if (!found) return -1;
+    }
+    out[0] = (uint8_t)((o - 2) >> 8);
+    out[1] = (uint8_t)((o - 2) & 0xff);
+    *outlen = (uint16_t)o;
+    return 0;
+}
+
+int tlsfp_build_client_hello_ex(const tlsfp_profile *p, const char *sni,
+                                const uint8_t *random32, const uint8_t *session_id,
+                                const tlsfp_keyshare *ks, size_t n_ks,
+                                uint8_t *out, size_t outlen) {
     if (!p || !out || !p->rawciph || !p->rawext) return -1;
     if (!random32 || (p->session_id_len && !session_id)) return -1;
 
@@ -506,6 +560,19 @@ int tlsfp_build_client_hello(const tlsfp_profile *p, const char *sni,
             ext[e++] = 0x00;
             e += put_u16(ext + e, (uint16_t)n);
             memcpy(ext + e, sni, n); e += n;
+            continue;
+        }
+        if (id == 0x0033 && n_ks) {
+            /* key_share：只换公钥，形状照抄。见 rewrite_key_share 的说明。 */
+            uint8_t tmp[8192];
+            uint16_t tlen = 0;
+            if (blen > sizeof(tmp)) return -1;
+            if (rewrite_key_share(body, blen, ks, n_ks, tmp, &tlen) != 0)
+                return -1;
+            if (e + 4 + tlen > sizeof(ext)) return -1;
+            e += put_u16(ext + e, id);
+            e += put_u16(ext + e, tlen);
+            memcpy(ext + e, tmp, tlen); e += tlen;
             continue;
         }
         if (e + 4 + blen > sizeof(ext)) return -1;
