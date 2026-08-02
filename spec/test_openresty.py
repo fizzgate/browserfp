@@ -30,6 +30,7 @@ import subprocess
 import sys
 import tempfile
 import time
+import urllib.parse
 import urllib.request
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -83,6 +84,22 @@ http {
             }
         }
 
+        location /hdr {
+            content_by_lua_block {
+                local tlsfp = require "tlsfp"
+                tlsfp.load("/app/csrc/libtlsfp.so")
+                local a = ngx.req.get_uri_args()
+                local order, att = tlsfp.header_order(a.brand)
+                local enc = tlsfp.header_value(a.brand, "accept-encoding")
+                local uach = tlsfp.sec_ch_ua(a.brand, tonumber(a.version))
+                local plat, mob = tlsfp.ua_platform(a.ua or "")
+                ngx.say(table.concat(order or {}, ",") .. "\\t"
+                        .. tostring(att) .. "\\t" .. tostring(enc) .. "\\t"
+                        .. tostring(uach) .. "\\t" .. tostring(plat)
+                        .. "\\t" .. tostring(mob))
+            }
+        }
+
         location /client_hello {
             content_by_lua_block {
                 local tlsfp = require "tlsfp"
@@ -111,21 +128,25 @@ def _docker_ok():
 
 def _build_linux_so(workdir):
     """在 gcc 容器里编译 Linux 版 .so —— 本机的 Mach-O 在 Linux 上加载不了。"""
-    for sub in ("csrc", "lua"):
-        shutil.copytree(os.path.join(ROOT, sub), os.path.join(workdir, sub))
+    # gen_profiles.py 需要的全部东西都要带进去，**包括它 import 的 Python 模块**。
+    # 漏一个的表现只有一句"Linux 版 .so 编译失败"，没有更多信息 —— 加
+    # h2table.json 那次是这么撞上的，加头顺序/头取值/sec-ch-ua 那几张表时
+    # 又撞了一次（这回还多了 oracle/ 与 spec/golden/，因为生成器要 import
+    # oracle.headerorder，而它自己又去读 golden）。
+    for sub in ("csrc", "lua", "oracle"):
+        shutil.copytree(os.path.join(ROOT, sub), os.path.join(workdir, sub),
+                        ignore=shutil.ignore_patterns("__pycache__", "go*"))
     os.makedirs(os.path.join(workdir, "spec"), exist_ok=True)
-    # gen_profiles.py 需要的全部数据源都要带进去。漏一个的表现是
-    # "Linux 版 .so 编译失败" 且没有更多信息 —— 加 h2table.json 那次就是
-    # 这么撞上的。
-    for name in ("profiles.json", "h2table.json"):
+    for name in ("profiles.json", "h2table.json", "uach.json"):
         shutil.copy(os.path.join(HERE, name),
                     os.path.join(workdir, "spec", name))
-    shutil.copytree(os.path.join(HERE, "segments"),
-                    os.path.join(workdir, "spec", "segments"))
+    for sub in ("segments", "golden"):
+        shutil.copytree(os.path.join(HERE, sub),
+                        os.path.join(workdir, "spec", sub))
     out = subprocess.run(
         ["docker", "run", "--rm", "-v", f"{workdir}:/w", GCC_IMAGE, "bash", "-c",
          "cd /w/csrc && rm -f *.o *.so *.inc ja4cli uacli lookup_test && "
-         "make libtlsfp.so >/dev/null 2>&1 && file libtlsfp.so"],
+         "(make libtlsfp.so 2>&1 | tail -3) && file libtlsfp.so"],
         capture_output=True, text=True, timeout=600)
     return "ELF" in out.stdout, out.stdout.strip()[:80]
 
@@ -234,6 +255,64 @@ def _check_h2(opener):
     return bad, len(cases)
 
 
+def _check_headers(opener):
+    """四个头层入口也要在真 worker 里验一遍。
+
+    此前它们只在裸 luajit 上跑过，而本项目早有教训：裸 luajit 验得了 FFI
+    语义，验不到平台/ABI 匹配与 nginx worker 内的加载 —— 第一次跑
+    test_openresty 就是撞在 macOS 的 .so 挂进 Linux 容器上。
+
+    这里另外验一件裸 luajit 上也能错、但只有拼起来才看得出的事：
+    `sec_ch_ua` 按 (品牌,版本) 查、`header_order` 按品牌查、`ua_platform`
+    按 UA 推 —— 三个口径必须能拼成一个自洽的请求。
+    """
+    import json as _json
+    from oracle.covscan import TARGETS
+    from oracle.headerorder import order_for, values_for
+    from oracle.uach import platform_hint
+
+    bad, n = [], 0
+    for brand in ("chrome", "chrome-mobile", "firefox", "safari"):
+        ver = 26 if brand.startswith("safari") else 151
+        ua = TARGETS[brand][0].format(v=ver)
+        url = (f"http://127.0.0.1:{PORT}/hdr?brand={brand}&version={ver}"
+               f"&ua={urllib.parse.quote(ua)}")
+        try:
+            line = opener.open(url, timeout=20).read().decode().strip()
+        except Exception as e:
+            bad.append(f"{brand}: 请求失败 {type(e).__name__}")
+            continue
+        parts = line.split("\t")
+        if len(parts) != 6:
+            bad.append(f"{brand}: worker 返回 {line[:70]}")
+            continue
+        got_order, got_att, got_enc, got_uach, got_plat, got_mob = parts
+        n += 1
+
+        want_order, want_att = order_for(brand)
+        if got_order.split(",") != want_order:
+            bad.append(f"{brand}: 头顺序与 Python 不一致")
+        if (got_att == "true") != want_att:
+            bad.append(f"{brand}: 实采背书标记不一致")
+        want_enc = values_for(brand).get("accept-encoding")
+        if got_enc != (want_enc or "nil"):
+            bad.append(f"{brand}: accept-encoding {got_enc!r} != {want_enc!r}")
+        want_plat, want_mob = platform_hint(ua)
+        if got_plat != (want_plat or "nil") or got_mob != (want_mob or "nil"):
+            bad.append(f"{brand}: 平台提示 ({got_plat},{got_mob}) != "
+                       f"({want_plat},{want_mob})")
+
+        # 拼起来必须自洽：Chromium 系有 sec-ch-ua 就必须有平台提示，
+        # 非 Chromium 两者都得没有
+        is_chromium = brand.split("-")[0] in ("chrome", "edge")
+        has_uach = got_uach != "nil"
+        if is_chromium != has_uach:
+            bad.append(f"{brand}: sec-ch-ua {'不该有却有' if has_uach else '该有却没有'}")
+        if has_uach and got_plat == "nil":
+            bad.append(f"{brand}: 有 sec-ch-ua 却推不出平台 —— 拼出来的请求会缺头")
+    return bad, n
+
+
 def main():
     if not _docker_ok():
         print("无 docker，跳过（非失败）", file=sys.stderr)
@@ -298,7 +377,13 @@ def main():
         for b in h2_bad:
             print(f"    ✗ {b}")
 
-        failed = bad or ch_bad or h2_bad
+        hdr_bad, hdr_n = _check_headers(opener)
+        print(f"  头层四入口 {hdr_n - len(hdr_bad)}/{hdr_n} 品牌与 Python 一致"
+              f"（顺序/取值/sec-ch-ua/平台提示）")
+        for b in hdr_bad:
+            print(f"    ✗ {b}")
+
+        failed = bad or ch_bad or h2_bad or hdr_bad
         print(f"\n{'C 模块在生产形态下与 Python 一致' if not failed else '存在分歧'}")
         return 1 if failed else 0
     finally:
