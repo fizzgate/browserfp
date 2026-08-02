@@ -1278,7 +1278,49 @@ Chromium 把整条 ClientHello 塞进一个 Initial，所以这条判据一直�
 
 Safari 仍然没有 —— 它没有等价的强制开关，采集器会明确跳过并说明理由。
 
-### h3 层（HTTP/3 SETTINGS）为什么还是只有 Chromium
+### h3 层：Firefox 采到了，卡点是一条"检测到自装根证书就禁用 h3"的开关
+
+上一轮定位到"卡在 alt-svc 存储就绪时序"，照那条路做完之后又冒出两层，
+每一层的表面症状都是同一句 `未收到 H3 请求头`：
+
+**第一层 —— 探针只服务 UDP。** 加了并行的 TCP/TLS 端，响应带
+`Alt-Svc: h3=":port"`（真站点让浏览器升级 h3 的正规方式，顺带摆脱测试专用
+pref）。日志确认 Firefox 收到并建立了映射：`AltSvcMapping created npnToken=h3`。
+
+**第二层 —— Alt-Svc 只对后续请求生效**，而页面只有一个请求且已在 TCP 上完成。
+补了子资源与一次 meta refresh 触发新导航之后，Firefox 真的开始建 HTTP/3 会话
+（`Http3Session::Init` 出现 35 次）。
+
+**第三层才是真正的墙**，日志写得很清楚：
+
+```
+Http3Session::CallCertVerification
+Http3Session::Authenticated [hasThirdPartyRoots=1, servCertHashesSucceeded=0]
+Http3Session::Close → ConnectionClosed error=804b…
+```
+
+同一张证书在 TCP 上验证是**通过**的。差别在于 Firefox 有一条专门的策略：
+检测到用户自装根证书就禁用 HTTP/3（为躲开中间人设备）。在 `XUL` 里搜 pref 名
+直接找到了它 —— `network.http.http3.disable_when_third_party_roots_found`。
+关掉它，h3 立刻握上手。
+
+采到的结果与 Chromium 明显不同，**连伪头序都不一样**：
+
+```
+chromium   1:65536,6:262144,7:100,51:1                     | m,a,s,p
+firefox    1:65536,7:20,8:1,51:1,16765559:1,727725890:0    | m,s,a,p
+```
+
+（后两个是 GREASE 设置，`test_h3` 的剔除逻辑对它们同样生效。另外注意
+Firefox 的 h3 伪头序 `m,s,a,p` 与它自己的 **h2** 伪头序 `m,p,a,s` 不同 ——
+同一个浏览器，两个协议两套顺序。）
+
+**Safari 仍然没有**：它既没有强制开关，也无法在不污染系统钥匙串的前提下信任
+自签 CA。TCP 那一端对它是现成的，缺的只是证书信任这一步。
+
+这三层每一层的表面症状都一样。只看 `未收到 H3 请求头` 会得出"Firefox 不支持"
+的结论 —— 而真相是三个互不相关的原因叠在一起，**每一层都要靠浏览器自己的日志
+才定位得到**。
 
 QUIC Initial 采到了，**h3 的 SETTINGS 还没有** —— 那一层要完成握手才读得到。
 Firefox 这条卡在哪，已经定位清楚，不是"没试过"：

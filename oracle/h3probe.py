@@ -48,6 +48,80 @@ def h3_fingerprint(settings, pseudo_order):
     return f"{text}|{order}"
 
 
+async def _serve_altsvc_tcp(port, stop):
+    """在**同一个端口号**上起一个 TCP/TLS 端，响应里带 Alt-Svc: h3=":port"。
+
+    这是让浏览器升级到 h3 的**真实途径** —— 真站点就是这么做的。加它的直接
+    原因是 Firefox：它的强制 pref 虽然生效，但 alt-svc 缓存的存储是异步加载的，
+    首个请求发出时还没就绪（日志：`AltSvcCache::LookupMapping … skip when
+    storage is not ready`），于是按普通 https 走 TCP —— 而此前探针只服务 UDP，
+    那条 TCP 直接失败且不会重试。
+
+    Chromium 不需要这条（`--origin-to-force-quic-on` 从第一个请求就强制 QUIC），
+    但有它无害；Safari 没有任何强制开关，**只能**靠 Alt-Svc。
+
+    TCP 与 UDP 的端口号互不冲突，同号是真实部署的常态。
+    """
+    import ssl as _ssl
+    # 浏览器会在拿到 Alt-Svc 后立刻掐断这条 TCP，asyncio 的 SSL 传输层会把
+    # "写到已关闭 fd"当致命错误打一大段栈。那是拆除噪声、不是失败 ——
+    # 采集结果早就拿到了，让它污染输出只会让人误判成出错。
+    asyncio.get_event_loop().set_exception_handler(
+        lambda loop, ctx: None
+        if "SSL" in str(ctx.get("message", "")) or
+           isinstance(ctx.get("exception"), (OSError, ConnectionError))
+        else loop.default_exception_handler(ctx))
+    ctx = _ssl.SSLContext(_ssl.PROTOCOL_TLS_SERVER)
+    ctx.load_cert_chain(CERT, KEY)
+    # 只提供 http/1.1：这一端的唯一职责是把 Alt-Svc 送出去，
+    # 越简单越不会引入自己的握手问题
+    ctx.set_alpn_protocols(["http/1.1"])
+
+    async def handle(reader, writer):
+        # 整个处理体都要兜住异常：浏览器随时可能掐断连接，让它冒到
+        # asyncio 的默认 handler 只会污染输出
+        try:
+            await asyncio.wait_for(reader.read(4096), timeout=5)
+        except Exception:
+            pass
+        # **必须带一个子资源**：Alt-Svc 只对**后续**请求生效，而首个请求已经
+        # 在这条 TCP 上完成了。没有第二个请求，浏览器学到了映射也没机会用 ——
+        # 实测 Firefox 日志里 `AltSvcMapping created npnToken=h3` 建好了，
+        # 却始终没发 h3 请求，就是卡在这里。
+        # 子资源会复用已开的那条 TCP，光有它们不够；再加一次 **新导航**
+        # （meta refresh），新连接才会去查 alt-svc 映射。
+        body = (b"<html><head><meta http-equiv=\"refresh\" content=\"1\">"
+                b"</head><body>ok"
+                b"<img src=\"/a.png\"><img src=\"/b.png\">"
+                b"</body></html>")
+        writer.write(
+            b"HTTP/1.1 200 OK\r\n"
+            b"Content-Type: text/html\r\n"
+            + f"Content-Length: {len(body)}\r\n".encode()
+            + f'Alt-Svc: h3=":{port}"; ma=86400\r\n'.encode()
+            + b"Connection: close\r\n\r\n" + body)
+        try:
+            await writer.drain()
+            writer.close()
+        except Exception:
+            pass
+
+    try:
+        srv = await asyncio.start_server(handle, "127.0.0.1", port, ssl=ctx)
+    except OSError:
+        return                      # 端口被占就算了，Chromium 那条路不依赖它
+    try:
+        await stop.wait()
+    finally:
+        srv.close()
+        # **要等它真的关完**：只 close() 不 wait_closed()，尚未结束的连接
+        # 处理协程会在事件循环关掉之后继续跑，报 "Event loop is closed"。
+        try:
+            await srv.wait_closed()
+        except Exception:
+            pass
+
+
 async def _serve(port, result, done):
     from aioquic.asyncio import QuicConnectionProtocol, serve
     from aioquic.h3.connection import H3Connection
@@ -89,12 +163,20 @@ async def _serve(port, result, done):
     cfg.load_cert_chain(CERT, KEY)
     server = await serve("127.0.0.1", port, configuration=cfg,
                          create_protocol=Proto)
+    # TCP 那一端只负责广播 Alt-Svc，与 QUIC 端并行跑
+    tcp_stop = asyncio.Event()
+    tcp_task = asyncio.create_task(_serve_altsvc_tcp(port, tcp_stop))
     try:
         await asyncio.wait_for(done.wait(), timeout=45)
     except asyncio.TimeoutError:
         pass
     finally:
         server.close()
+        tcp_stop.set()
+        try:
+            await asyncio.wait_for(tcp_task, timeout=5)
+        except Exception:
+            pass
 
 
 def capture(port, launch):

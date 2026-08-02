@@ -112,6 +112,15 @@ def capture_browser_firefox(binary):
         with open(os.path.join(profile, "user.js"), "w") as f:
             f.write(
                 'user_pref("network.http.http3.enable", true);\n'
+                # 默认 Firefox 会先"验证"备用服务再启用，多一轮往返；
+                # 关掉它让映射立即可用
+                'user_pref("network.http.altsvc.validate", false);\n'
+                # **关键的一条**：Firefox 检测到用户自装根证书时会直接禁用
+                # HTTP/3（为躲开中间人设备），日志里那句
+                # `Authenticated [hasThirdPartyRoots=1]` 之后就 Close 了。
+                # 而我们的探针只能用自签 CA —— 不关掉这条，h3 永远握不上手，
+                # 表面症状却是"未收到 H3 请求头"，很容易误判成不支持。
+                'user_pref("network.http.http3.disable_when_third_party_roots_found", false);\n'
                 f'user_pref("network.http.http3.alt-svc-mapping-for-testing",'
                 f' "127.0.0.1;h3=:{p}");\n'
                 'user_pref("browser.shell.checkDefaultBrowser", false);\n'

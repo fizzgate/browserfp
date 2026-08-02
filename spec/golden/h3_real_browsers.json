@@ -25,7 +25,7 @@
     ],
     "settings": {
       "1": 65536,
-      "109968663132": 563659858,
+      "43123740061": 2279865684,
       "51": 1,
       "6": 262144,
       "7": 100
@@ -97,5 +97,37 @@
       "7": 100
     },
     "version": "151.0.4129.59"
+  },
+  "firefox": {
+    "h3_text": "1:65536,7:20,8:1,51:1,16765559:1,727725890:0|m,s,a,p",
+    "has_grease_setting": false,
+    "header_order": [
+      "user-agent",
+      "accept",
+      "accept-language",
+      "accept-encoding",
+      "alt-used",
+      "upgrade-insecure-requests",
+      "sec-fetch-dest",
+      "sec-fetch-mode",
+      "sec-fetch-site",
+      "sec-fetch-user",
+      "priority"
+    ],
+    "pseudo_header_order": [
+      ":method",
+      ":scheme",
+      ":authority",
+      ":path"
+    ],
+    "settings": {
+      "1": 65536,
+      "7": 20,
+      "8": 1,
+      "51": 1,
+      "16765559": 1,
+      "727725890": 0
+    },
+    "version": "153.0.1"
   }
 }
