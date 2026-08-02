@@ -32,6 +32,13 @@ REGISTRY = os.path.join(HERE, "profiles.json")
 DEFAULT_HOSTS = ["cloudflare.com", "example.com"]
 
 
+# 防平凡通过：注册表被截断或读空时，"0/0 组合可用"是打绿勾的 —— 这条是实测
+# 撞出来的：一次后台 --live 恰好跑在把 profiles.json 清空的时段，报了
+# "0/0 组合可用" 并判通过。下限不是棘轮，只回答"比对集是不是还在"。
+MIN_COMBOS = 40
+
+
+
 def try_profile(rec, host, timeout=15):
     """返回 (ok, detail)。h2 缺失的 profile 只验到 TLS 层。"""
     raw = socket.create_connection((host, 443), timeout=timeout)
@@ -165,6 +172,10 @@ def main(argv):
     if tls12:
         print(f"\n跳过的纯 TLS1.2 profile（{len(tls12)}）："
               + " ".join(r["id"] for r in tls12))
+    if total < MIN_COMBOS:
+        print(f"  ✗ 只跑了 {total} 个组合（下限 {MIN_COMBOS}）"
+              f" —— 注册表被截断或读空了？0/0 也是绿的")
+        return 1
     return 1 if failures else 0
 
 
