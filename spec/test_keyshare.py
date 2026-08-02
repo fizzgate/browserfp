@@ -100,7 +100,11 @@ def py_build(rec, bad, why, **kw):
 
 def c_build(pid, inject=None):
     """kscli: 一行 "<profile_id>\\t<group>:<pubhex>,..." → ClientHello 的 hex。"""
-    arg = f"{pid}\t" + ",".join(f"{g:04x}:{p.hex()}" for g, p in (inject or {}).items())
+    # kscli 的输入是**三段**：id / sni / 注入的公钥。改这个契约时忘了回头查
+    # 调用方，本门禁的 C 侧当场变成"70 条全失败"—— 好在它自己就是查这个的。
+    # 改 CLI 的输入格式要先 grep 调用方，别指望"应该没人用"。
+    arg = f"{pid}\t\t" + ",".join(f"{g:04x}:{p.hex()}"
+                                  for g, p in (inject or {}).items())
     r = subprocess.run([KSCLI], input=arg + "\n", capture_output=True,
                        text=True, timeout=60)
     out = r.stdout.strip()

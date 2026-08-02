@@ -1,4 +1,4 @@
-/* 从 stdin 读 "<profile_id>\t<group>:<pubhex>,<group>:<pubhex>…"（第二段可空），
+/* 从 stdin 读 "<profile_id>\t<sni>\t<group>:<pubhex>,…"（后两段可空），
    按 profile 重建 ClientHello 并把注入的 key_share 公钥用上，hex 打到 stdout。
    构造失败（含形状不符、分组不存在）打 "ERR"。
 
@@ -44,10 +44,15 @@ int main(void) {
         *tab = 0;
         const tlsfp_profile *p = by_id(line);
         if (!p) { printf("ERR\n"); fflush(stdout); continue; }
+        char *sni = tab + 1;
+        char *tab2 = strchr(sni, '\t');
+        if (!tab2) { printf("ERR\n"); fflush(stdout); continue; }
+        *tab2 = 0;
+        if (!*sni) sni = NULL;
 
         tlsfp_keyshare ks[MAX_KS];
         size_t n_ks = 0;
-        char *spec = tab + 1, *tok = strtok(spec, ",");
+        char *spec = tab2 + 1, *tok = strtok(spec, ",");
         int bad = 0;
         while (tok && n_ks < MAX_KS) {
             char *colon = strchr(tok, ':');
@@ -63,7 +68,7 @@ int main(void) {
         }
         if (bad) { printf("ERR\n"); fflush(stdout); continue; }
 
-        int n = tlsfp_build_client_hello_ex(p, NULL, rnd, sid,
+        int n = tlsfp_build_client_hello_ex(p, sni, rnd, sid,
                                             n_ks ? ks : NULL, n_ks,
                                             out, sizeof(out));
         if (n < 0) { printf("ERR\n"); fflush(stdout); continue; }

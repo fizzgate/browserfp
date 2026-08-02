@@ -30,12 +30,16 @@ ServerHello 与 `:status`，`test_build_live` 看回的是 ServerHello 还是 Al
 import json
 import os
 import socket
+import subprocess
 import sys
 import time
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from oracle.clienthello import fingerprint, is_grease          # noqa: E402
+
+KSCLI = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                     "csrc", "kscli")
 from oracle.h2client import H2Client                           # noqa: E402
 from oracle.tls13 import TLS13Client                           # noqa: E402
 
@@ -53,6 +57,11 @@ ECHO_PATH = "/api/all"
 # 选取是**确定性**的（按 id 排序后逐引擎轮取），不是随机抽样 —— 随机会让
 # "这次绿了"与"上次绿了"验的不是同一批，覆盖率就成了一个会漂的数字。
 DEFAULT_PER_ENGINE = 5
+
+# C 路径（生产真正发的那份字节）额外再打一遍的条数 —— 每引擎取前 N 条。
+# 不对全部再打一遍，是对公开服务的克制；但**必须覆盖到每个引擎**，
+# 否则"生产那条路"只在一族浏览器上验过。
+C_PATH_PER_ENGINE = 2
 PACE = 2.5
 
 # 这一层能验到几条、覆盖几个引擎，本身要有下限：回显服务挂掉时"0 条全绿"
@@ -187,15 +196,37 @@ def akamai_diff(want, got):
     return None
 
 
-def fetch(profile, h2_profile, host):
-    """按 profile 出网取回显 JSON。返回 (档位, 详情, 我们发的字节)。"""
+def c_hello(pid, sni, pubs):
+    """让 **C 构造器**出 ClientHello，把我们生成的公钥注进去。"""
+    spec = ",".join(f"{g:04x}:{p.hex()}" for g, p in pubs.items())
+    out = subprocess.run([KSCLI], input=f"{pid}\t{sni}\t{spec}\n",
+                         capture_output=True, text=True, timeout=60).stdout.strip()
+    return None if not out or out.startswith("ERR") else bytes.fromhex(out)
+
+
+def fetch(profile, h2_profile, host, pid=None, use_c=False):
+    """按 profile 出网取回显 JSON。返回 (档位, 详情, 我们发的字节)。
+
+    use_c 时**发的是 C 构造器出的字节**，Python 只负责完成握手 —— 生产走的是
+    C 那条路，只验参考实现等于没验到生产。
+    """
     try:
         raw = socket.create_connection((host, 443), timeout=20)
         raw.settimeout(20)
     except Exception as e:
         return NET, f"连不上：{type(e).__name__}", None
     try:
-        conn = TLS13Client(raw, profile, sni=host)
+        if use_c:
+            from oracle.tls13 import TLS13Client as _T
+            probe = _T.__new__(_T)
+            probe.profile, probe.sni = profile, host
+            pubs, privs = probe._gen_shares()
+            hello = c_hello(pid, host, pubs)
+            if hello is None:
+                return NET, "C 构造器出不了这条 profile", None
+            conn = TLS13Client(raw, profile, sni=host, hello=hello, privs=privs)
+        else:
+            conn = TLS13Client(raw, profile, sni=host)
         conn.handshake()
         if conn.negotiated_alpn != "h2":
             return NET, f"没协商出 h2（{conn.negotiated_alpn}）", None
@@ -261,7 +292,7 @@ def main(argv):
           + ("（--all：全部可联网验证的）" if take_all
              else f"（每引擎最多 {DEFAULT_PER_ENGINE} 条；加 --all 跑全部）") + "\n")
     bad, netbad, n = [], [], 0
-    seen_engines = set()
+    seen_engines, peer_seen = set(), {}
     for rec in cases:
         pid = rec["id"]
         time.sleep(PACE)
@@ -276,6 +307,7 @@ def main(argv):
             continue
         n += 1
         seen_engines.add(engine_of(rec))
+        peer_seen[pid] = (data.get("tls") or {}).get("ja4")
 
         ours = fingerprint(sent)
         peer_ja4 = (data.get("tls") or {}).get("ja4")
@@ -312,6 +344,51 @@ def main(argv):
         elif want_ak and peer_ak:
             line.append("h2✅")
         print(f"  {' '.join(line):18s} {pid:16s} {ours['ja4']}")
+
+    # —— 第二档：同一条 profile 再用 **C 构造器出的字节** 打一遍 ——
+    #
+    # 上面那一档验的是参考实现发的字节。生产走的是 C 那条路，两者一旦分叉，
+    # 上面全绿也说明不了生产没问题 —— 本项目已经栽过五次"两份实现悄悄分叉"。
+    # 这里断言的是最直接的性质：**同一条 profile，两条路径在对端眼里是同一个
+    # 指纹**，而且都等于我们自己算的。
+    c_by_engine = {}
+    for rec in cases:
+        c_by_engine.setdefault(engine_of(rec), []).append(rec)
+    c_cases = [r for eng in sorted(c_by_engine)
+               for r in c_by_engine[eng][:C_PATH_PER_ENGINE]]
+    c_ok, c_engines = 0, set()
+    for rec in c_cases:
+        pid = rec["id"]
+        if pid not in peer_seen:
+            continue                     # Python 那档就没验到，无从比较
+        time.sleep(PACE)
+        kind, data, sent = fetch(rec["tls"], rec.get("h2"), host,
+                                 pid=pid, use_c=True)
+        if kind is NET:
+            netbad.append(f"{pid}（C 路径）: {data}")
+            print(f"  ⚠️ C 路径 {pid:16s} {data}")
+            continue
+        c_ok += 1
+        c_engines.add(engine_of(rec))
+        peer_c = (data.get("tls") or {}).get("ja4")
+        ours_c = fingerprint(sent)["ja4"]
+        # 与上一档**用同一套判据**：不一致时按段查 ja4_r，只豁免已知的
+        # padding 分歧。这里第一版直接比哈希，于是含 padding 的四条全报错 ——
+        # 同一个已知分歧在两处各判一次、判法还不同，等于自己给自己造假警报。
+        why = None if peer_c == ours_c else ja4r_diff(data, fingerprint(sent))
+        if why:
+            bad.append(f"{pid}（C 路径）: 对端看到的 JA4 与我们算的不同（{why}）\n"
+                       f"      我们 {ours_c}\n      对端 {peer_c}")
+        elif peer_c != peer_seen[pid]:
+            bad.append(f"{pid}: **C 路径与参考实现在对端眼里不是同一个指纹**\n"
+                       f"      参考实现 {peer_seen[pid]}\n      C 路径   {peer_c}")
+        else:
+            print(f"  C✅              {pid:16s} 与参考实现同一指纹")
+    print(f"\nC 路径（生产发的字节）{c_ok}/{len(c_cases)} 条，"
+          f"覆盖引擎 {sorted(c_engines)}")
+    if c_ok and len(c_engines) < MIN_ENGINES:
+        bad.append(f"C 路径只覆盖了 {sorted(c_engines)} —— "
+                   "生产那条路必须每个引擎都验到")
 
     print(f"\n{n}/{len(cases)} 条完成回显比对，覆盖引擎 {sorted(seen_engines)}")
     for b in bad:

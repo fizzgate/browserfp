@@ -115,7 +115,17 @@ class TLS13Client:
     不绑证书，缺了链校验一样能被 MITM）。
     """
 
-    def __init__(self, sock, profile, sni, verify=False):
+    def __init__(self, sock, profile, sni, verify=False, hello=None, privs=None):
+        """hello/privs 非空时，**用调用方给的 ClientHello 字节上线**。
+
+        这是为了验"生产真正发的那份字节"：C 构造器出的 hello 由本类完成握手，
+        Python 侧只负责密钥调度。不这么做的话，回显门禁验的永远是参考实现那份，
+        而生产发的是 C 那份 —— 本项目已经栽过五次"两份实现悄悄分叉"。
+
+        privs 必须与 hello 里 key_share 的公钥对应，否则算不出共享密钥。
+        """
+        self._hello_override = hello
+        self._privs_override = privs
         self.sock = sock
         self.profile = profile
         self.sni = sni
@@ -152,10 +162,13 @@ class TLS13Client:
         # **按 profile 的 key_share 形状逐组生成真密钥**，而不是只发首选那条。
         # 真机会同时发 GREASE + 后量子混合 + X25519（chrome131 是三条），只发一条
         # 与它自己的 supported_groups 对不上。GREASE 那条由构造器照抄 profile。
-        self._shares, self._privs = self._gen_shares()
+        if self._hello_override is not None:
+            record = self._hello_override
+            self._privs = self._privs_override or {}
+        else:
+            self._shares, self._privs = self._gen_shares()
+            record = self._build_hello(self._shares)
         self._use_mlkem = X25519MLKEM768_GROUP in self._privs
-
-        record = self._build_hello(self._shares)
         # 留一份**实际发出去的字节**。要回答"对端看到的指纹是不是我们想要的"，
         # 就得拿这份去算，而不是拿 profile 里存的值 —— 后者是采集时的，
         # 与本次真正上线的字节之间隔着构造器。
