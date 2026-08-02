@@ -1278,6 +1278,31 @@ Chromium 把整条 ClientHello 塞进一个 Initial，所以这条判据一直�
 
 Safari 仍然没有 —— 它没有等价的强制开关，采集器会明确跳过并说明理由。
 
+### h3 层（HTTP/3 SETTINGS）为什么还是只有 Chromium
+
+QUIC Initial 采到了，**h3 的 SETTINGS 还没有** —— 那一层要完成握手才读得到。
+Firefox 这条卡在哪，已经定位清楚，不是"没试过"：
+
+两件准备工作都做对了 —— pref 确实生效（MOZ_LOG 里看得到
+`AltSvcMapping ctor … npnToken=h3` 建出来了），CA 也用 certutil 装进了 profile
+证书库（要装 **`ca.pem`** 不是 `fullchain.pem`，后者第一张是叶证书，装成叶再标
+`CT,,` 语义就错了）。卡在第三件事：
+
+```
+AltSvcCache::LookupMapping … skip when storage is not ready
+```
+
+alt-svc 缓存的存储是异步加载的，**首个请求发出时还没就绪**，于是 Firefox 按普通
+https 走 TCP —— 而探针只服务 UDP，那条 TCP 直接失败且不会重试。Chromium 没这
+问题：`--origin-to-force-quic-on` 从第一个请求就强制 QUIC，根本不查 alt-svc 缓存。
+
+往下走的路很明确：让探针**同时起一个 TCP/TLS 端**，在响应里带
+`Alt-Svc: h3=":port"` —— 那才是真实站点让浏览器升级到 h3 的方式，顺带还能摆脱
+这个测试专用 pref。工作量在 `h3probe` 那边。
+
+**结论写进代码而不是留一句"不支持"**：下一个人接手时该看到的是"卡在
+alt-svc 存储就绪时序，路在 h3probe 加 TCP 端"，而不是重新试一遍 pref。
+
 ## 关键方法论
 
 **干净克隆要单独验。** 开发机上攒着两类不进版本控制的东西 —— `spec/cache/`

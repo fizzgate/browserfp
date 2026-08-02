@@ -21,6 +21,12 @@ from oracle.browsers import discover                          # noqa: E402
 from oracle.goldenio import write_golden                      # noqa: E402
 from oracle.h3probe import CERT, capture                      # noqa: E402
 
+# Firefox 要装的是**签发者 CA**，不是叶证书。fullchain.pem 的第一张是叶
+# （CN=localhost），certutil -A 只吃第一张 —— 装成叶再标 "C,,"（受信 CA）
+# 语义就错了，Firefox 照样不认，表现是"未收到 H3 请求头"，看着像它不支持 h3。
+CA_CERT = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                       "..", "spec", "certs", "ca.pem")
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 OUT = os.path.join(HERE, "..", "spec", "golden", "h3_real_browsers.json")
 
@@ -63,18 +69,77 @@ def capture_browser(binary, pin):
         shutil.rmtree(profile, ignore_errors=True)
 
 
+def capture_browser_firefox(binary):
+    """Firefox 的 h3 采集 —— **目前拿不到，原因已定位，不是"没试过"**。
+
+    两件准备工作都做对了：
+      · pref `network.http.http3.alt-svc-mapping-for-testing` 确实生效，
+        MOZ_LOG 里能看到 `AltSvcMapping ctor … npnToken=h3` 建出来了
+      · CA 用 certutil 装进 profile 证书库（要装 **ca.pem** 不是 fullchain.pem，
+        后者第一张是叶证书，装成叶再标 "CT,," 语义就错了）
+
+    卡在第三件事上，日志里写得很清楚：
+
+        AltSvcCache::LookupMapping … skip when storage is not ready
+
+    alt-svc 缓存的存储是异步加载的，**首个请求发出时还没就绪**，于是 Firefox
+    按普通 https 走 TCP —— 而本探针只服务 UDP，那条 TCP 直接失败且不会重试。
+    Chromium 没这问题：`--origin-to-force-quic-on` 从第一个请求就强制 QUIC，
+    根本不查 alt-svc 缓存。
+
+    往下走的路是让探针**同时起一个 TCP/TLS 端**，在响应里带
+    `Alt-Svc: h3=":port"` —— 那才是真实站点让浏览器升级到 h3 的方式，还能顺带
+    摆脱这个测试专用 pref。工作量在 h3probe 那边，本函数先保留并如实报错。
+
+    注意：QUIC **Initial** 那一层不受影响，已经采到了（见 oracle/quiccollect.py）
+    —— 那条是旁路观测，不需要完成握手。
+    """
+    if not shutil.which("certutil"):
+        raise RuntimeError("缺 certutil（brew install nss）—— Firefox 的 h3 采集"
+                           "要往 profile 证书库装 CA，没有它做不到")
+    profile = tempfile.mkdtemp(prefix="tlsfp-h3-ff-")
+    # **端口要先定下来**：capture(port, launch) 把 port 原样传给 launch，
+    # 传 0 的话 pref 里写的是 h3=:0、URL 也是 :0，浏览器根本连不上，
+    # 表现是"未收到 H3 请求头"，看着像 Firefox 不支持。
+    port = _free_udp_port()
+    subprocess.run(["certutil", "-N", "--empty-password", "-d", f"sql:{profile}"],
+                   capture_output=True, timeout=60, check=True)
+    subprocess.run(["certutil", "-A", "-n", "tlsfp-ca", "-t", "CT,,", "-i",
+                    CA_CERT, "-d", f"sql:{profile}"], capture_output=True,
+                   timeout=60, check=True)
+
+    def launch(p):
+        with open(os.path.join(profile, "user.js"), "w") as f:
+            f.write(
+                'user_pref("network.http.http3.enable", true);\n'
+                f'user_pref("network.http.http3.alt-svc-mapping-for-testing",'
+                f' "127.0.0.1;h3=:{p}");\n'
+                'user_pref("browser.shell.checkDefaultBrowser", false);\n'
+                'user_pref("browser.startup.homepage_override.mstone", "ignore");\n')
+        return subprocess.Popen(
+            [binary, "--headless", "-profile", profile, "-no-remote",
+             f"https://127.0.0.1:{p}/"],
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+    try:
+        return capture(port, launch)
+    finally:
+        shutil.rmtree(profile, ignore_errors=True)
+
+
 def main(argv):
     wanted = set(argv[1:]) or None
     pin = spki_pin()
     out, failed = {}, []
     for name, engine, binary, version in discover():
-        if engine != "chromium":
-            print(f"  {name:10s} 跳过（{engine} 需 about:config 开 h3）")
+        if engine not in ("chromium", "firefox"):
+            print(f"  {name:10s} 跳过（{engine} 没有强制走 h3 的开关）")
             continue
         if wanted and name not in wanted:
             continue
         try:
-            r = capture_browser(binary, pin)
+            r = (capture_browser_firefox(binary) if engine == "firefox"
+                 else capture_browser(binary, pin))
             r["version"] = version
             out[name] = r
             print(f"  {name:10s} {version:20s} {r['h3_text']}")
