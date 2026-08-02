@@ -90,6 +90,12 @@ MUTANTS = [
      ["test_keyshare", "test_build_parity"],
      "padding 要按实际长度补齐到 512，超过就不发（照抄会多一个扩展）"),
 
+    ("发货路径:C 默认改回重建口径", "csrc/tlsfp.c",
+     "                                       NULL, 0, 0, out, outlen);",
+     "                                       NULL, 0, TLSFP_BUILD_VERBATIM, out, outlen);",
+     ["test_variation"],
+     "plain 名必须是出网口径 —— Lua 绑定用的正是它，改回去七处修复在生产上全死"),
+
     ("GREASE:退回固定值", "oracle/chbuild.py",
      "    if verbatim:\n        return None",
      "    if True:\n        return None",

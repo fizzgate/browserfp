@@ -28,8 +28,10 @@ webkit     0x0a 0x2b 0x33 在变、GREASE 每次换，**不发 ECH**
 
 import json
 import os
+import shutil
 import subprocess
 import sys
+import tempfile
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -52,11 +54,14 @@ ROUNDS = 8
 # **GREASE 在不在**：Gecko 那条要求一个 GREASE 都没有。
 EXPECT = {
     "chromium": {"profile": "curl_cffi:chrome119",
-                 "must_vary": {0x0033, 0xFE0D}, "grease": True},
+                 "must_vary": {0x0033, 0xFE0D}, "grease": True,
+                 "ua": ("chrome", 119)},
     "gecko":    {"profile": "real:firefox",
-                 "must_vary": {0x0033, 0xFE0D}, "grease": False},
+                 "must_vary": {0x0033, 0xFE0D}, "grease": False,
+                 "ua": ("firefox", 135)},
     "webkit":   {"profile": "real:safari",
-                 "must_vary": {0x000A, 0x002B, 0x0033}, "grease": True},
+                 "must_vary": {0x000A, 0x002B, 0x0033}, "grease": True,
+                 "ua": ("safari", 26)},
 }
 
 
@@ -97,6 +102,58 @@ def observe_c(pid, rounds=ROUNDS):
     varying = {int(k) for k in keys
                if len({c["extension_bodies"].get(k) for c in outs}) > 1}
     return varying, {tuple(c["raw_extensions"]) for c in outs}
+
+
+LUA_SNIPPET = """
+package.path = "%s/lua/?.lua;" .. package.path
+local t = require "tlsfp"
+t.load("%s")
+for i = 1, %d do
+  local rec = t.client_hello("%s", %d, "example.com")
+  if not rec then print("ERR"); os.exit(1) end
+  print((rec:gsub('.', function(c) return string.format('%%02x', c:byte()) end)))
+end
+"""
+
+
+def observe_lua(brand, version, rounds=ROUNDS):
+    """走 **Lua FFI**（生产真正调的那层）看同样的性质。
+
+    C CLI 与 Lua 之间还能再分叉一次：参数传错、绑定漏字段、走了另一个签名。
+    上一处缺陷（七处修复在生产路径上全是死的）就是**手动去戳 Lua** 才发现的 ——
+    当时 C CLI 那档已经在变了，因为它走的是另一个入口。
+
+    没有 luajit 时返回 None（跳过，不冒充通过）。
+    """
+    lua = shutil.which("luajit") or shutil.which("resty")
+    if not lua:
+        return None
+    lib = os.path.join(ROOT, "csrc", "libtlsfp.so")
+    if not os.path.exists(lib):
+        return None
+    with tempfile.NamedTemporaryFile("w", suffix=".lua", delete=False) as f:
+        f.write(LUA_SNIPPET % (ROOT, lib, rounds, brand, version))
+        script = f.name
+    try:
+        out = subprocess.run([lua, script], capture_output=True, text=True,
+                             timeout=120, cwd=ROOT)
+    finally:
+        os.unlink(script)
+    caps = []
+    for line in out.stdout.split():
+        if len(line) > 100:
+            try:
+                caps.append(parse_client_hello(bytes.fromhex(line)))
+            except Exception:
+                pass
+    if not caps:
+        return None
+    keys = set()
+    for c in caps:
+        keys |= set(c["extension_bodies"])
+    varying = {int(k) for k in keys
+               if len({c["extension_bodies"].get(k) for c in caps}) > 1}
+    return varying, {tuple(c["raw_extensions"]) for c in caps}, len(caps)
 
 
 def main():
@@ -163,6 +220,30 @@ def main():
                            "一样 —— GREASE 没在换")
             print(f"  发货路径 {engine:9s} 变={sorted(hex(x) for x in varying & spec['must_vary'])} "
                   f"序列种类={len(seqs)}/{ROUNDS}")
+
+    # —— Lua（生产真正调的那层）——
+    for engine, spec in sorted(EXPECT.items()):
+        ua = spec.get("ua")
+        if not ua:
+            continue
+        got = observe_lua(*ua)
+        if got is None:
+            print(f"  ？ Lua {engine}: 缺 luajit 或 libtlsfp.so，跳过（非通过）")
+            continue
+        varying, seqs, n = got
+        missing = spec["must_vary"] - {0x0033} - varying
+        if missing:
+            bad.append(f"{engine} 的 **Lua 路径**: "
+                       f"{[hex(x) for x in sorted(missing)]} 每次都一样 —— "
+                       "C CLI 在变而 Lua 不变，说明绑定走了另一个入口")
+        if spec["grease"] and len(seqs) < 2:
+            bad.append(f"{engine} 的 **Lua 路径**: {n} 次的扩展序列完全一样 —— "
+                       "GREASE 没在换")
+        if not spec["grease"] and len(seqs) != 1:
+            bad.append(f"{engine} 的 **Lua 路径**: 扩展序列有 {len(seqs)} 种 —— "
+                       "这个栈的序列应当恒定")
+        print(f"  Lua 路径 {engine:9s} 变={sorted(hex(x) for x in varying & spec['must_vary'])} "
+              f"序列种类={len(seqs)}/{n}")
 
     if len(EXPECT) < 3:
         bad.append(f"只覆盖了 {len(EXPECT)} 个引擎 —— 差一个不扫，"
