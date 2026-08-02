@@ -11,6 +11,7 @@ import copy
 import json
 import os
 import subprocess
+import shutil
 import socket
 import sys
 import time
@@ -90,7 +91,18 @@ def t_padding_tolerated(m):
 def t_real_hrr_identified(m):
     """端到端：真触发一次 HelloRetryRequest，第二个 ClientHello 必须能识别。"""
     if not os.path.exists(HRRSERVER):
-        return False, "缺 hrrserver，先 go build -o hrrserver/hrrserver ./hrrserver"
+        # 缺二进制先试着现场编 —— 有 Go 环境就别让人手工跑一遍
+        if shutil.which("go"):
+            subprocess.run(["go", "build", "-o", "hrrserver/hrrserver",
+                            "./hrrserver"],
+                           cwd=os.path.join(ROOT, "oracle", "gotls"),
+                           capture_output=True, timeout=300)
+    if not os.path.exists(HRRSERVER):
+        # **跳过而不是失败**，但要明说没验到。这条要一个 Go 二进制，而
+        # 干净克隆里既没有产物也未必有 Go —— 判失败的话，这条门禁在那种
+        # 环境里永远是红的，很快就会被无视（与"无 docker 跳过"同一口径）。
+        return None, ("跳过：缺 hrrserver 且本机没有 go —— "
+                      "有 Go 的话跑 go build -o hrrserver/hrrserver ./hrrserver")
     s = socket.socket()
     s.bind(("127.0.0.1", 0))
     port = s.getsockname()[1]
@@ -136,15 +148,27 @@ def main():
         ("容忍 padding", t_padding_tolerated),
         ("真实 HRR 端到端", t_real_hrr_identified),
     ]
-    failed = 0
+    failed = skipped = 0
     for name, fn in tests:
         try:
             ok, detail = fn(m)
         except Exception as e:
             ok, detail = False, f"{type(e).__name__}: {e}"
-        print(f"  {'✅' if ok else '❌'} {name:28s} {detail}")
-        failed += 0 if ok else 1
-    print(f"\n{len(tests) - failed}/{len(tests)} 通过")
+        # ok 为 None 表示"跳过"：既不算通过也不算失败，但必须显示出来 ——
+        # 悄悄跳过等于假绿。
+        mark = "？" if ok is None else ("✅" if ok else "❌")
+        print(f"  {mark} {name:28s} {detail}")
+        if ok is None:
+            skipped += 1
+        elif not ok:
+            failed += 1
+    ran = len(tests) - skipped
+    print(f"\n{ran - failed}/{ran} 通过"
+          + (f"，{skipped} 项跳过（环境不具备，非失败）" if skipped else ""))
+    # 全跳过就不是通过 —— 那说明这台机器什么都没验到
+    if ran == 0:
+        print("  ✗ 一项都没跑到")
+        return 1
     return 1 if failed else 0
 
 

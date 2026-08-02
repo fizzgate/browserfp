@@ -64,12 +64,21 @@ def main():
                            f"      库 {sorted(fps)}")
             conflict += 1
 
-    # 1) 与判据同步。重算要联网取源码，取不到就跳过而不是判错。
+    # 1) 与判据同步。重算要联网取源码 —— **缓存是冷的就直接跳过**，别硬跑：
+    # 冷缓存下要为 650 个版本逐个取源，干净克隆里实测是**超时挂死**（退出码
+    # 124）而不是优雅失败。try/except 拦得住异常，拦不住慢。
     resynced = skipped = 0
     drift = []
-    try:
+    cache = os.path.join(os.path.dirname(HERE), "spec", "cache", "chromium")
+    if not os.path.isdir(cache) or len(os.listdir(cache)) < 10:
+        fresh = None
+        skipped = 1
+        print("  ？ 判据重算跳过：源码缓存是冷的（spec/cache/chromium）。"
+              "这条要联网逐版本取源，冷跑会很久 —— 先跑一次带网的采集再来。")
+    else:
+      try:
         fresh = build()
-    except Exception as e:
+      except Exception as e:
         fresh = None
         skipped = 1
         print(f"  ？ 判据重算跳过（{type(e).__name__}: {str(e)[:60]}）")

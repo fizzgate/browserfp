@@ -6,7 +6,7 @@ LDFLAGS ?= -L$(OPENSSL_PREFIX)/lib -lcrypto
 # **每个门禁用到的二进制都必须在 all 里**。uacli / lookup_test 曾经不在，
 # 结果 `make` 从不重建它们，门禁跑的是上一次手工编译的陈旧二进制——改了
 # tlsfp.c 的行为，门禁却报旧行为，既能假绿也能假红。
-all: ja4cli uacli lookup_test buildcli h2cli hdrcli uachcli platcli idcli cohcli libtlsfp.so
+all: ja4cli uacli lookup_test buildcli h2cli hdrcli uachcli platcli idcli cohcli snitest libtlsfp.so
 
 # **改了数据源就用 `make regen`，别手工 rm profiles.inc**。实测两次踩同一个坑：
 # 手工删掉 inc 再 make，重建出来的仍是旧内容（wildcard 在 make 启动时求值，
@@ -59,10 +59,15 @@ idcli: tlsfp.o idcli.c
 cohcli: tlsfp.o cohcli.c
 	$(CC) $(CFLAGS) -o $@ cohcli.c tlsfp.o $(LDFLAGS)
 
+# snitest 一直没有规则 —— 本机上它是早年手工编出来的，所以没人发现；
+# 干净克隆里 test_build_parity 的"SNI 插入生效"那一项直接失败。
+snitest: tlsfp.o snitest.c
+	$(CC) $(CFLAGS) -o $@ snitest.c tlsfp.o $(LDFLAGS)
+
 lookup_test: tlsfp.o lookup_test.c
 	$(CC) $(CFLAGS) -o $@ lookup_test.c tlsfp.o $(LDFLAGS)
 
 clean:
-	rm -f *.o ja4cli uacli lookup_test buildcli h2cli hdrcli uachcli platcli idcli cohcli libtlsfp.so profiles.inc
+	rm -f *.o ja4cli uacli lookup_test buildcli h2cli hdrcli uachcli platcli idcli cohcli snitest libtlsfp.so profiles.inc
 
 .PHONY: all clean
