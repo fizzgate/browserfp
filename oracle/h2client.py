@@ -13,6 +13,7 @@ import struct
 PREFACE = b"PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n"
 
 FRAME_DATA, FRAME_HEADERS, FRAME_SETTINGS = 0x0, 0x1, 0x4
+FRAME_PRIORITY = 0x2
 FRAME_WINDOW_UPDATE, FRAME_GOAWAY, FRAME_RST = 0x8, 0x7, 0x3
 
 FLAG_END_STREAM, FLAG_END_HEADERS = 0x1, 0x4
@@ -46,6 +47,16 @@ class H2Client:
         wu = self.profile.get("window_update")
         if wu:
             out += _frame(FRAME_WINDOW_UPDATE, 0, 0, struct.pack(">I", wu))
+        # **PRIORITY 帧也要发**。Firefox 开场发 6 条分组帧，它们进 akamai 指纹的
+        # 第三段；本客户端此前一条都不发，于是对端看到的是 `…|0|…` 而 profile 里
+        # 写着 `…|3:0:0:201|5:0:0:101|…` —— 端到端一直是绿的，因为那些门禁只看
+        # ServerHello 与 :status，没有一条去问"对端看到的 h2 指纹是什么"。
+        # C 侧的 tlsfp_build_h2_preface 一直在发，又是一处两份实现的分叉。
+        for pr in (self.profile.get("priorities") or []):
+            sid, dep, excl, weight = pr
+            out += _frame(FRAME_PRIORITY, 0, sid,
+                          struct.pack(">IB", (dep | (0x80000000 if excl else 0)),
+                                      weight))
         self.conn.send(out)
         return self
 

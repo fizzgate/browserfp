@@ -35,7 +35,7 @@ import time
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from oracle.clienthello import fingerprint                     # noqa: E402
+from oracle.clienthello import fingerprint, is_grease          # noqa: E402
 from oracle.h2client import H2Client                           # noqa: E402
 from oracle.tls13 import TLS13Client                           # noqa: E402
 
@@ -46,25 +46,145 @@ REGISTRY = os.path.join(HERE, "profiles.json")
 # 换服务时只要它回同样的字段名即可 —— 判据是"第三方怎么算"，不绑定某一家。
 ECHO_HOST = "tls.peet.ws"
 ECHO_PATH = "/api/all"
-PACE = 3.0
 
-# 每个引擎挑一条有代表性的，全部是 initial 态（恢复态没有有效票据，验不了）
-CASES = ("real:chromium", "real:firefox", "real:safari")
+# 覆盖面与"别把公开服务打爆"之间的取舍：默认取**跨引擎铺开**的一批，
+# 加 --all 才把全部可联网验证的 profile 跑一遍。
+#
+# 选取是**确定性**的（按 id 排序后逐引擎轮取），不是随机抽样 —— 随机会让
+# "这次绿了"与"上次绿了"验的不是同一批，覆盖率就成了一个会漂的数字。
+DEFAULT_PER_ENGINE = 5
+PACE = 2.5
+
+# 这一层能验到几条、覆盖几个引擎，本身要有下限：回显服务挂掉时"0 条全绿"
+# 看着也像通过。
+MIN_VERIFIED = 8
+MIN_ENGINES = 3
+
+
+def engine_of(rec):
+    """按 profile 的别名判引擎 —— 与覆盖率报告同一口径。"""
+    names = " ".join([rec["id"]] + list(rec.get("aliases") or [])).lower()
+    if "firefox" in names or "tor" in names:
+        return "gecko"
+    if "safari" in names or "ios" in names:
+        return "webkit"
+    if any(k in names for k in ("chrome", "chromium", "edge", "opera")):
+        return "chromium"
+    return "其它"
+
+
+def pick(registry, take_all=False):
+    """挑可联网验证的 profile。跳过的四类与 test_live_handshake 同一套判据。"""
+    KYBER, MLKEM = 0x6399, 0x11EC
+    ok = []
+    for rec in registry:
+        tls = rec["tls"]
+        if not rec.get("h2"):
+            continue                       # 只有 TLS 层，验不了 h2 那一路
+        if not rec.get("default_config", True):
+            continue
+        if 0x0029 in (tls.get("raw_extensions") or []):
+            continue                       # 会话恢复态：没有有效票据
+        if "quic" in rec["id"].lower():
+            continue
+        if 0x0304 not in (tls.get("supported_versions") or []):
+            continue                       # 纯 TLS1.2，参考实现只做 1.3
+        curves = tls.get("curves") or []
+        if KYBER in curves and MLKEM not in curves:
+            continue                       # 参考实现做不了这个密钥交换
+        ok.append(rec)
+    ok.sort(key=lambda r: r["id"])
+    if take_all:
+        return ok
+    by_engine = {}
+    for rec in ok:
+        by_engine.setdefault(engine_of(rec), []).append(rec)
+    out = []
+    for eng in sorted(by_engine):
+        out += by_engine[eng][:DEFAULT_PER_ENGINE]
+    return out
 
 OK, MISMATCH, NET = "ok", "mismatch", "net"
 
 
-def norm_akamai(fp):
-    """akamai 指纹的 SETTINGS 段有两种记法，比之前必须归一。
+# **已知的实现分歧，逐条写明，不做笼统忽略。**
+#
+# 回显服务把 padding 扩展（0x0015）计入扩展**数量**，却不放进 ja4_c 的哈希列表。
+# FoxIO 的规范只说排除 SNI(0x0000) 与 ALPN(0x0010)，没提 padding —— 也就是说
+# **我们按规范做，回显服务偏离了规范**（`test_ja4_vectors` 用官方向量验过我们）。
+#
+# 这对伪装本身**无害**：我们发的字节与真浏览器相同，任何一个确定性实现算两边都
+# 会得到同一个值。它只影响"拿我们表里的 ja4 去比对某个公开库"这种用法。
+#
+# 实测对应关系是干净的：4 条不符的 profile 全部含 0x0015，3 条通过的全部不含。
+# 所以这里按段比 ja4_r，并且**只**豁免这一处、还要断言豁免之后确实一致 ——
+# 笼统地"忽略第三段"会把真差异一起放过。
+PEER_EXCLUDES_FROM_JA4C = {0x0015}
 
-    实测：`tls.peet.ws` 用分号 `2:0;3:100;4:2097152`，而本项目与语料里的三家库
-    （curl_cffi / tls_client / wreq）都用逗号。**数值逐项相同**，只是记法不同 ——
-    不归一就会把它报成"对端看到的与 profile 不同"，那是假警报，而且是最容易让人
-    去改实现的那种假警报（明明是对的，看着像错的）。
 
-    只归一分隔符，不动数值与顺序 —— 顺序是指纹的一部分，排序会把真差异抹掉。
+def parse_akamai(fp, peer):
+    """akamai 指纹 → 结构化四段，把**记法差异**在这里吸收掉。
+
+    实测与回显服务有三处记法分歧，逐条建模而不是笼统忽略：
+
+      分隔符    对端 `2:0;3:100`，我们与三家库 `2:0,3:100`
+      权重      对端报**有效权重**，我们与三家库存**线上字节** —— RFC 7540 说
+                线上值加一才是权重，所以对端恒比我们大 1（实测 6 条全部 +1）
+      未知设置  对端把设置 id 8 渲染成空（`;:1;`），数值仍在
+
+    每一处都窄：只吸收这三种，其余差异照报。笼统地"两边都排序后比集合"会把
+    顺序差异抹掉，而顺序本身就是指纹。
     """
-    return fp.replace(";", ",") if isinstance(fp, str) else fp
+    if not isinstance(fp, str):
+        return None
+    # **多条 PRIORITY 之间，我们与三家库用 `|`，对端用 `,`** —— 于是同一个指纹
+    # 在我们这边会被切成 4 段以上。按"首二段 + 末段固定，中间全是 PRIORITY"解，
+    # 而不是要求恰好 4 段（第一版就是这么写的，firefox-111 直接报"解析不了"）。
+    parts = fp.split("|")
+    if len(parts) < 4:
+        return None
+    st_raw, win, pseudo = parts[0], parts[1], parts[-1]
+    pri_raw = ",".join(parts[2:-1])
+
+    settings = []
+    for i, item in enumerate(st_raw.replace(";", ",").split(",")):
+        if not item:
+            continue
+        k, _, v = item.partition(":")
+        settings.append((k.strip() or None, v))     # 空 id 记成 None
+
+    prios = []
+    for item in pri_raw.replace("|", ",").split(","):
+        if not item or item == "0":
+            continue
+        f = item.split(":")
+        if len(f) != 4:
+            return None
+        sid, excl, dep, w = f
+        w = int(w) - 1 if peer else int(w)          # 对端报有效权重
+        prios.append((sid, excl, dep, w))
+    return settings, win, prios, pseudo
+
+
+def akamai_diff(want, got):
+    """profile 的 akamai 与对端看到的比。相同返回 None。"""
+    a, b = parse_akamai(want, peer=False), parse_akamai(got, peer=True)
+    if a is None or b is None:
+        return f"解析不了：profile={want!r} 对端={got!r}"
+    if len(a[0]) != len(b[0]):
+        return f"SETTINGS 条数不同：{a[0]} vs {b[0]}"
+    for (ka, va), (kb, vb) in zip(a[0], b[0]):
+        if va != vb:
+            return f"SETTINGS 取值不同：{ka}:{va} vs {kb}:{vb}"
+        if kb is not None and ka != kb:
+            return f"SETTINGS id 不同：{ka} vs {kb}"
+    if a[1] != b[1]:
+        return f"WINDOW_UPDATE 不同：{a[1]} vs {b[1]}"
+    if a[2] != b[2]:
+        return f"PRIORITY 不同（已按 RFC 7540 扣回线上值）：{a[2]} vs {b[2]}"
+    if a[3] != b[3]:
+        return f"伪头序不同：{a[3]} vs {b[3]}"
+    return None
 
 
 def fetch(profile, h2_profile, host):
@@ -97,19 +217,53 @@ def fetch(profile, h2_profile, host):
             pass
 
 
+def ja4r_diff(data, ours):
+    """对端的 ja4_r 与我们逐段比。只差已知分歧返回 None，否则返回差异描述。
+
+    ja4_r 是 `t13d2613h2_<ciphers>_<extensions>_<sigalgs>` 四段。**别按下划线
+    切两刀**：第一版切错段位，把扩展列表当成签名算法比，得出的差异完全是假的。
+    """
+    pr = (data.get("tls") or {}).get("ja4_r") or ""
+    parts = pr.split("_")
+    if len(parts) != 4:
+        return f"回显的 ja4_r 不是四段：{pr[:60]}"
+    _, p_ciph, p_ext, p_sig = parts
+
+    o_ciph = ",".join(f"{c:04x}" for c in sorted(
+        c for c in ours["raw_ciphers"] if not is_grease(c)))
+    o_ext = sorted(e for e in ours["raw_extensions"]
+                   if not is_grease(e) and e not in (0x0000, 0x0010))
+    o_sig = ",".join(f"{x:04x}" for x in ours["sig_algs"])
+
+    if p_ciph != o_ciph:
+        return f"密码套件不同：对端 {p_ciph[:50]}… 我们 {o_ciph[:50]}…"
+    if p_sig != o_sig:
+        return f"签名算法不同：对端 {p_sig[:50]}… 我们 {o_sig[:50]}…"
+    if ",".join(f"{e:04x}" for e in o_ext) == p_ext:
+        return "三段都相同却哈希不同 —— 哈希算法本身有问题"
+    trimmed = [e for e in o_ext if e not in PEER_EXCLUDES_FROM_JA4C]
+    if ",".join(f"{e:04x}" for e in trimmed) == p_ext:
+        return None                      # 只差已知的 padding 分歧
+    return (f"扩展列表不同（已扣除 padding 仍不同）：\n"
+            f"      对端 {p_ext}\n      我们 {','.join(f'{e:04x}' for e in o_ext)}")
+
+
 def main(argv):
-    host = argv[1] if len(argv) > 1 else ECHO_HOST
+    args = [a for a in argv[1:] if not a.startswith("--")]
+    take_all = "--all" in argv
+    host = args[0] if args else ECHO_HOST
     with open(REGISTRY) as f:
         registry = json.load(f)
-    by_id = {r["id"]: r for r in registry}
+    cases = pick(registry, take_all)
 
-    print(f"回显服务 {host}{ECHO_PATH}\n")
+    print(f"回显服务 {host}{ECHO_PATH}")
+    print(f"比对 {len(cases)} 条 profile"
+          + ("（--all：全部可联网验证的）" if take_all
+             else f"（每引擎最多 {DEFAULT_PER_ENGINE} 条；加 --all 跑全部）") + "\n")
     bad, netbad, n = [], [], 0
-    for pid in CASES:
-        rec = by_id.get(pid)
-        if not rec:
-            bad.append(f"{pid}: 注册表里没有这条 profile")
-            continue
+    seen_engines = set()
+    for rec in cases:
+        pid = rec["id"]
         time.sleep(PACE)
         kind, data, sent = fetch(rec["tls"], rec.get("h2"), host)
         if kind is NET:
@@ -121,6 +275,7 @@ def main(argv):
             print(f"  ⚠️ {pid:16s} {data}")
             continue
         n += 1
+        seen_engines.add(engine_of(rec))
 
         ours = fingerprint(sent)
         peer_ja4 = (data.get("tls") or {}).get("ja4")
@@ -129,12 +284,18 @@ def main(argv):
         peer_ak = (data.get("http2") or {}).get("akamai_fingerprint")
 
         line = []
-        if peer_ja4 != ours["ja4"]:
-            bad.append(f"{pid}: 对端看到的 JA4 与我们算的不同\n"
-                       f"      我们 {ours['ja4']}\n      对端 {peer_ja4}")
-            line.append("JA4✗")
-        else:
+        if peer_ja4 == ours["ja4"]:
             line.append("JA4✅")
+        else:
+            # 不一致时**按段查**，别停在"哈希不同"上 —— 哈希只说明有差异，
+            # 说不出差在哪，而差在哪决定了它是缺陷还是实现分歧。
+            why = ja4r_diff(data, ours)
+            if why is None:
+                line.append("JA4✅*")     # 只差已知的 padding 分歧
+            else:
+                bad.append(f"{pid}: 对端看到的 JA4 与我们算的不同（{why}）\n"
+                           f"      我们 {ours['ja4']}\n      对端 {peer_ja4}")
+                line.append("JA4✗")
         if peer_ja3 and peer_ja3 not in (ours["ja3"], ours["ja3_hash"]):
             bad.append(f"{pid}: 对端看到的 JA3 与我们算的不同\n"
                        f"      我们 {ours['ja3_hash']}\n      对端 {peer_ja3}")
@@ -142,16 +303,17 @@ def main(argv):
         elif peer_ja3:
             line.append("JA3✅")
         want_ak = (rec.get("h2") or {}).get("akamai_fingerprint")
-        if want_ak and peer_ak and norm_akamai(peer_ak) != norm_akamai(want_ak):
-            bad.append(f"{pid}: 对端看到的 akamai 指纹与 profile 不同\n"
-                       f"      profile {want_ak}\n      对端    {peer_ak}\n"
-                       "      （已归一分隔符后仍不同）")
+        ak_why = (akamai_diff(want_ak, peer_ak)
+                  if (want_ak and peer_ak) else None)
+        if ak_why:
+            bad.append(f"{pid}: 对端看到的 akamai 指纹与 profile 不同 —— {ak_why}\n"
+                       f"      profile {want_ak}\n      对端    {peer_ak}")
             line.append("h2✗")
         elif want_ak and peer_ak:
             line.append("h2✅")
         print(f"  {' '.join(line):18s} {pid:16s} {ours['ja4']}")
 
-    print(f"\n{n}/{len(CASES)} 条完成回显比对")
+    print(f"\n{n}/{len(cases)} 条完成回显比对，覆盖引擎 {sorted(seen_engines)}")
     for b in bad:
         print(f"  ✗ {b}")
     for m in netbad:
@@ -161,8 +323,13 @@ def main(argv):
         print("\n对端看到的与我们算的不一致 —— 这是**最硬的一类失败**："
               "服务端接受了握手不代表把我们认成那个浏览器。")
         return 1
-    if n == 0:
-        print("\n一条都没验到（全是网络原因）。这不是通过，但也不是字节的证据。")
+    if n < MIN_VERIFIED:
+        print(f"\n只验到 {n} 条（下限 {MIN_VERIFIED}）—— 回显服务挂掉时"
+              "\"0 条全绿\"看着也像通过，所以这一层自己也要有下限。")
+        return 1
+    if len(seen_engines) < MIN_ENGINES:
+        print(f"\n只覆盖了 {sorted(seen_engines)}（下限 {MIN_ENGINES} 个引擎）—— "
+              "只验一个引擎的话，另两族的构造路径等于没验。")
         return 1
     if netbad:
         print(f"\n{len(netbad)} 条因网络原因没验到。")
