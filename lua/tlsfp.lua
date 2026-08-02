@@ -180,6 +180,14 @@ function _M.by_ua(brand, version)
 end
 
 -- 复用缓冲区，避免每请求分配（nginx worker 里这条很重要）
+-- **以下这些是模块级共享缓冲**：一个 worker 里所有协程共用。
+-- 安全的前提只有一条 —— 写进去和 ffi.string 读出来**之间不能有让出点**
+-- （不能 ngx.sleep / cosocket 读写 / ngx.say 等）。现在的代码满足这一条。
+--
+-- 这不是理论顾虑：test_openresty 的并发检查做过阴性对照 —— 在 build 与
+-- ffi.string 之间插一个 ngx.sleep(0.003)，16 路并发 60 个请求里只有 12 个
+-- 拿到自己的字节，其余拿到别的品牌的、甚至解析都失败。
+-- 往这几行之后加代码时，先问一句"这里会不会让出"。
 local ch_buf   = ffi.new("uint8_t[16384]")
 local h2_buf = ffi.new("uint8_t[?]", 8192)
 local rnd_buf  = ffi.new("uint8_t[32]")

@@ -332,6 +332,68 @@ def _check_headers(opener):
     return bad, n
 
 
+def _check_concurrency(port, rounds=60):
+    """并发打不同品牌，每个响应必须属于它自己的请求。
+
+    **模块级缓冲是这里唯一要查的东西**：lua/tlsfp.lua 里有 9 个
+    `ffi.new` 出来的模块级缓冲（ch_buf / h2_buf / e1..e3 …），一个 worker
+    跑多个协程共用它们。只要写缓冲和读回之间存在让出点，两个请求就会互相串 ——
+    而这在单线程测试里**永远看不出来**，本项目此前所有 Lua 验证都是单线程的。
+
+    判据不是"没报错"，是"每个响应的**字节**与它自己的请求对得上"。
+
+    **第一版比错了字段**：比的是响应里的 profile id，而那个 id 来自 Lua 表、
+    不在共享缓冲里 —— 串了也不会变。阴性对照（在 build 与 ffi.string 之间插
+    一个真让出点）因此照样全绿。改成把返回的字节解析回来、与该品牌应有的指纹
+    逐字段比，缓冲被串就一定露馅。
+    """
+    import concurrent.futures as _cf
+    import json as _json
+    import urllib.request as _u
+    from oracle.clienthello import fingerprint
+    from oracle.coverage import FIELDS, SET_FIELDS
+
+    with open(os.path.join(HERE, "profiles.json")) as f:
+        by_id = {r["id"]: r for r in _json.load(f)}
+
+    def norm(t, fl):
+        v = t.get(fl)
+        return sorted(v) if fl in SET_FIELDS and v else v
+
+    cases = [("chrome", 151), ("firefox", 135), ("safari", 26),
+             ("chrome-mobile", 132), ("edge", 140)]
+    op = _u.build_opener(_u.ProxyHandler({}))
+
+    def one(i):
+        brand, ver = cases[i % len(cases)]
+        u = (f"http://127.0.0.1:{port}/client_hello?brand={brand}"
+             f"&version={ver}&sni=example.com")
+        got = op.open(u, timeout=25).read().decode().strip().split("\t")
+        return (brand, ver, got)
+
+    bad = []
+    with _cf.ThreadPoolExecutor(max_workers=16) as ex:
+        for brand, ver, got in ex.map(one, range(rounds)):
+            if len(got) != 3:
+                bad.append(f"{brand} {ver}: 响应列数 {len(got)}")
+                continue
+            pid, _n, hexs = got
+            rec = by_id.get(pid)
+            if not rec:
+                bad.append(f"{brand} {ver}: 未知 profile {pid}")
+                continue
+            try:
+                fp = fingerprint(bytes.fromhex(hexs), drop_sni=True)
+            except Exception as e:
+                bad.append(f"{brand} {ver}: 字节解析失败 {type(e).__name__}")
+                continue
+            diff = [fl for fl in FIELDS if norm(fp, fl) != norm(rec["tls"], fl)]
+            if diff:
+                bad.append(f"{brand} {ver}: 并发下拿到的字节与 {pid} 差 "
+                           f"{diff[:3]} —— 共享缓冲被别的请求串了")
+    return bad, rounds
+
+
 def _check_coherence(opener):
     """在真 worker 里跑库的自审：库自己产出的三层必须自洽，跨引擎必须被抓。
 
@@ -453,7 +515,13 @@ def main():
         for b in coh_bad:
             print(f"    ✗ {b}")
 
-        failed = bad or ch_bad or h2_bad or hdr_bad or coh_bad
+        conc_bad, conc_n = _check_concurrency(PORT)
+        print(f"  并发 {conc_n - len(conc_bad)}/{conc_n} 个请求各自对得上"
+              f"（16 路并发打 5 个品牌，查模块级缓冲有没有串）")
+        for b in conc_bad[:4]:
+            print(f"    ✗ {b}")
+
+        failed = bad or ch_bad or h2_bad or hdr_bad or coh_bad or conc_bad
         print(f"\n{'C 模块在生产形态下与 Python 一致' if not failed else '存在分歧'}")
         return 1 if failed else 0
     finally:
