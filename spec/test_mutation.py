@@ -90,6 +90,12 @@ MUTANTS = [
      ["test_keyshare", "test_build_parity"],
      "padding 要按实际长度补齐到 512，超过就不发（照抄会多一个扩展）"),
 
+    ("HRR:CH2 用首条的记录层版本", "oracle/tls13.py",
+     "                                      record_version=0x0303)",
+     "                                      record_version=0x0301)",
+     ["test_hrr"],
+     "RFC 8446 §5.1：首条 ClientHello 之后的记录必须用 0x0303"),
+
     ("发货路径:C 默认改回重建口径", "csrc/tlsfp.c",
      "                                       NULL, 0, 0, out, outlen);",
      "                                       NULL, 0, TLSFP_BUILD_VERBATIM, out, outlen);",

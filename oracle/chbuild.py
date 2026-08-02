@@ -284,7 +284,10 @@ def _hello_len(profile, ext_bytes):
             + 2 + len(ext_bytes))
 
 
-def build_client_hello(profile, sni=None, key_shares=None, verbatim=False):
+def build_client_hello(profile, sni=None, key_shares=None, verbatim=False,
+                       hrr_group=None, grease=None,
+                       random32=None, session_id=None, ech_body=None,
+                       record_version=0x0301):
     """verbatim=True 时**照采集那条重建**：ECH 用 golden 的长度、padding 不重算。
 
     判据按用途分开，与 pre_shared_key 那处同一个道理：
@@ -304,6 +307,8 @@ def build_client_hello(profile, sni=None, key_shares=None, verbatim=False):
     """
     raw_ciphers = profile["raw_ciphers"]
     raw_extensions = profile["raw_extensions"]
+    if hrr_group is not None:
+        key_shares = None            # HRR 走下面的单条重写，不走注入校验
     if key_shares and PSK_EXT in raw_extensions:
         raise ValueError(
             "这条 profile 是会话恢复态（带 pre_shared_key），而你注入了 "
@@ -321,7 +326,14 @@ def build_client_hello(profile, sni=None, key_shares=None, verbatim=False):
     # sni=None，真机端到端走的是 tls13 那份，C 的 SNI 由 snitest 单独验 ——
     # 三条路各自绕开了这里。位置规则与另两处一致：紧跟开头的 GREASE，无 GREASE
     # 时排第一。
-    grease = pick_grease(verbatim)
+    # **HRR 的第二个 ClientHello**：RFC 8446 §4.1.2 规定它与第一个只差指定的
+    # 几处，其中 key_share 换成**服务端选的那一个组**。所以这里的形状变化是
+    # 合法的，"分组必须在 profile 里"那条校验对它不适用。
+    #
+    # 而 GREASE 必须**沿用第一个**：CH2 是"同一个 ClientHello 的修改版"，
+    # 重新抽一组会让两条 ClientHello 的 GREASE 对不上 —— 真浏览器不会这样，
+    # 而服务端两条都看得到。所以调用方要把第一次的 grease 传回来。
+    grease = grease if grease is not None else pick_grease(verbatim)
     if grease:
         raw_ciphers = _regrease_list(raw_ciphers, [grease["cipher"]])
 
@@ -344,6 +356,9 @@ def build_client_hello(profile, sni=None, key_shares=None, verbatim=False):
             name = sni.encode()
             entry = bytes([0]) + _vec(name, 2)
             body = _vec(entry, 2)
+        elif ext_id == 0x0033 and hrr_group is not None:
+            g, pub = hrr_group
+            body = _vec(_u16(g) + _vec(pub, 2), 2)
         elif ext_id == 0x0033:
             body = _build_key_share(bodies.get(ext_id, b""), key_shares,
                                     grease["group"] if grease else None)
@@ -351,6 +366,12 @@ def build_client_hello(profile, sni=None, key_shares=None, verbatim=False):
             body = _regrease_u16_body(bodies.get(ext_id, b""), 2, grease["group"])
         elif grease and ext_id == 0x002B:      # supported_versions
             body = _regrease_u16_body(bodies.get(ext_id, b""), 1, grease["version"])
+        elif ext_id == 0xFE0D and ech_body is not None:
+            # **HRR 的 CH2 必须原样带回 CH1 的 ECH**：RFC 8446 §4.1.2 只允许
+            # 改指定的那几处，GREASE ECH 不在其中。每次重新生成的表现是服务端
+            # 回 Alert，而 Alert 不会告诉你是哪个扩展不对 —— 只能把 CH1 与 CH2
+            # 逐字段 diff 才看得见。
+            body = ech_body
         elif ext_id == 0xFE0D:
             body = grease_ech(bodies.get(ext_id, b""), verbatim=verbatim)
         elif ext_id in VOLATILE_EXTENSIONS:
@@ -398,11 +419,19 @@ def build_client_hello(profile, sni=None, key_shares=None, verbatim=False):
 
     hello = b""
     hello += _u16(profile.get("client_version", 0x0303))
-    hello += secrets.token_bytes(32)                       # random
-    hello += _vec(secrets.token_bytes(profile.get("session_id_len", 32)), 1)
+    # **HRR 的 CH2 必须沿用 CH1 的 random 与 session_id**（RFC 8446 §4.1.2：
+    # 第二个 ClientHello 与第一个只差指定的几处）。重新生成的表现是服务端回
+    # 一个 Alert —— 而 Alert 不会告诉你是哪个字段不对。
+    hello += random32 or secrets.token_bytes(32)
+    hello += _vec(session_id if session_id is not None
+                  else secrets.token_bytes(profile.get("session_id_len", 32)), 1)
     hello += _vec(b"".join(_u16(c) for c in raw_ciphers), 2)
     hello += _vec(bytes(profile.get("compression", [0])), 1)
     hello += _vec(ext_bytes, 2)
 
     handshake = bytes([0x01]) + _vec(hello, 3)
-    return bytes([0x16]) + _u16(0x0301) + _vec(handshake, 2)
+    # **记录层版本**：首条 ClientHello 用 0x0301（兼容中间盒），而 RFC 8446
+    # §5.1 规定**其后的记录必须用 0x0303** —— HRR 的 CH2 就属于"其后"。
+    # 继续发 0x0301 的表现是服务端回 `protocol_version` 告警，而告警不会告诉你
+    # 是记录层还是 supported_versions 出的问题；我先怀疑了三处扩展才想到这里。
+    return bytes([0x16]) + _u16(record_version) + _vec(handshake, 2)

@@ -38,6 +38,14 @@ from oracle.chbuild import (_parse_key_share, _u16, _vec,           # noqa: E402
 from oracle.clienthello import is_grease                            # noqa: E402
 
 X25519_GROUP = 0x001D
+SECP256R1_GROUP, SECP384R1_GROUP = 0x0017, 0x0018
+
+# HelloRetryRequest 的标志：ServerHello 的 random 恒等于 SHA-256("HelloRetryRequest")
+# （RFC 8446 §4.1.3）。它长得跟 ServerHello 一模一样，只有这 32 字节能区分 ——
+# 不认它就会把"请你换个组重发"当成"这是服务端的公钥"，然后在算共享密钥时
+# 报一个与真因毫无关系的错。
+HRR_RANDOM = bytes.fromhex(
+    "cf21ad74e59a6111be1d8c021e65b891c2a211167abb8c5e079e09e2c8a8339c")
 X25519MLKEM768_GROUP = 0x11EC
 
 # X25519MLKEM768 的线上布局（draft-ietf-tls-ecdhe-mlkem）：
@@ -177,7 +185,25 @@ class TLS13Client:
         self.transcript += record[5:]
         self.sock.sendall(record)
 
-        server_pub, self.cipher_suite = self._read_server_hello()
+        server_pub, self.cipher_suite, is_hrr = self._read_server_hello()
+        if is_hrr:
+            # **HelloRetryRequest**：服务端要一个我们没在 key_share 里发过的组。
+            # 真浏览器都会补发，我们不补的话表现是"某些站点连不上"，而错误信息
+            # 会指向共享密钥算错 —— 与真因毫无关系。
+            g = self._negotiated_group
+            pub, priv = self._gen_one_share(g)
+            if pub is None:
+                raise TLSError(
+                    f"HelloRetryRequest 要 0x{g:04x}，参考实现产不出这条曲线的"
+                    "密钥 —— 这是实现能力不足，不是 profile 不可用")
+            self._privs[g] = priv
+            # 第二个 ClientHello **只改 key_share**，其余照旧（RFC 8446 §4.1.2）
+            record = self._build_hello(None, hrr=(g, pub))
+            self.transcript += record[5:]
+            self.sock.sendall(record)
+            server_pub, self.cipher_suite, again = self._read_server_hello()
+            if again:
+                raise TLSError("连续两次 HelloRetryRequest —— 协议不允许")
         hashname, aead_cls, key_len = CIPHER_PARAMS[self.cipher_suite]
         hlen = hashlib.new(hashname).digest_size
 
@@ -188,6 +214,13 @@ class TLS13Client:
             mk, xk = self._privs[X25519MLKEM768_GROUP]
             shared = (mk.decapsulate(ct)
                       + xk.exchange(X25519PublicKey.from_public_bytes(srv_x)))
+        elif self._negotiated_group in (SECP256R1_GROUP, SECP384R1_GROUP):
+            from cryptography.hazmat.primitives.asymmetric.ec import (
+                ECDH, SECP256R1, SECP384R1, EllipticCurvePublicKey)
+            curve = (SECP256R1() if self._negotiated_group == SECP256R1_GROUP
+                     else SECP384R1())
+            peer = EllipticCurvePublicKey.from_encoded_point(curve, server_pub)
+            shared = self._privs[self._negotiated_group].exchange(ECDH(), peer)
         else:
             if X25519_GROUP not in self._privs:
                 raise TLSError(
@@ -223,6 +256,25 @@ class TLS13Client:
         self._tx = _Keys(c_ap, aead_cls, key_len, hashname)
         self._rx = _Keys(s_ap, aead_cls, key_len, hashname)
         return self
+
+    def _gen_one_share(self, group):
+        """为 HRR 指定的那一个组生成密钥。产不出就返回 (None, None)。"""
+        from cryptography.hazmat.primitives.asymmetric.ec import (
+            SECP256R1, SECP384R1, generate_private_key)
+
+        if group == X25519_GROUP:
+            pk = X25519PrivateKey.generate()
+            return pk.public_key().public_bytes_raw(), pk
+        if group == X25519MLKEM768_GROUP:
+            mk, xk = MLKEM768PrivateKey.generate(), X25519PrivateKey.generate()
+            return (mk.public_key().public_bytes_raw()
+                    + xk.public_key().public_bytes_raw()), (mk, xk)
+        curve = {SECP256R1_GROUP: SECP256R1, SECP384R1_GROUP: SECP384R1}.get(group)
+        if curve is None:
+            return None, None
+        ek = generate_private_key(curve())
+        return ek.public_key().public_bytes(
+            Encoding.X962, PublicFormat.UncompressedPoint), ek
 
     def _gen_shares(self):
         """按 profile 的 key_share 形状逐组生成**真**密钥。
@@ -261,7 +313,7 @@ class TLS13Client:
                 privs[group] = ek
         return pubs, privs
 
-    def _build_hello(self, shares):
+    def _build_hello(self, shares, hrr=None):
         """走**发货那份构造器**，只把真密钥注进去。
 
         这里原来是自造的一份组装逻辑，于是与 chbuild / C 那两份长期分叉，而且
@@ -273,16 +325,51 @@ class TLS13Client:
         其余分组全丢了（真机 chrome131 发三条）。`test_builder_parity` 就是抓
         这一类的。现在统一走 `build_client_hello`，形状由 profile 决定。
         """
-        return build_client_hello(self.profile, sni=self.sni, key_shares=shares)
+        if hrr is not None:
+            # 沿用第一次的 GREASE / random / session_id：CH2 是 CH1 的修改版，
+            # 不是新的一条。random 与 session_id 从 CH1 的字节里取回来。
+            ch1 = self.client_hello
+            rnd = ch1[11:43]
+            sid_len = ch1[43]
+            sid = ch1[44:44 + sid_len]
+            from oracle.clienthello import parse_client_hello as _p
+            eb = _p(ch1)["extension_bodies"]
+            k = [x for x in eb if int(x) == 0xFE0D]
+            return build_client_hello(self.profile, sni=self.sni,
+                                      hrr_group=hrr, grease=self._grease,
+                                      random32=rnd, session_id=sid,
+                                      ech_body=bytes.fromhex(eb[k[0]]) if k else None,
+                                      record_version=0x0303)
+        from oracle.chbuild import pick_grease
+        self._grease = pick_grease()
+        return build_client_hello(self.profile, sni=self.sni, key_shares=shares,
+                                  grease=self._grease)
 
     def _read_server_hello(self):
-        ctype, head, body = self._read_record()
+        # **HRR 之后服务端会先发一条 ChangeCipherSpec**（中间盒兼容用，
+        # RFC 8446 附录 D.4），必须跳过。不跳的表现是
+        # "expected handshake, got content type 20" —— 看着像协议错，
+        # 其实是我们少读了一条无关紧要的记录。
+        while True:
+            ctype, head, body = self._read_record()
+            if ctype != 0x14:                 # 0x14 = ChangeCipherSpec
+                break
         if ctype != 0x16:
             raise TLSError(f"expected handshake, got content type {ctype}")
         if body[0] != HS_SERVER_HELLO:
             raise TLSError(f"expected ServerHello, got handshake type {body[0]}")
+        if body[6:38] == HRR_RANDOM:
+            # **transcript 要先把 CH1 换成 message_hash**（RFC 8446 §4.4.1）：
+            #   Transcript-Hash(ClientHello1, HRR, ...) =
+            #       Hash(message_hash || 00 00 Hash.length || Hash(CH1)) || HRR || ...
+            # 不做这一步，后面所有密钥都会算错，而症状是 Finished 校验失败 ——
+            # 又是一个"错在 A、报在 B"的地方。
+            hn = "sha256"
+            digest = hashlib.new(hn, self.transcript).digest()
+            self.transcript = (bytes([254, 0, 0, len(digest)]) + digest)
         self.transcript += body
 
+        is_hrr = body[6:38] == HRR_RANDOM
         o = 4 + 2 + 32                       # type/len + version + random
         sid_len = body[o]
         o += 1 + sid_len
@@ -299,19 +386,19 @@ class TLS13Client:
             o += 4 + elen
             if eid == 0x0033:                 # key_share
                 group = struct.unpack_from(">H", ebody, 0)[0]
-                if group not in (X25519_GROUP, X25519MLKEM768_GROUP):
-                    raise TLSError(
-                        f"server chose group 0x{group:04x}; "
-                        f"参考实现支持 X25519 / X25519MLKEM768")
                 self._negotiated_group = group
-                klen = struct.unpack_from(">H", ebody, 2)[0]
-                server_pub = ebody[4:4 + klen]
+                if is_hrr:
+                    # HRR 的 key_share 里**只有组号，没有公钥**
+                    server_pub = b""
+                else:
+                    klen = struct.unpack_from(">H", ebody, 2)[0]
+                    server_pub = ebody[4:4 + klen]
 
         if server_pub is None:
             raise TLSError("ServerHello 无 key_share（可能回落到 TLS 1.2）")
         if cipher not in CIPHER_PARAMS:
             raise TLSError(f"unsupported cipher 0x{cipher:04x}")
-        return server_pub, cipher
+        return server_pub, cipher, is_hrr
 
     def _decrypt_record(self, head, payload):
         plain = self._rx.aead.decrypt(self._rx.nonce(), payload, head)
