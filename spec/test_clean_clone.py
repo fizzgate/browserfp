@@ -39,7 +39,7 @@ ROOT = os.path.dirname(HERE)
 # 以及联网/起容器的那些（它们各有自己的跳过逻辑，放这里只会拖时间）
 EXCLUDE = {"test_clean_clone", "test_trivial_pass", "test_mutation",
            "test_live_handshake", "test_build_live", "test_h2_live",
-           "test_masquerade_live", "test_openresty", "test_cf_discrimination",
+           "test_openresty", "test_cf_discrimination", "test_echo_fingerprint",
            "test_version_ceiling", "test_chromium_h2", "test_gecko_h2",
            "test_robustness"}
 

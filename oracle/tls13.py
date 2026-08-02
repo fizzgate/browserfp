@@ -156,6 +156,10 @@ class TLS13Client:
         self._use_mlkem = X25519MLKEM768_GROUP in self._privs
 
         record = self._build_hello(self._shares)
+        # 留一份**实际发出去的字节**。要回答"对端看到的指纹是不是我们想要的"，
+        # 就得拿这份去算，而不是拿 profile 里存的值 —— 后者是采集时的，
+        # 与本次真正上线的字节之间隔着构造器。
+        self.client_hello = record
         # transcript 只含 handshake 消息体，不含 record 头
         self.transcript += record[5:]
         self.sock.sendall(record)

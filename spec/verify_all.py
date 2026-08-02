@@ -31,6 +31,7 @@ PY = os.path.join(ROOT, ".venv", "bin", "python")
 # 联网 / 需要容器的门禁单列，默认不跑。test_openresty 要拉镜像、编译、起容器，
 # 耗时以分钟计，不适合每次改动都跑；但它是唯一验证"生产形态"的一环。
 NETWORK_GATES = {"test_live_handshake", "test_cf_discrimination", "test_openresty",
+                 "test_echo_fingerprint",
                  "test_build_live", "test_h2_live", "test_masquerade_live", "test_version_ceiling",
                  "test_chromium_h2", "test_gecko_h2",
                  "test_clean_clone", "test_trivial_pass"}
@@ -163,6 +164,8 @@ def main(argv):
                 ("spec.test_live_handshake", "对真实站点逐 profile 握手", 1800),
                 ("spec.test_build_live", "C 构造的伪装握手", 900),
                 ("spec.test_h2_live", "C 构造的 h2 开场被服务端接受", 900),
+                ("spec.test_echo_fingerprint",
+                 "对端看到的指纹 = 我们想冒充的指纹", 900),
                 ("spec.test_openresty", "真实 OpenResty worker", 1800),
                 ("spec.test_version_ceiling", "扫描上限 vs 上游最新版", 300),
                 ("spec.test_chromium_h2", "Chromium h2 推导 vs 实采", 900),
