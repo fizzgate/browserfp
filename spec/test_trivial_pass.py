@@ -36,7 +36,7 @@ ROOT = os.path.dirname(HERE)
 # 数据源 → 清空方式，以及跑哪些门禁去探。门禁子集是为了控制耗时；选的都是
 # 直接吃那个数据源的，联网/起容器的一律不选。
 SOURCES = {
-    "spec/profiles.json": ("json-empty",
+    "spec/profiles.json": ("json-list-empty",
                            ["test_c_parity", "test_lua_parity", "test_rebuild",
                             "test_build_parity"]),
     "spec/h2table.json": ("json-empty",
@@ -50,7 +50,30 @@ SOURCES = {
     "spec/segments": ("dir-empty",
                       ["test_segments", "test_coverage_ratchet",
                        "test_c_ua_parity"]),
+    "spec/fixtures/prod_user_agents.json": ("json-list-empty",
+                                            ["test_ua_mapping", "test_strict_ua"]),
+    "spec/golden/uach_real.json": ("json-empty", ["test_uach"]),
+    "spec/golden/h2_wreq.json": ("json-empty", ["test_header_order"]),
+    "spec/golden/real_browsers.json": ("json-empty", ["test_registry_fresh"]),
 }
+
+# 不是"数据源"的数据文件，要写明理由 —— 否则新增一个源没人扫，就成了
+# Edge/Opera 那种"扫描器漏掉一个轴，那个轴上的缺陷就不存在"。
+NOT_A_SOURCE = {
+    "golden/h3_real_browsers.json":
+        "h3 的实采存档。test_h3 跑的是实时探测、不读这份文件 —— 它留着是为了"
+        "将来做 h3 层时有历史基线，现在确实无人读，golden_orphans 里也这么声明的",
+    "golden/quic_real_browsers.json": "同上，QUIC 形态的实采存档",
+    "golden/curl_cffi.json":
+        "带 SNI 的采集，只用于与 nosni 版对比确认 SNI 在扩展序列里的位置；"
+        "注册表统一用 nosni 版",
+}
+
+# 多家库互为冗余的那些，单独清空任何一家都不该让门禁变红（其余几家还在），
+# 所以不逐个登记 —— 但至少要有一家被扫到，h2_wreq.json 就是那一家。
+REDUNDANT_PREFIX = ("golden/h2_", "golden/tls_client", "golden/utls_",
+                    "golden/wreq_", "golden/curl_cffi_", "golden/linux_",
+                    "golden/real_browsers_psk", "golden/derived_")
 
 
 def _snapshot(dest):
@@ -67,9 +90,13 @@ def _snapshot(dest):
 def _empty(path, how):
     if how == "json-empty":
         with open(path, "w") as f:
-            f.write("{}" if path.endswith(("h2table.json", "uach.json",
-                                           "headers_real.json",
-                                           "h2_real_browsers.json")) else "[]")
+            f.write("{}")
+    elif how == "json-list-empty":
+        with open(path, "w") as f:
+            f.write("[]")
+    elif how == "json-array-empty":
+        with open(path, "w") as f:
+            f.write("[]")
     else:
         shutil.rmtree(path)
         os.makedirs(path)
@@ -125,6 +152,28 @@ def main():
                            f"这个数据源无人看管，坏掉了也不会有人知道")
         finally:
             shutil.rmtree(work, ignore_errors=True)
+
+    # 登记完整性：spec/ 下的数据文件要么被扫、要么写明为什么不是源。
+    # 少了这一条，新增一个数据源就会静悄悄地无人看管。
+    listed = {x[len("spec/"):] for x in SOURCES}
+    undeclared = []
+    for root, dirs, files in os.walk(os.path.join(ROOT, "spec")):
+        dirs[:] = [d for d in dirs if d not in ("cache", "__pycache__")]
+        for fn in files:
+            if not fn.endswith((".json", ".txt")):
+                continue
+            rel = os.path.relpath(os.path.join(root, fn),
+                                  os.path.join(ROOT, "spec"))
+            if (rel in listed or rel in NOT_A_SOURCE
+                    or rel.startswith("segments/")
+                    or rel.startswith(REDUNDANT_PREFIX)):
+                continue
+            undeclared.append(rel)
+    if undeclared:
+        bad.append(f"这些数据文件既没被扫、也没写明为什么不是源：{undeclared} —— "
+                   "新增数据源却不登记，等于给自己留一个无人看管的轴")
+    print(f"  登记完整性  spec/ 下无未声明的数据文件"
+          if not undeclared else f"  ✗ 未声明 {len(undeclared)} 个")
 
     print(f"\n扫描 {checked}/{len(SOURCES)} 个数据源")
     for b in bad:
