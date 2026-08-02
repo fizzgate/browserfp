@@ -48,6 +48,15 @@ def check_modules(text):
     return sorted(set(bad))
 
 
+def _count_mutants():
+    """数变异清单里的条目。直接解析 MUTANTS 而不是 import —— import 会把整条
+    门禁的依赖拖进来，而这里只想要一个数字。"""
+    import re as _re
+    src = open(os.path.join(HERE, "test_mutation.py")).read()
+    body = src[src.index("MUTANTS = ["):]
+    return len(_re.findall(r"^    \(\"", body, _re.M))
+
+
 def check_numbers(text):
     """关键数字必须与 profiles.json 实算一致。
 
@@ -89,8 +98,17 @@ def check_numbers(text):
         "target 名数": sum(len(r["aliases"]) for r in registry),
         "含 h2 数": sum(1 for r in registry if r["h2"]),
         "真机采集数": sum(1 for r in registry if r["provenance"] == "real-capture"),
-        # 重建门禁比对的条数 = 参与构造的 profile 数，由数据唯一确定
-        "重建条数": sum(1 for r in registry if r.get("default_config", True)),
+        # **两条门禁两个口径，别混成一个数**：
+        #   test_rebuild      迭代**全部** profile（82）
+        #   test_build_parity 只比**默认配置**那些（81）
+        # 原来这里只有一个"重建条数"、按 default_config 算，而 README 那行写的是
+        # "重建门禁" —— 含义含糊到两边都能自圆其说，实际对不上。
+        "重建条数": len(registry),
+        "构造比对条数": sum(1 for r in registry if r.get("default_config", True)),
+        # 变异清单条数：README 那张"六层验证"表里写着它。**这类概览表最容易
+        # 悄悄过期** —— 现状表刚被发现写着 132/132（早就变成 104/104 了），
+        # 而下面的正文全是新的。凡是能由代码算出来的，就锚定住。
+        "变异条数": _count_mutants(),
     }
     # 每个事实锚定到 README 里唯一的一处表述，改动那处才会被抓到。
     for label, value in cov.items():
@@ -104,7 +122,9 @@ def check_numbers(text):
         "target 名数": r"来自\s*{v}\s*个\s*target\s*名",
         "含 h2 数": r"\|\s*含 h2 层\s*\|\s*{v}/",
         "真机采集数": r"开源表\s*\d+\s*\+\s*真机采集\s*{v}",
-        "重建条数": r"\|\s*重建门禁\s*\|\s*{v}/{v}\s*\|",
+        "重建条数": r"\|\s*重建闭环（全部 profile）\s*\|\s*{v}/{v}\s*\|",
+        "构造比对条数": r"\|\s*构造器比对（默认配置）\s*\|\s*{v}/{v}\s*\|",
+        "变异条数": r"三份构造器互比 \+ {v} 条代码变异",
     }
     bad = []
     for label, value in facts.items():

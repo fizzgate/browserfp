@@ -10,6 +10,7 @@ csrc/ja4cli
 csrc/lookup_test
 csrc/buildcli
 csrc/h2cli
+csrc/kscli
 csrc/hdrcli
 csrc/uachcli
 csrc/platcli
