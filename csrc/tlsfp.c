@@ -458,11 +458,14 @@ static size_t put_u16(uint8_t *p, uint16_t v) {
 int tlsfp_build_client_hello(const tlsfp_profile *p, const char *sni,
                              const uint8_t *random32, const uint8_t *session_id,
                              uint8_t *out, size_t outlen) {
-    /* 旧签名保持"重建口径" —— 它的既有调用方（buildcli / snitest / 重建门禁）
-       要的都是照采集那条。真出网走 _ex 并自己传 flags=0。 */
+    /* **默认是出网口径**，与 Python 侧一致。
+       这里原来默认 VERBATIM，理由是"不动既有调用方" —— 而 Lua 绑定用的正是这个
+       签名，于是**生产路径上 GREASE 恒为 0x4a4a/0x5a5a、ECH 恒为 218**，七处
+       修复全是死的。实测四次调用字节完全一样。
+       默认值要选"错了会响"的那个：重建门禁忘了传 VERBATIM 会当场比对失败（看得见），
+       而生产忘了传 flags=0 是静默地发固定字节（看不见）。 */
     return tlsfp_build_client_hello_ex(p, sni, random32, session_id,
-                                       NULL, 0, TLSFP_BUILD_VERBATIM,
-                                       out, outlen);
+                                       NULL, 0, 0, out, outlen);
 }
 
 /* 按 profile 的 key_share 形状重写公钥。形状（分组/顺序/每条长度）一律照抄，

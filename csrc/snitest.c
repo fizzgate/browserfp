@@ -9,7 +9,8 @@ int main(int argc, char **argv) {
     int conf=-1;
     const tlsfp_profile *p = tlsfp_lookup_ua(argv[1], (uint16_t)atoi(argv[2]), &conf);
     if (!p) { fprintf(stderr,"no profile\n"); return 1; }
-    int n = tlsfp_build_client_hello(p, argv[3], rnd, sid, out, sizeof(out));
+    int n = tlsfp_build_client_hello_ex(p, argv[3], rnd, sid, NULL, 0,
+                                    TLSFP_BUILD_VERBATIM, out, sizeof(out));
     if (n<0) { fprintf(stderr,"build failed\n"); return 1; }
     for (int k=0;k<n;k++) printf("%02x", out[k]);
     printf("\n");

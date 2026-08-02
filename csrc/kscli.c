@@ -35,9 +35,15 @@ int main(void) {
     static char line[65536];
     static uint8_t out[16384], pubs[MAX_KS][MAX_PUB];
     uint8_t rnd[32], sid[32];
-    for (int i = 0; i < 32; i++) { rnd[i] = (uint8_t)(i * 7 + 1); sid[i] = (uint8_t)(i * 3 + 2); }
+
+    /* **每行取新鲜随机**。库内没有 RNG，出网口径下 GREASE / ECH 长度全部从
+       random32 派生 —— 写死 random32 就等于把随机性关掉，取样时看到的会是
+       "C 侧不变"，而那是取样装置的问题不是实现的问题。生产每连接都给新的。 */
+    FILE *ur = fopen("/dev/urandom", "rb");
+    if (!ur) return 1;
 
     while (fgets(line, sizeof(line), stdin)) {
+        if (fread(rnd, 1, 32, ur) != 32 || fread(sid, 1, 32, ur) != 32) return 1;
         line[strcspn(line, "\r\n")] = 0;
         char *tab = strchr(line, '\t');
         if (!tab) { printf("ERR\n"); fflush(stdout); continue; }
@@ -45,9 +51,12 @@ int main(void) {
         /* id 前缀 "!" = 出网口径（ECH 长度随机、padding 按长度重算）；
            不带前缀 = 重建口径。只加一个字符，省得再动一次输入契约 ——
            上次动它就漏了调用方，test_keyshare 的 C 侧当场 70 条全失败。 */
-        unsigned flags = TLSFP_BUILD_VERBATIM;
+        /* **不带前缀 = 出网口径**，与 C/Python 的默认一致；"=" 前缀才是重建。
+           原来反着定（不带前缀=重建），与库的默认不一致 —— 同一套代码里两种
+           默认，迟早有人按另一边的直觉调错。 */
+        unsigned flags = 0;
         char *idp = line;
-        if (*idp == '!') { flags = 0; idp++; }
+        if (*idp == '=') { flags = TLSFP_BUILD_VERBATIM; idp++; }
         const tlsfp_profile *p = by_id(idp);
         if (!p) { printf("ERR\n"); fflush(stdout); continue; }
         char *sni = tab + 1;

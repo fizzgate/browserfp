@@ -279,9 +279,8 @@ def wreq_echo(target, host):
 def c_hello(pid, sni, pubs):
     """让 **C 构造器**出 ClientHello，把我们生成的公钥注进去。"""
     spec = ",".join(f"{g:04x}:{p.hex()}" for g, p in pubs.items())
-    # **"!" 前缀 = 出网口径**：ECH 长度随机、padding 按长度重算。这一档验的正是
-    # 生产发的字节，用重建口径就把随机性关掉了，等于验了个不会上线的东西。
-    out = subprocess.run([KSCLI], input=f"!{pid}\t{sni}\t{spec}\n",
+    # 不带前缀 = 出网口径（与库的默认一致）。这一档验的正是生产发的字节。
+    out = subprocess.run([KSCLI], input=f"{pid}\t{sni}\t{spec}\n",
                          capture_output=True, text=True, timeout=60).stdout.strip()
     return None if not out or out.startswith("ERR") else bytes.fromhex(out)
 

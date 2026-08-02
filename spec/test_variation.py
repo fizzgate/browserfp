@@ -28,6 +28,7 @@ webkit     0x0a 0x2b 0x33 在变、GREASE 每次换，**不发 ECH**
 
 import json
 import os
+import subprocess
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -36,6 +37,8 @@ from oracle.chbuild import build_client_hello                    # noqa: E402
 from oracle.clienthello import is_grease, parse_client_hello     # noqa: E402
 
 HERE = os.path.dirname(os.path.abspath(__file__))
+ROOT = os.path.dirname(HERE)
+KSCLI = os.path.join(ROOT, "csrc", "kscli")
 REGISTRY = os.path.join(HERE, "profiles.json")
 ROUNDS = 8
 
@@ -68,6 +71,32 @@ def observe(profile, rounds=ROUNDS):
     grease_ids = {e for c in caps for e in c["raw_extensions"] if is_grease(e)}
     seqs = {tuple(c["raw_extensions"]) for c in caps}
     return varying, grease_ids, len(seqs)
+
+
+def observe_c(pid, rounds=ROUNDS):
+    """走 **C 的出网口径**（kscli 不带前缀）看同样的性质。
+
+    这一段是补上来的，理由很硬：`test_variation` 原来只查 Python 侧，而**生产走
+    的是 C/Lua**。实测过一次真实后果 —— C 的旧签名当时默认 VERBATIM（为了不动
+    既有调用方），Lua 绑定用的正是它，于是生产路径上 GREASE 恒为 0x4a4a/0x5a5a、
+    ECH 恒为 218，**七处修复全是死的**，而所有门禁照样全绿。
+
+    "写了但没接"这一类，只能靠**在发货那条路上取样**来发现。
+    """
+    outs = []
+    for i in range(rounds):
+        r = subprocess.run([KSCLI], input=f"{pid}\t\t\n", capture_output=True,
+                           text=True, timeout=60).stdout.strip()
+        if r and not r.startswith("ERR"):
+            outs.append(parse_client_hello(bytes.fromhex(r)))
+    if not outs:
+        return None
+    keys = set()
+    for c in outs:
+        keys |= set(c["extension_bodies"])
+    varying = {int(k) for k in keys
+               if len({c["extension_bodies"].get(k) for c in outs}) > 1}
+    return varying, {tuple(c["raw_extensions"]) for c in outs}
 
 
 def main():
@@ -106,6 +135,34 @@ def main():
               f"变={sorted(hex(x) for x in varying & spec['must_vary'])} "
               f"GREASE={'换' if spec['grease'] else '无'}({len(grease_ids)}) "
               f"序列种类={n_seq}/{ROUNDS}")
+
+    # —— 发货路径（C 出网口径）也要在变 ——
+    r = subprocess.run(["make", "-s"], cwd=os.path.join(ROOT, "csrc"),
+                       capture_output=True, text=True, timeout=300)
+    if r.returncode != 0 or not os.path.exists(KSCLI):
+        bad.append(f"C 侧没构建出来：{(r.stderr or r.stdout)[-120:]}")
+    else:
+        for engine, spec in sorted(EXPECT.items()):
+            got = observe_c(spec["profile"])
+            if got is None:
+                bad.append(f"{engine}: C 侧构造不出 {spec['profile']}")
+                continue
+            varying, seqs = got
+            # **key_share（0x33）不算在发货路径的必变项里**：C 库内不产密钥，
+            # 公钥由调用方注入（架构约束，见 tlsfp_build_client_hello_ex 的
+            # tlsfp_keyshare 参数），kscli 这里没注入，所以非 GREASE 的那几条
+            # 恒定。chromium/webkit 之所以还在变，是因为里面那条 GREASE 在换。
+            # "注入了公钥就必须用上"由 test_keyshare 单独验。
+            missing = spec["must_vary"] - {0x0033} - varying
+            if missing:
+                bad.append(f"{engine} 的**发货路径**: "
+                           f"{[hex(x) for x in sorted(missing)]} 每次都一样 —— "
+                           "Python 侧在变而 C 侧不变，说明修复没接到生产那条路")
+            if spec["grease"] and len(seqs) < 2:
+                bad.append(f"{engine} 的**发货路径**: {ROUNDS} 次的扩展序列完全"
+                           "一样 —— GREASE 没在换")
+            print(f"  发货路径 {engine:9s} 变={sorted(hex(x) for x in varying & spec['must_vary'])} "
+                  f"序列种类={len(seqs)}/{ROUNDS}")
 
     if len(EXPECT) < 3:
         bad.append(f"只覆盖了 {len(EXPECT)} 个引擎 —— 差一个不扫，"
