@@ -38,7 +38,8 @@ ROOT = os.path.dirname(HERE)
 SOURCES = {
     "spec/profiles.json": ("json-list-empty",
                            ["test_c_parity", "test_lua_parity", "test_rebuild",
-                            "test_build_parity", "test_keyshare"]),
+                            "test_build_parity", "test_keyshare",
+                            "test_variation"]),
     "spec/h2table.json": ("json-empty",
                           ["test_h2_build", "test_h2_table", "test_h2_identify",
                            "test_coherence"]),

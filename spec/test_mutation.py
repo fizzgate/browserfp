@@ -93,7 +93,7 @@ MUTANTS = [
     ("GREASE:退回固定值", "oracle/chbuild.py",
      "    if verbatim:\n        return None",
      "    if True:\n        return None",
-     ["test_keyshare"],
+     ["test_keyshare", "test_variation"],
      "GREASE 必须每连接随机（RFC 8701），固定值看两次连接就能认出来"),
 
     ("GREASE:key_share 与 groups 不同源", "oracle/chbuild.py",
@@ -101,6 +101,12 @@ MUTANTS = [
      "            if False:\n                group = grease_group",
      ["test_keyshare"],
      "key_share 里那条 GREASE 组要与 supported_groups 一致（实测 6/6）"),
+
+    ("ECH:内容也照抄 golden", "oracle/chbuild.py",
+     '    if verbatim:\n        payload_len = struct.unpack_from(">H", golden_body, 8 + enc_len)[0]',
+     "    if True:\n        return golden_body",
+     ["test_variation"],
+     "GREASE ECH 的内容每次连接都要新鲜（三个引擎里有两个发它）"),
 
     ("ECH:照抄 golden 的 config_id", "oracle/chbuild.py",
      '            body = grease_ech(bodies.get(ext_id, b""), verbatim=verbatim)',
