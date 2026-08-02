@@ -45,13 +45,13 @@ MUTANTS = [
     ("ja4:cipher 不排序", "csrc/tlsfp.c",
      "    qsort(tmp, h->ciphers.len, sizeof(uint16_t), cmp_u16);",
      "    /* 变异：不排序 */",
-     ["test_c_parity", "test_lua_parity"],
+     ["test_ja4_vectors", "test_c_parity", "test_lua_parity"],
      "JA4 的 cipher 段必须排序后再哈希"),
 
     ("ja4:扩展段没排除 SNI", "csrc/tlsfp.c",
      "        if (e == 0x0000 || e == 0x0010) continue;",
      "        if (e == 0x0010) continue;",
-     ["test_c_parity"],
+     ["test_ja4_vectors", "test_c_parity"],
      "JA4 的扩展段要排除 SNI 与 ALPN"),
 
     ("解析:GREASE 不剔除", "csrc/tlsfp.c",
