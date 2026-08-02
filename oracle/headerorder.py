@@ -111,6 +111,16 @@ def check_consistency(orders):
 #   cookie / referer 请求上下文
 BROWSER_VALUED = ("accept", "accept-encoding", "upgrade-insecure-requests")
 
+# upgrade-insecure-requests **不是纯浏览器属性，它看目标协议**。实测两份采集：
+#
+#   明文 HTTP（本轮 localhost 采集）   五个浏览器全发
+#   HTTPS/h2（h2_real_browsers.json）  Chromium 与 Gecko 发，**WebKit 不发**
+#
+# 本项目的伪装出网是 HTTPS，所以 WebKit 那侧必须不发。把它当成固定值会让
+# Safari 伪装多出一个真 Safari 在 https 上不会发的头 —— 与 UA-CH 那条
+# "多发也是异常"同一类问题。
+SCHEME_DEPENDENT = {("webkit", "https"): {"upgrade-insecure-requests"}}
+
 REALHDR = os.path.join(HERE, "..", "spec", "golden", "headers_real.json")
 
 
@@ -141,9 +151,19 @@ def engine_values(path=None):
     return out
 
 
-def values_for(brand):
+def values_for(brand, scheme="https"):
+    """该品牌在指定协议下由浏览器决定的头取值。
+
+    默认 https —— 这条链的出网就是 https，拿明文 HTTP 的采集去填 https 请求
+    是上下文错配（正是 upgrade-insecure-requests 那个坑）。
+    """
     eng = BRAND_ENGINE.get(brand)
-    return engine_values().get(eng, {}) if eng else {}
+    if not eng:
+        return {}
+    vals = dict(engine_values().get(eng, {}))
+    for name in SCHEME_DEPENDENT.get((eng, scheme), ()):
+        vals.pop(name, None)
+    return vals
 
 
 def order_for(brand, real=None):
