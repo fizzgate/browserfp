@@ -59,7 +59,9 @@ typedef struct {
     const uint16_t *extlen;
     uint16_t client_version;
     uint16_t session_id_len;
-
+    /* 该 profile 属于哪个引擎。实测 81 条无一跨引擎，所以良定义 ——
+       它是三层一致性检查（tlsfp_coherence）的基础。 */
+    const char *engine;
 } tlsfp_profile;
 
 typedef struct {
@@ -130,6 +132,22 @@ const tlsfp_h2 *tlsfp_lookup_h2(const char *brand, uint16_t version);
  * 返回值里的 engine 是确定的，ver_lo/ver_hi 只是范围 —— 这一层的熵不足以
  * 定位版本，调用方不该拿 ver_lo 当"就是这个版本"用。 */
 const tlsfp_h2 *tlsfp_identify_h2(const char *akamai);
+
+/* 观测到的请求头顺序（逗号分隔）→ 引擎。按**子序列**匹配：真实请求只会发
+ * 完整顺序里的一部分。匹配到多个引擎时返回 NULL 并把个数写进 n_match ——
+ * 实测 600 个随机子序列里 549 个能唯一定位，短子集（3 个头）容易多解，
+ * 那种情况必须报"多解"而不是硬选一个。 */
+const char *tlsfp_engine_of_headers(const char *order_csv, int *n_match);
+
+/* 三层各自认出的引擎是否自洽 —— 检测方正是这么查的：TLS 说 Chromium 而
+ * h2 说 Gecko，一眼就假。也可以拿它自查自己拼出来的伪装。
+ * 任一参数传 NULL 表示该层没有观测。
+ * 返回 0=三层（有观测的那些）一致，1=矛盾，-1=可用信息不足以判断。
+ * 三个 out 参数回填各层认出的引擎，认不出填 NULL —— 报"哪一层不一致"
+ * 比只报一个布尔有用得多。 */
+int tlsfp_coherence(const char *ja4, const char *akamai, const char *order_csv,
+                    const char **tls_engine, const char **h2_engine,
+                    const char **hdr_engine);
 
 /* 伪头序（缩写形式，如 "m,a,s,p"）。做成函数而不是让调用方直接读结构体字段：
  * Lua 侧的 ffi.cdef 里结构体是截断声明，按偏移读后面的字段会读到垃圾。 */

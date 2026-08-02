@@ -178,15 +178,17 @@ def _header_order_table():
     from oracle.headerorder import BRAND_ENGINE, order_for
 
     lines = ["typedef struct { const char *brand; const char *order;"
-             " int attested; } tlsfp_hdr_entry;",
+             " int attested; const char *engine; } tlsfp_hdr_entry;",
              "static const tlsfp_hdr_entry tlsfp_hdr_table[] = {"]
     n = 0
     for brand in sorted(BRAND_ENGINE):
         order, attested = order_for(brand)
         if not order:
             continue
+        eng = ("chromium" if brand.split("-")[0] in ("chrome", "edge", "opera")
+               else "gecko" if brand.startswith("firefox") else "webkit")
         lines.append(f'    {{"{brand}", "{",".join(order)}", '
-                     f'{1 if attested else 0}}},')
+                     f'{1 if attested else 0}, "{eng}"}},')
         n += 1
     lines.append("};")
     lines.append(f"#define TLSFP_HDR_COUNT {n}")
@@ -444,6 +446,23 @@ def main():
 
 
     out.append("")
+    def _prof_engine(rec):
+        """profile 的引擎，从别名推。**实测 0/81 跨引擎**，所以这是良定义的；
+        跨了就直接构建失败 —— 那时三层一致性检查的前提没了。"""
+        es = set()
+        for a in [rec["id"]] + rec.get("aliases", []):
+            n = a.split(":", 1)[1].lower()
+            if any(k in n for k in ("firefox", "tor", "gecko")):
+                es.add("gecko")
+            elif any(k in n for k in ("safari", "ios", "ipad")):
+                es.add("webkit")
+            elif any(k in n for k in ("chrome", "chromium", "edge", "opera")):
+                es.add("chromium")
+        if len(es) > 1:
+            raise SystemExit(f"{rec['id']} 跨引擎 {sorted(es)}，"
+                             "三层一致性检查的前提不成立")
+        return next(iter(es)) if es else ""
+
     out.append("static const tlsfp_profile tlsfp_profiles[] = {")
     for i, rec in enumerate(profiles):
         tls = rec["tls"]
@@ -459,7 +478,8 @@ def main():
             f'p{i}_rawext, {len(tls.get("raw_extensions") or [])}, '
             f'p{i}_extblob, p{i}_extoff, p{i}_extlen, '
             f'{tls.get("client_version") or 0x0303}, '
-            f'{tls.get("session_id_len") or 32}}},')
+            f'{tls.get("session_id_len") or 32}, '
+            f'"{_prof_engine(rec)}"}},')
     out.append("};")
     out.append(f"#define TLSFP_PROFILE_COUNT {len(profiles)}")
     out.append("")

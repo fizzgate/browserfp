@@ -67,6 +67,10 @@ typedef struct {
 
 const tlsfp_h2 *tlsfp_lookup_h2(const char *brand, uint16_t version);
 const tlsfp_h2 *tlsfp_identify_h2(const char *akamai);
+const char *tlsfp_engine_of_headers(const char *order_csv, int *n_match);
+int tlsfp_coherence(const char *ja4, const char *akamai, const char *order_csv,
+                    const char **tls_engine, const char **h2_engine,
+                    const char **hdr_engine);
 int  tlsfp_build_h2_preface(const tlsfp_h2 *h, uint8_t *out, size_t outlen);
 const char *tlsfp_h2_pseudo(const tlsfp_h2 *h);
 const char *tlsfp_header_order(const char *brand, int *attested);
@@ -338,6 +342,27 @@ function _M.identify_h2(akamai)
     if h == nil then return nil end
     return {engine = ffi.string(h.engine), ver_lo = h.ver_lo,
             ver_hi = h.ver_hi, akamai = ffi.string(h.akamai)}
+end
+
+-- 三层各自认出的引擎是否自洽。检测方正是这么查的：TLS 说 Chromium 而 h2 说
+-- Gecko，一眼就假。也可以拿它自查自己拼出来的伪装。
+--
+-- 任一参数传 nil 表示该层没有观测。返回 (verdict, 各层引擎)：
+--   verdict = "ok"      有观测的那些层一致
+--             "mismatch" 矛盾
+--             "unknown"  可用信息不足（少于两层认得出来）
+-- 第二个返回值是 {tls=…, h2=…, headers=…}，认不出的为 nil ——
+-- 报"哪一层不一致"比只报一个布尔有用得多。
+local e1, e2, e3 = ffi.new("const char*[1]"), ffi.new("const char*[1]"), ffi.new("const char*[1]")
+function _M.coherence(ja4, akamai, header_order)
+    if not lib then return nil, "libtlsfp.so 未加载" end
+    local csv = type(header_order) == "table"
+        and table.concat(header_order, ",") or header_order
+    e1[0], e2[0], e3[0] = nil, nil, nil
+    local r = lib.tlsfp_coherence(ja4, akamai, csv, e1, e2, e3)
+    local function str(b) return b[0] ~= nil and ffi.string(b[0]) or nil end
+    return (r == 0 and "ok") or (r == 1 and "mismatch") or "unknown",
+           {tls = str(e1), h2 = str(e2), headers = str(e3)}
 end
 
 function _M.profile_count()

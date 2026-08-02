@@ -390,6 +390,84 @@ const char *tlsfp_header_order(const char *brand, int *attested) {
     return NULL;
 }
 
+/* order_csv 是不是 full 的子序列（保序，可跳过） */
+static int tlsfp_is_subseq(const char *order_csv, const char *full) {
+    const char *p = order_csv;
+    size_t at = 0;
+    while (*p) {
+        const char *comma = strchr(p, ',');
+        size_t len = comma ? (size_t)(comma - p) : strlen(p);
+        /* 在 full 里从 at 之后找这一项 */
+        int found = 0;
+        const char *q = full + at;
+        while (*q) {
+            const char *c2 = strchr(q, ',');
+            size_t l2 = c2 ? (size_t)(c2 - q) : strlen(q);
+            if (l2 == len && strncmp(q, p, len) == 0) {
+                at = (size_t)(q - full) + l2;
+                found = 1;
+                break;
+            }
+            if (!c2) break;
+            q = c2 + 1;
+        }
+        if (!found) return 0;
+        if (!comma) break;
+        p = comma + 1;
+    }
+    return 1;
+}
+
+const char *tlsfp_engine_of_headers(const char *order_csv, int *n_match) {
+    if (n_match) *n_match = 0;
+    if (!order_csv || !*order_csv) return NULL;
+    const char *hit = NULL;
+    int n = 0;
+    for (size_t i = 0; i < TLSFP_HDR_COUNT; i++) {
+        const char *eng = tlsfp_hdr_table[i].engine;
+        /* 每个引擎只算一次 */
+        int seen = 0;
+        for (size_t j = 0; j < i; j++)
+            if (strcmp(tlsfp_hdr_table[j].engine, eng) == 0) { seen = 1; break; }
+        if (seen) continue;
+        if (tlsfp_is_subseq(order_csv, tlsfp_hdr_table[i].order)) {
+            n++;
+            hit = eng;
+        }
+    }
+    if (n_match) *n_match = n;
+    return n == 1 ? hit : NULL;
+}
+
+int tlsfp_coherence(const char *ja4, const char *akamai, const char *order_csv,
+                    const char **tls_engine, const char **h2_engine,
+                    const char **hdr_engine) {
+    const char *t = NULL, *h = NULL, *d = NULL;
+    if (ja4) {
+        const tlsfp_profile *p = tlsfp_lookup_ja4(ja4);
+        if (p && p->engine && *p->engine) t = p->engine;
+    }
+    if (akamai) {
+        const tlsfp_h2 *x = tlsfp_identify_h2(akamai);
+        if (x) h = x->engine;
+    }
+    if (order_csv) d = tlsfp_engine_of_headers(order_csv, NULL);
+    if (tls_engine) *tls_engine = t;
+    if (h2_engine) *h2_engine = h;
+    if (hdr_engine) *hdr_engine = d;
+
+    const char *seen = NULL;
+    int n = 0;
+    const char *all[3] = {t, h, d};
+    for (int i = 0; i < 3; i++) {
+        if (!all[i]) continue;
+        n++;
+        if (!seen) seen = all[i];
+        else if (strcmp(seen, all[i]) != 0) return 1;   /* 矛盾 */
+    }
+    return n >= 2 ? 0 : -1;      /* 至少两层有观测才谈得上一致 */
+}
+
 const tlsfp_h2 *tlsfp_identify_h2(const char *akamai) {
     if (!akamai) return NULL;
     for (size_t i = 0; i < TLSFP_H2_RECORD_COUNT; i++)
