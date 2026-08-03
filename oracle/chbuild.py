@@ -10,6 +10,7 @@ ClientHello 解析回来与 golden 逐字段相同，说明 profile 数据是完
 字段——它们才是"指纹"，也正是上游用来判别的东西。
 """
 
+import hashlib
 import os
 import secrets
 import struct
@@ -261,6 +262,60 @@ PSK_EXT = 0x0029
 
 # padding：补齐到 512 字节（含 4 字节握手头）。见 build_client_hello 里的推导。
 PADDING_EXT = 0x0015
+
+
+def permute_extensions(ext_order, random32):
+    """按 Chrome 106+ 的做法，把扩展顺序**每连接打乱一次**。
+
+    真 Chromium 每次连接的扩展顺序都不同（RFC 8701 permutation），本仓自己的实测
+    就在 README 里：chrome/chromium/edge 各 5 次连接出 5 种顺序，Firefox 恒 1 种。
+    而我们此前 12 次构造只出 1 种 —— **一个固定的扩展顺序是真 Chrome 110+ 永远
+    产不出来的东西**，和当初照抄固定 GREASE 属于同一类：不用比长度，看两次连接
+    就够。
+
+    规则取自 utls 的 ShuffleChromeTLSExtensions（我们的 profile 就采自它）：
+    **GREASE / padding / pre_shared_key 位置钉住，其余全部打乱**。padding 要钉住
+    是因为它得留在末尾承担补齐；PSK 则是 RFC 8446 强制最后一个。
+
+    **置换必须能跨实现复现**，否则 Python/C/Lua 三方差分立刻炸。所以不用系统
+    随机，而是从 random32 派生 —— 与 GREASE 取值同一个套路（C 侧的
+    grease_at 也是 SHA256(random32 || 计数器)）。同一条连接的 random32 相同，
+    两边就一定排出同一个顺序。
+    """
+    pinned = {PADDING_EXT, PSK_EXT}
+    movable = [i for i, e in enumerate(ext_order)
+               if e not in pinned and not is_grease(e)]
+    if len(movable) < 2:
+        return list(ext_order)
+
+    # Fisher-Yates，随机字节来自 SHA256(random32 || counter)，两侧同一算法
+    def stream():
+        ctr = 0
+        while True:
+            blk = hashlib.sha256(random32 + ctr.to_bytes(4, "big")).digest()
+            for b in blk:
+                yield b
+            ctr += 1
+
+    src = stream()
+
+    def below(n):
+        # 拒绝采样，避免取模偏置 —— 两侧必须逐字节一致，所以规则要写死
+        limit = 256 - (256 % n)
+        while True:
+            b = next(src)
+            if b < limit:
+                return b % n
+
+    picked = [ext_order[i] for i in movable]
+    for k in range(len(picked) - 1, 0, -1):
+        j = below(k + 1)
+        picked[k], picked[j] = picked[j], picked[k]
+
+    out = list(ext_order)
+    for pos, val in zip(movable, picked):
+        out[pos] = val
+    return out
 PAD_LO, PAD_TO = 256, 512
 
 
@@ -287,7 +342,7 @@ def _hello_len(profile, ext_bytes):
 def build_client_hello(profile, sni=None, key_shares=None, verbatim=False,
                        hrr_group=None, grease=None,
                        random32=None, session_id=None, ech_body=None,
-                       record_version=0x0301):
+                       record_version=0x0301, permute=False):
     """verbatim=True 时**照采集那条重建**：ECH 用 golden 的长度、padding 不重算。
 
     判据按用途分开，与 pre_shared_key 那处同一个道理：
@@ -317,6 +372,11 @@ def build_client_hello(profile, sni=None, key_shares=None, verbatim=False,
             "profile（by_ua 本来就只返回 initial 态）")
     bodies = {int(k): bytes.fromhex(v) for k, v in profile["extension_bodies"].items()}
 
+    # **Chrome 106+ 每连接打乱扩展顺序**（见 permute_extensions 的说明）。
+    # verbatim 是"照采集那条重建"，绝不能打乱 —— 那样 test_rebuild 比的就是两条
+    # 本来就不同的报文。
+    _permute = permute and not verbatim
+
     # **profile 不含 SNI 扩展时要补进去**。80/82 条 profile 采自 nosni 场景
     # （真机浏览器只能这么采），遍历 raw_extensions 永远发不出 SNI —— 于是
     # `sni=` 这个参数对 97.5% 的 profile **被静默忽略**，打有默认证书的站点不
@@ -344,6 +404,11 @@ def build_client_hello(profile, sni=None, key_shares=None, verbatim=False,
 
     if grease:
         ext_order = _regrease_list(ext_order, grease["ext"])
+
+    # 打乱**放在 SNI 插入与 regrease 之后**：SNI 是可移动的（真 Chrome 也会把它
+    # 挪来挪去），而 GREASE 的位置钉住，所以先把它们都摆进去再整体置换。
+    if _permute:
+        ext_order = permute_extensions(ext_order, random32 or b"\0" * 32)
 
     ext_bytes = b""
     for ext_id in ext_order:

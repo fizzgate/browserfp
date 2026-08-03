@@ -214,6 +214,38 @@ MUTANTS = [
      ["test_ja4_vectors"],
      "C 侧同样要滤 —— 三方照同一份错理解写，互比永远一致"),
 
+    # —— Chrome 106+ 的扩展顺序置换。真 Chromium 每连接一个新顺序，恒定顺序
+    # 是真 Chrome 110+ 永远产不出来的东西（本仓实测：真机 5 次连接 5 种顺序）。
+    ("置换:padding 不钉住", "oracle/chbuild.py",
+     "    pinned = {PADDING_EXT, PSK_EXT}",
+     "    pinned = {PSK_EXT}",
+     ["test_permute"],
+     "padding 要留在末尾承担补齐，不能被打乱挪走"),
+
+    ("置换:PSK 不钉住", "oracle/chbuild.py",
+     "    pinned = {PADDING_EXT, PSK_EXT}",
+     "    pinned = {PADDING_EXT}",
+     ["test_permute"],
+     "RFC 8446 强制 pre_shared_key 是最后一个扩展"),
+
+    ("置换:GREASE 也打乱", "oracle/chbuild.py",
+     "               if e not in pinned and not is_grease(e)]",
+     "               if e not in pinned]",
+     ["test_permute"],
+     "GREASE 位置钉住（utls 的 ShuffleChromeTLSExtensions 同此）"),
+
+    ("置换:用系统随机而非 random32 派生", "oracle/chbuild.py",
+     '            blk = hashlib.sha256(random32 + ctr.to_bytes(4, "big")).digest()',
+     "            blk = secrets.token_bytes(32)",
+     ["test_permute"],
+     "同一条连接必须排得出同一个顺序，否则 C 侧永远对不上"),
+
+    ("置换:verbatim 也打乱", "oracle/chbuild.py",
+     "    _permute = permute and not verbatim",
+     "    _permute = permute",
+     ["test_permute"],
+     "verbatim 是照采集那条重建，打乱会让重建门禁比两条不同的报文"),
+
     # —— HRR 的第二条 ClientHello。RFC 8446 §4.1.2 只允许它与 CH1 差指定的几处，
     # 每违反一条都会被拒，而**告警码指向的是"哪一类"，不是"哪一处"**。
     ("HRR:CH2 仍用首条的记录层版本", "csrc/tlsfp.c",
