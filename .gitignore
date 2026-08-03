@@ -24,3 +24,4 @@ csrc/hrrcli
 oracle/gotls/h2echo/h2echo
 oracle/gotls/kybercli/kybercli
 oracle/gotls/kyberserver/kyberserver
+oracle/gotls/h2strict/h2strict
