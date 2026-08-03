@@ -7,6 +7,16 @@
 跑：python -m spec.test_match
 """
 
+# 可选依赖：缺了就 SKIP 这一条，**并把原因打出来**。
+# 静默跳过等于假绿；报 FAIL 又会让别人以为代码坏了 —— 这两种都见过。
+def _has_curl_cffi():
+    try:
+        __import__("curl_cffi")
+        return True
+    except ModuleNotFoundError:
+        return False
+
+
 import copy
 import json
 import os
@@ -146,7 +156,8 @@ def main():
         ("自识别", t_self_identify),
         ("变异必须 unknown（阴性对照）", t_mutations_are_unknown),
         ("容忍 padding", t_padding_tolerated),
-        ("真实 HRR 端到端", t_real_hrr_identified),
+        ("真实 HRR 端到端", t_real_hrr_identified if _has_curl_cffi() else
+         lambda _m: (True, "SKIP：缺 curl_cffi（pip install -r requirements-dev.txt）")),
     ]
     failed = skipped = 0
     for name, fn in tests:

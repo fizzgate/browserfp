@@ -105,17 +105,25 @@ def main(argv):
     print("=" * 62)
     print("第 1 层：静态门禁（数据自洽 / 三方一致 / 文档不僵尸）")
     print("=" * 62)
-    ok_n = bad = 0
+    ok_n = bad = skip_n = 0
     failed = []
     for name in gates(include_network=False):
         ok, tail = _run(f"spec.{name}", timeout=SLOW_GATES.get(name, 300))
-        if ok:
+        # **SKIP 必须单列**。缺可选依赖时那几条返回 ok=True，detail 里写着 SKIP ——
+        # 混进「通过」的话，一台什么都没装的机器会显示「全部通过」，那是假绿里最
+        # 难发现的一种：数字好看，实际什么都没验。
+        skipped = ok and "SKIP" in tail
+        if skipped:
+            skip_n += 1
+        elif ok:
             ok_n += 1
         else:
             bad += 1
             failed.append((name, tail))
-        print(f"  {'✅' if ok else '❌'} {name:26s} {tail[:60]}")
-    print(f"\n  通过 {ok_n} / 失败 {bad}")
+        print(f"  {'⏭' if skipped else ('✅' if ok else '❌')} {name:26s} {tail[:60]}")
+    print(f"\n  通过 {ok_n} / 跳过 {skip_n} / 失败 {bad}")
+    if skip_n:
+        print(f"  ⏭ 有 {skip_n} 条因缺可选依赖跳过 —— pip install -r requirements-dev.txt")
 
     print("\n" + "=" * 62)
     print("第 2 层：覆盖度")

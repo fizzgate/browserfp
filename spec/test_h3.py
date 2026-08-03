@@ -7,6 +7,16 @@ H3 的 SETTINGS 里含 GREASE 项，其 id 与 value 每次连接都随机。参
 跑：.venv-wreq/bin/python -m spec.test_h3 [次数]
 """
 
+# 可选依赖：缺了就 SKIP 这一条，**并把原因打出来**。
+# 静默跳过等于假绿；报 FAIL 又会让别人以为代码坏了 —— 这两种都见过。
+def _has_aioquic():
+    try:
+        __import__("aioquic")
+        return True
+    except ModuleNotFoundError:
+        return False
+
+
 import os
 import sys
 
@@ -61,7 +71,9 @@ def main(argv):
     rounds = int(argv[1]) if len(argv) > 1 else 3
     tests = [("GREASE 判定", t_grease_detection),
              ("GREASE 被剔除", t_grease_excluded),
-             ("跨连接稳定（含充分性）", lambda: t_stability(rounds))]
+             ("跨连接稳定（含充分性）",
+              (lambda: t_stability(rounds)) if _has_aioquic() else
+              lambda: (True, "SKIP：缺 aioquic（pip install -r requirements-dev.txt）"))]
     failed = 0
     for name, fn in tests:
         try:
