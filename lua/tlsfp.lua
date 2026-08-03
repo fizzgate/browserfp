@@ -463,6 +463,23 @@ function _M.h2_preface(brand, version)
     return ffi.string(h2_buf, n), ps ~= nil and ffi.string(ps) or nil
 end
 
+--- 这个 (品牌, 版本) 应该呈现的 Akamai h2 指纹串。
+--
+-- **不要拿 by_ua().h2 当这个用**：注册表按 TLS 指纹去重，profile 上那个 h2
+-- 字段只是「采集这条 TLS 指纹时顺带看到的 h2」，两个版本 TLS 相同、h2 不同是
+-- 常态，还有一批 profile 那个字段干脆是空的（实测 firefox153 就是）。
+-- h2 必须按 (品牌, 版本) 独立查 —— 与 h2_preface 同一个源。
+-- @return akamai 串 或 nil, err
+function _M.h2_akamai(brand, version)
+    if not lib then return nil, "libtlsfp.so 未加载" end
+    if type(brand) ~= "string" or type(version) ~= "number" then
+        return nil, "brand 必须是字符串、version 必须是数字"
+    end
+    local h = lib.tlsfp_lookup_h2(brand, version)
+    if h == nil then return nil, "该品牌/版本没有 h2 数据" end
+    return h.akamai ~= nil and ffi.string(h.akamai) or nil
+end
+
 -- 按观测到的 akamai 指纹反查（入站识别）。
 --
 -- **认得出引擎，认不出版本**：实测 644 个 (品牌,版本) 只归成 19 个 akamai，

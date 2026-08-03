@@ -21,3 +21,4 @@ csrc/kxcli
 csrc/profiles.inc
 spec/cache/
 csrc/hrrcli
+fizztls/oracle/gotls/h2echo/h2echo
