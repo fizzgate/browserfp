@@ -181,7 +181,8 @@ class H2Probe:
         """Akamai h2 fingerprint。伪头用首字母缩写：m=method a=authority s=scheme p=path。"""
         s = ",".join(f"{k}:{v}" for k, v in settings) or "0"
         w = str(window_update) if window_update is not None else "0"
-        p = "|".join(f"{sid}:{excl}:{dep}:{wt}"
+        # PRIORITY 各条之间是逗号，不是 "|" —— 用 "|" 会把整串切成 9 段
+        p = ",".join(f"{sid}:{excl}:{dep}:{wt}"
                      for sid, dep, excl, wt in priorities) or "0"
         h = ",".join(k[1] for k in pseudo) or "0"
         return f"{s}|{w}|{p}|{h}"

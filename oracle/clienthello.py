@@ -187,7 +187,12 @@ def ja4(ch: dict) -> str:
 
     ext_sorted = sorted(e for e in ch["extensions"] if e not in (0x0000, 0x0010))
     ext_str = ",".join(f"{e:04x}" for e in ext_sorted)
-    sig_str = ",".join(f"{s:04x}" for s in ch["sig_algs"])
+    # **GREASE 要处处忽略，签名算法列表也算**。规范说的是 ignore GREASE，
+    # 不是"只忽略密码套件与扩展里的"。漏这一处的表现极隐蔽：82 条 profile 里
+    # 只有 1 条（real:chrome153）在 sig_algs 里带 GREASE，其余全对得上，
+    # 而三方（Python/C/Lua）都照同一份理解写，互比也永远一致。
+    # 是把第三方回显从 3 种指纹扩到 41 种之后才炸出来的。
+    sig_str = ",".join(f"{s:04x}" for s in ch["sig_algs"] if not is_grease(s))
     ja4_c_input = f"{ext_str}_{sig_str}" if sig_str else ext_str
     ja4_c = hashlib.sha256(ja4_c_input.encode()).hexdigest()[:12] if ext_str else "0" * 12
 

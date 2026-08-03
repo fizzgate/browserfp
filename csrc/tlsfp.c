@@ -227,8 +227,13 @@ int tlsfp_ja4(const tlsfp_hello *h, char transport, char *out, size_t outlen) {
         p += sprintf(cbuf + p, i ? ",%04x" : "%04x", tmp[i]);
     if (h->sig_algs.len) {
         p += sprintf(cbuf + p, "_");
-        for (size_t i = 0; i < h->sig_algs.len; i++)
-            p += sprintf(cbuf + p, i ? ",%04x" : "%04x", h->sig_algs.items[i]);
+        /* GREASE 处处忽略，签名算法列表也算（见 oracle/clienthello.py 同处注释） */
+        int first = 1;
+        for (size_t i = 0; i < h->sig_algs.len; i++) {
+            if (tlsfp_is_grease(h->sig_algs.items[i])) continue;
+            p += sprintf(cbuf + p, first ? "%04x" : ",%04x", h->sig_algs.items[i]);
+            first = 0;
+        }
     }
     cbuf[p] = '\0';
     char hc[13];

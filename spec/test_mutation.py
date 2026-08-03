@@ -202,6 +202,18 @@ MUTANTS = [
      ["test_registry_fresh", "test_rebuild", "test_derive"],
      "集合类字段要排序后才能当去重键，否则同一指纹被拆成多条"),
 
+    ("JA4:签名算法里的 GREASE 不忽略", "oracle/clienthello.py",
+     'for s in ch["sig_algs"] if not is_grease(s))',
+     'for s in ch["sig_algs"])',
+     ["test_ja4_vectors"],
+     "GREASE 要处处忽略，签名算法列表也算（规范原文如此）"),
+
+    ("JA4:C 侧签名算法不滤 GREASE", "csrc/tlsfp.c",
+     "            if (tlsfp_is_grease(h->sig_algs.items[i])) continue;",
+     "            ;",
+     ["test_ja4_vectors"],
+     "C 侧同样要滤 —— 三方照同一份错理解写，互比永远一致"),
+
     # —— HRR 的第二条 ClientHello。RFC 8446 §4.1.2 只允许它与 CH1 差指定的几处，
     # 每违反一条都会被拒，而**告警码指向的是"哪一类"，不是"哪一处"**。
     ("HRR:CH2 仍用首条的记录层版本", "csrc/tlsfp.c",

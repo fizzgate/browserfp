@@ -142,12 +142,55 @@ def check_end_to_end():
     return bad
 
 
+def check_grease_in_sigalgs():
+    """GREASE 出现在**签名算法列表**里时也必须被忽略。
+
+    规范说的是 ignore GREASE，不是"只忽略密码套件与扩展里的"。漏这一处极隐蔽：
+    82 条 profile 里只有 1 条（real:chrome153）在 sig_algs 里带 GREASE，其余
+    全对得上；而 Python/C/Lua 三方照同一份理解写，互比也永远一致。**是把第三方
+    回显从 3 种指纹扩到 41 种之后才炸出来的**。
+
+    这里不依赖注册表：现造一条只在签名算法里加一个 GREASE 的 ClientHello，
+    它的 ja4_c 必须与不加时完全相同。
+    """
+    bad = []
+    base = synthetic_profile()
+    withg = {k: (list(v) if isinstance(v, list) else dict(v) if isinstance(v, dict) else v)
+             for k, v in base.items()}
+    # 在签名算法列表最前面插一个 GREASE（真 Chrome 就是这么发的）
+    sig = [0x5A5A] + SIG_ALGS
+    body = b"".join(v.to_bytes(2, "big") for v in sig)
+    withg["extension_bodies"] = dict(base["extension_bodies"])
+    withg["extension_bodies"]["13"] = (len(body).to_bytes(2, "big") + body).hex()
+
+    a1 = fingerprint(build_client_hello(base, sni="example.com", verbatim=True))["ja4"]
+    a2 = fingerprint(build_client_hello(withg, sni="example.com", verbatim=True))["ja4"]
+    mark = "✅" if a1 == a2 else "✗"
+    print(f"  {mark} 签名算法里的 GREASE 被忽略  {a2}")
+    if a1 != a2:
+        bad.append(f"签名算法里加一个 GREASE 就换了 JA4：{a1} → {a2} —— "
+                   "规范要求处处忽略 GREASE")
+
+    r = subprocess.run([JA4CLI],
+                       input=build_client_hello(withg, sni="example.com",
+                                                verbatim=True).hex(),
+                       capture_output=True, text=True, timeout=60).stdout.strip()
+    mark = "✅" if r == a2 else "✗"
+    print(f"  {mark} C 侧同样忽略             {r}")
+    if r != a2:
+        bad.append(f"C 侧算出 {r}，Python 是 {a2}")
+    return bad
+
+
 def main():
     print(f"判据：{SPEC}\n")
     print("算法级（规范输入 → 规范哈希）：")
     bad = check_algorithm()
     print("\n端到端（向量字段 → ClientHello → 两份实现）：")
     bad += check_end_to_end()
+
+    print("\nGREASE 处处忽略（规范原文如此，签名算法列表最容易漏）：")
+    bad += check_grease_in_sigalgs()
 
     for b in bad:
         print(f"  ✗ {b}")

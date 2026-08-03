@@ -417,7 +417,10 @@ def firefox_h2(version, platform="desktop"):
 
 def akamai(rec):
     s = ",".join(f"{k}:{v}" for k, v in rec["settings"]) or "0"
-    p = "|".join(f"{sid}:{excl}:{dep}:{wt}"
+    # **PRIORITY 各条之间是逗号**。这里原来用 "|"，于是整串被切成 9 段而不是 4 段
+    # —— 任何按 "|" 取字段的消费者都会读错，第三方回显给出的也是逗号。
+    # 106 条 Firefox 记录曾长期是坏的，直到把回显门禁从 3 种指纹扩到 41 种才暴露。
+    p = ",".join(f"{sid}:{excl}:{dep}:{wt}"
                  for sid, dep, excl, wt in rec["priorities"]) or "0"
     h = ",".join(k[1] for k in rec["pseudo_header_order"]) or "0"
     return f"{s}|{rec['window_update']}|{p}|{h}"
