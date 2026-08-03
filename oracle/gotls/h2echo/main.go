@@ -56,6 +56,21 @@ func main() {
 		// ?slow=1：先睡再读。Go 的服务端是边读边补流控窗口的，handler 立刻
 		// 读完时，客户端就算完全无视窗口也撞不上 FLOW_CONTROL_ERROR ——
 		// 那条路径于是永远走不到。睡一下让窗口不被及时补回。
+		// ?sse=N：分 N 块推，每块之间 flush 一次并停 120ms。
+		// **流式转发必须有这样一个对端**：整体缓冲的实现也能拿到全部字节，
+		// 只有"第一块要在最后一块之前很久就到"才分得出真流式与假流式。
+		if n, err := strconv.Atoi(r.URL.Query().Get("sse")); err == nil && n > 0 {
+			w.Header().Set("content-type", "text/event-stream")
+			fl, _ := w.(http.Flusher)
+			for i := 0; i < n; i++ {
+				fmt.Fprintf(w, "data: chunk-%d\n\n", i)
+				if fl != nil {
+					fl.Flush()
+				}
+				time.Sleep(120 * time.Millisecond)
+			}
+			return
+		}
 		if r.URL.Query().Get("slow") == "1" {
 			time.Sleep(700 * time.Millisecond)
 		}
