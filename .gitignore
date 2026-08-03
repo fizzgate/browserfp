@@ -21,6 +21,6 @@ csrc/kxcli
 csrc/profiles.inc
 spec/cache/
 csrc/hrrcli
-fizztls/oracle/gotls/h2echo/h2echo
-fizztls/oracle/gotls/kybercli/kybercli
-fizztls/oracle/gotls/kyberserver/kyberserver
+oracle/gotls/h2echo/h2echo
+oracle/gotls/kybercli/kybercli
+oracle/gotls/kyberserver/kyberserver
