@@ -25,6 +25,7 @@ oracle/gotls/h2echo/h2echo
 oracle/gotls/kybercli/kybercli
 oracle/gotls/kyberserver/kyberserver
 oracle/gotls/h2strict/h2strict
+oracle/gotls/h2early/h2early
 csrc/uastrcli
 
 # ---- 编译产物与本地环境：**都栽过，别再提交进来** ----
