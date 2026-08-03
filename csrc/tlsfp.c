@@ -614,6 +614,53 @@ static void ech_bytes(const uint8_t *random32, uint32_t idx,
     }
 }
 
+#define SNI_SLOT ((size_t)-1)
+
+/* 从 SHA256(random32 || 计数器) 取字节，够用就续。与 Python 侧 permute_extensions
+ * 里的 stream() 逐字节一致 —— 计数器从 0 起、每 32 字节 +1。 */
+typedef struct { const uint8_t *r; uint8_t buf[64]; size_t pos, have; uint32_t blk; } perm_rng;
+
+static uint8_t perm_next(perm_rng *s) {
+    if (s->pos >= s->have) {
+        ech_bytes(s->r, s->blk, s->buf, 32);
+        s->blk += 1;
+        s->pos = 0; s->have = 32;
+    }
+    return s->buf[s->pos++];
+}
+
+/* 拒绝采样取 [0,n)。**规则要写死**：两边必须一致，取模偏置在这里不是精度问题
+ * 而是"两边排出不同顺序"。 */
+static size_t perm_below(perm_rng *s, size_t n) {
+    size_t limit = 256 - (256 % n);
+    for (;;) {
+        uint8_t b = perm_next(s);
+        if (b < limit) return b % n;
+    }
+}
+
+/* 就地打乱 seq[]，GREASE / padding / pre_shared_key 的位置钉住。 */
+static void permute_seq(const tlsfp_profile *p, size_t *seq, size_t n_seq,
+                        const uint8_t *random32) {
+    size_t mov[TLSFP_MAX_ITEMS + 1], n_mov = 0;
+    for (size_t k = 0; k < n_seq; k++) {
+        uint16_t id = seq[k] == SNI_SLOT ? 0x0000 : p->rawext[seq[k]];
+        if (id == 0x0015 || id == 0x0029 || tlsfp_is_grease(id)) continue;
+        mov[n_mov++] = k;
+    }
+    if (n_mov < 2) return;
+
+    size_t picked[TLSFP_MAX_ITEMS + 1];
+    for (size_t k = 0; k < n_mov; k++) picked[k] = seq[mov[k]];
+
+    perm_rng rng = { random32, {0}, 0, 0, 0 };
+    for (size_t k = n_mov - 1; k > 0; k--) {
+        size_t j = perm_below(&rng, k + 1);
+        size_t t = picked[k]; picked[k] = picked[j]; picked[j] = t;
+    }
+    for (size_t k = 0; k < n_mov; k++) seq[mov[k]] = picked[k];
+}
+
 /* GREASE ECH 的**整个扩展体**长度每次连接随机，取自这个固定集合。
    26 次本地抓包（curl_cffi chrome119 与 chrome131）实测都是这四个，两两差 32，
    且与 profile 自身大小无关。照抄 golden 会让我们的 JA4 永不变化，而真实客户端
@@ -774,8 +821,38 @@ int tlsfp_build_client_hello_ex(const tlsfp_profile *p, const char *sni,
         if (p->n_rawext && tlsfp_is_grease(p->rawext[0])) sni_at = 1;
     }
 
+    /* —— Chrome 106+ 每连接打乱扩展顺序 ——
+     *
+     * 真 Chromium 每次连接的扩展顺序都不同（RFC 8701 permutation），本仓实测
+     * 真机 5 次连接出 5 种顺序、Firefox 恒 1 种。**恒定顺序是真 Chrome 110+
+     * 永远产不出来的东西**，与照抄固定 GREASE 属于同一类破绽。
+     *
+     * 规则取自 utls 的 ShuffleChromeTLSExtensions：GREASE / padding /
+     * pre_shared_key 位置钉住，其余全部打乱。
+     *
+     * **派生必须与 Python 侧逐字节一致**（oracle/chbuild.py 的
+     * permute_extensions）：同一个 random32 要排出同一个顺序，否则三方差分
+     * 立刻炸，而且不可调试。两边都是 SHA256(random32 || 计数器) 的字节流 +
+     * 拒绝采样的 Fisher-Yates。
+     *
+     * seq[] 存的是**源下标**：i < n_rawext 表示 p->rawext[i]，SNI_SLOT 表示
+     * 那个插进来的 SNI。存 id 不行 —— 扩展体要靠下标去 extblob 里取。 */
+    size_t seq[TLSFP_MAX_ITEMS + 1];
+    size_t n_seq = 0;
     for (size_t i = 0; i < p->n_rawext; i++) {
-        if (!sni_done && sni && i == sni_at) {
+        if (!sni_done && sni && i == sni_at) seq[n_seq++] = SNI_SLOT;
+        seq[n_seq++] = i;
+    }
+    if (!sni_done && sni && sni_at >= p->n_rawext) seq[n_seq++] = SNI_SLOT;
+
+    if (!(flags & TLSFP_BUILD_VERBATIM) && p->engine
+        && !strcmp(p->engine, "chromium")) {
+        permute_seq(p, seq, n_seq, random32);
+    }
+
+    for (size_t k = 0; k < n_seq; k++) {
+        size_t i = seq[k];
+        if (i == SNI_SLOT) {
             size_t n = strlen(sni);
             if (n > 4096 || e + 9 + n > sizeof(ext)) return -1;
             e += put_u16(ext + e, 0x0000);
@@ -785,6 +862,7 @@ int tlsfp_build_client_hello_ex(const tlsfp_profile *p, const char *sni,
             e += put_u16(ext + e, (uint16_t)n);
             memcpy(ext + e, sni, n); e += n;
             sni_done = 1;
+            continue;
         }
         uint16_t id = p->rawext[i];
         if (regrease && tlsfp_is_grease(id)) id = g.ext[n_ext_g++ % 2];

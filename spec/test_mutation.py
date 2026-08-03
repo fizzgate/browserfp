@@ -246,6 +246,34 @@ MUTANTS = [
      ["test_permute"],
      "verbatim 是照采集那条重建，打乱会让重建门禁比两条不同的报文"),
 
+    ("置换:C 侧 gecko 也打乱", "csrc/tlsfp.c",
+     '        && !strcmp(p->engine, "chromium")',
+     '        && strcmp(p->engine, "zzz")',
+     ["test_permute"],
+     "只有 Chromium 系打乱；Firefox 每次连接顺序恒定（本仓实测 5/5 同序）"),
+
+    ("置换:C 侧不打乱", "csrc/tlsfp.c",
+     "        permute_seq(p, seq, n_seq, random32);",
+     "        (void)0;",
+     ["test_permute"],
+     "C 是生产用的那份；只有 Python 打乱等于没做"),
+
+    ("置换:C 侧取模有偏置", "csrc/tlsfp.c",
+     "    size_t limit = 256 - (256 % n);\n"
+     "    for (;;) {\n"
+     "        uint8_t b = perm_next(s);\n"
+     "        if (b < limit) return b % n;\n"
+     "    }",
+     "    return perm_next(s) % n;",
+     ["test_permute"],
+     "两侧必须逐字节同算法，取模偏置会让顺序对不上"),
+
+    ("置换:C 侧 padding 不钉住", "csrc/tlsfp.c",
+     "        if (id == 0x0015 || id == 0x0029 || tlsfp_is_grease(id)) continue;",
+     "        if (id == 0x0029 || tlsfp_is_grease(id)) continue;",
+     ["test_permute"],
+     "padding 要留在末尾承担补齐"),
+
     # —— HRR 的第二条 ClientHello。RFC 8446 §4.1.2 只允许它与 CH1 差指定的几处，
     # 每违反一条都会被拒，而**告警码指向的是"哪一类"，不是"哪一处"**。
     ("HRR:CH2 仍用首条的记录层版本", "csrc/tlsfp.c",

@@ -31,6 +31,7 @@
 import json
 import os
 import secrets
+import subprocess
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -52,6 +53,58 @@ def order_of(raw):
     结论会被 GREASE 的变化冒充，实测第一次就这么误判过。"""
     return tuple("G" if is_grease(e) else e
                  for e in parse_client_hello(raw)["raw_extensions"])
+
+
+# buildcli 用固定的 random32（i*7+1），正好拿来做跨实现比对
+C_RND = bytes((i * 7 + 1) & 0xFF for i in range(32))
+C_SID = bytes((i * 3 + 2) & 0xFF for i in range(32))
+BUILDCLI = os.path.join(os.path.dirname(HERE), "csrc", "buildcli")
+
+# 引擎决定打不打乱：C 侧从 profile 的 engine 字段自己判，Python 侧由调用方给。
+# 两边必须**在同一批 profile 上做出同一个决定**，所以这里把 gecko/webkit 也列进来
+# ——它们必须"都不打乱"，否则说明 C 的判断跑偏了。
+# curl_cffi:chrome100 在 buildcli 那个固定 random32 下**会带 padding**（实测
+# 82 条里有 21 条会）。少了这样一条，"padding 位置钉住"在 C 侧根本验不到 ——
+# 变异实测：把 padding 从 C 的钉住名单里去掉，门禁照样全绿。
+C_CASES = (("real:edge", True), ("real:chrome153", True),
+           ("curl_cffi:chrome100", True),
+           ("real:firefox153", False), ("real:safari", False))
+
+
+def check_c_parity(reg):
+    """同一个 random32，Python 与 C 必须排出**同一个顺序**。
+
+    这是整个设计的目的：置换从 random32 派生而不是用系统随机，就是为了让两侧
+    可复现。对不上意味着三方差分永远红，而且不可调试。
+
+    顺带验引擎判断：gecko/webkit 两侧都必须**不打乱**。
+    """
+    bad = []
+    r = subprocess.run(["make", "-s"], cwd=os.path.dirname(BUILDCLI),
+                       capture_output=True, text=True, timeout=300)
+    if r.returncode != 0:
+        return [f"make 失败：{(r.stderr or r.stdout)[-200:]}"]
+
+    lines = "".join(f"={pid}\n" for pid, _ in C_CASES)
+    out = subprocess.run([BUILDCLI], input=lines, capture_output=True,
+                         text=True, timeout=120).stdout.strip().split("\n")
+    if len(out) != len(C_CASES):
+        return [f"buildcli 只回了 {len(out)} 行，应为 {len(C_CASES)}"]
+
+    for (pid, perm), hexs in zip(C_CASES, out):
+        if hexs == "-" or pid not in reg:
+            bad.append(f"{pid}: C 侧构造失败或注册表里没有")
+            continue
+        c = order_of(bytes.fromhex(hexs))
+        py = order_of(build_client_hello(reg[pid]["tls"], sni=None,
+                                         random32=C_RND, session_id=C_SID,
+                                         permute=perm))
+        if c != py:
+            bad.append(f"{pid}: 同一个 random32，Python 与 C 排出的顺序不同 —— "
+                       "置换的全部意义就是两侧可复现")
+        else:
+            print(f"  ✅ 跨实现 {pid:16s} 打乱={perm}，Python 与 C 逐位相同")
+    return bad
 
 
 def main():
@@ -162,6 +215,8 @@ def main():
     tiny = [0x0A0A, PADDING_EXT, 0x2A2A]
     if permute_extensions(tiny, b"\0" * 32) != tiny:
         bad.append("可移动项少于 2 个时置换函数动了顺序 —— 那种情况没什么可打乱的")
+
+    bad += check_c_parity(reg)
 
     if checked < len(CASES):
         bad.append(f"只验了 {checked}/{len(CASES)} 条 —— 三个引擎钉住的东西不同，"

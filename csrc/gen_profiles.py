@@ -20,6 +20,7 @@ REGISTRY = os.path.join(HERE, "..", "spec", "profiles.json")
 SEGMENTS_DIR = os.path.join(HERE, "..", "spec", "segments")
 
 
+
 def load_segments():
     """加载源码段表，**逐段**筛选，只收 substitutable=true 的段。
 

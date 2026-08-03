@@ -60,7 +60,9 @@ typedef struct {
     uint16_t client_version;
     uint16_t session_id_len;
     /* 该 profile 属于哪个引擎。实测 81 条无一跨引擎，所以良定义 ——
-       它是两层一致性检查（tlsfp_coherence）的基础。 */
+       它是两层一致性检查（tlsfp_coherence）的基础，**也决定要不要每连接打乱
+       扩展顺序**：Chrome 106 起会打乱（RFC 8701 permutation），Firefox 不打乱。
+       本仓实测：真机 5 次连接，chromium 系出 5 种顺序、firefox 恒 1 种。 */
     const char *engine;
 } tlsfp_profile;
 
