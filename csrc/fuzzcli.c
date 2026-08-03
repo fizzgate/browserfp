@@ -2,20 +2,20 @@
    缓冲刚好差一字节。这些函数跑在 nginx worker 里 —— 一次越界就是整个 worker
    挂掉，而不是一个请求失败。
    本程序不判断"结果对不对"，只判断"活着回来且不越界"；越界由 ASan 报。 */
-#include "tlsfp.h"
+#include "browserfp.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
 /* 喂给解析器的缓冲**必须按实际长度堆分配**，不能用固定大小的静态数组：
    越界读若落在"逻辑长度之外、物理数组之内"，ASan 根本看不见 —— 实测就是
-   这么漏掉的：去掉 tlsfp_parse_client_hello 里那句 record 长度检查，静态数组
+   这么漏掉的：去掉 browserfp_parse_client_hello 里那句 record 长度检查，静态数组
    版本照样全绿，换成精确大小的堆缓冲立刻报 heap-buffer-overflow。 */
-static int feed_parser(const uint8_t *data, size_t n, tlsfp_hello *out) {
+static int feed_parser(const uint8_t *data, size_t n, browserfp_hello *out) {
     uint8_t *exact = (uint8_t *)malloc(n ? n : 1);
     if (!exact) return -1;
     if (n) memcpy(exact, data, n);
-    int r = tlsfp_parse_client_hello(exact, n, out);
+    int r = browserfp_parse_client_hello(exact, n, out);
     free(exact);
     return r;
 }
@@ -39,46 +39,46 @@ int main(void) {
 
     for (size_t i = 0; i < NS; i++) {
         for (size_t v = 0; v < 4; v++) {
-            CALL(tlsfp_lookup_ua(strs[i], vers[v], &conf));
-            CALL(tlsfp_lookup_ua(strs[i], vers[v], NULL));
-            CALL(tlsfp_lookup_ua_ex(strs[i], vers[v], &conf, 1));
-            CALL(tlsfp_lookup_h2(strs[i], vers[v]));
+            CALL(browserfp_lookup_ua(strs[i], vers[v], &conf));
+            CALL(browserfp_lookup_ua(strs[i], vers[v], NULL));
+            CALL(browserfp_lookup_ua_ex(strs[i], vers[v], &conf, 1));
+            CALL(browserfp_lookup_h2(strs[i], vers[v]));
         }
-        CALL(tlsfp_lookup_ja4(strs[i]));
-        CALL(tlsfp_identify_h2(strs[i]));
+        CALL(browserfp_lookup_ja4(strs[i]));
+        CALL(browserfp_identify_h2(strs[i]));
         for (size_t j = 0; j < NS; j++)
-            CALL(tlsfp_coherence(strs[i], strs[j], &p, &m));
+            CALL(browserfp_coherence(strs[i], strs[j], &p, &m));
     }
 
     /* 越界与边界下标 */
-    CALL(tlsfp_profile_at((size_t)-1));
-    CALL(tlsfp_profile_at(tlsfp_profile_count()));
-    CALL(tlsfp_profile_at(tlsfp_profile_count() + 1000));
+    CALL(browserfp_profile_at((size_t)-1));
+    CALL(browserfp_profile_at(browserfp_profile_count()));
+    CALL(browserfp_profile_at(browserfp_profile_count() + 1000));
 
     /* 构造器：NULL、零缓冲、差一字节的缓冲 */
-    for (size_t i = 0; i < tlsfp_profile_count(); i++) {
-        const tlsfp_profile *prof = tlsfp_profile_at(i);
+    for (size_t i = 0; i < browserfp_profile_count(); i++) {
+        const browserfp_profile *prof = browserfp_profile_at(i);
         uint8_t rnd[32] = {0}, sid[32] = {0};
-        CALL(tlsfp_build_client_hello(NULL, "x", rnd, sid, out, sizeof(out)));
-        CALL(tlsfp_build_client_hello(prof, NULL, rnd, sid, out, 0));
-        CALL(tlsfp_build_client_hello(prof, "x", NULL, sid, out, sizeof(out)));
-        CALL(tlsfp_build_client_hello(prof, big, rnd, sid, out, sizeof(out)));
-        CALL(tlsfp_build_client_hello(prof, "x", rnd, sid, NULL, 99999));
+        CALL(browserfp_build_client_hello(NULL, "x", rnd, sid, out, sizeof(out)));
+        CALL(browserfp_build_client_hello(prof, NULL, rnd, sid, out, 0));
+        CALL(browserfp_build_client_hello(prof, "x", NULL, sid, out, sizeof(out)));
+        CALL(browserfp_build_client_hello(prof, big, rnd, sid, out, sizeof(out)));
+        CALL(browserfp_build_client_hello(prof, "x", rnd, sid, NULL, 99999));
     }
     for (size_t i = 0; i < 4; i++) {
-        const tlsfp_h2 *h = tlsfp_lookup_h2("chrome", (uint16_t)(150 + i));
-        CALL(tlsfp_build_h2_preface(h, out, sizeof(out)));   /* 缓冲太小 */
-        CALL(tlsfp_build_h2_preface(h, out, 0));
-        CALL(tlsfp_build_h2_preface(NULL, out, sizeof(out)));
-        CALL(tlsfp_h2_pseudo(h));
-        CALL(tlsfp_h2_pseudo(NULL));
+        const browserfp_h2 *h = browserfp_lookup_h2("chrome", (uint16_t)(150 + i));
+        CALL(browserfp_build_h2_preface(h, out, sizeof(out)));   /* 缓冲太小 */
+        CALL(browserfp_build_h2_preface(h, out, 0));
+        CALL(browserfp_build_h2_preface(NULL, out, sizeof(out)));
+        CALL(browserfp_h2_pseudo(h));
+        CALL(browserfp_h2_pseudo(NULL));
     }
 
     /* 解析器：截断的、全零的、超长的 record */
-    tlsfp_hello hello;
+    browserfp_hello hello;
     static uint8_t rec[70000];
     memset(rec, 0, sizeof(rec));
-    CALL(tlsfp_parse_client_hello(NULL, 0, &hello));
+    CALL(browserfp_parse_client_hello(NULL, 0, &hello));
     CALL(feed_parser(rec, 0, &hello));
     for (size_t n = 1; n < 300; n++)
         CALL(feed_parser(rec, n, &hello));
@@ -94,9 +94,9 @@ int main(void) {
     {
         static uint8_t base[16384];
         uint8_t rnd2[32] = {1}, sid2[32] = {2};
-        for (size_t i = 0; i < tlsfp_profile_count(); i++) {
-            const tlsfp_profile *prof = tlsfp_profile_at(i);
-            int n = tlsfp_build_client_hello(prof, "a.io", rnd2, sid2,
+        for (size_t i = 0; i < browserfp_profile_count(); i++) {
+            const browserfp_profile *prof = browserfp_profile_at(i);
+            int n = browserfp_build_client_hello(prof, "a.io", rnd2, sid2,
                                              base, sizeof(base));
             if (n <= 0) continue;
             /* 每条 profile 取若干个位点，各试几种恶意值 */
@@ -131,17 +131,17 @@ int main(void) {
 
     char ja4[64];
     memset(&hello, 0, sizeof(hello));
-    CALL(tlsfp_ja4(&hello, 't', ja4, sizeof(ja4)));
-    CALL(tlsfp_ja4(&hello, 't', ja4, 0));
-    CALL(tlsfp_ja4(&hello, 'q', ja4, 1));
-    CALL(tlsfp_ja4(NULL, 't', ja4, sizeof(ja4)));
+    CALL(browserfp_ja4(&hello, 't', ja4, sizeof(ja4)));
+    CALL(browserfp_ja4(&hello, 't', ja4, 0));
+    CALL(browserfp_ja4(&hello, 'q', ja4, 1));
+    CALL(browserfp_ja4(NULL, 't', ja4, sizeof(ja4)));
 
     printf("%d\n", calls);
 #ifdef TLSFP_FUZZ_COUNTERS
     /* 分支覆盖：每个 case 都必须被恶意输入走到过，否则"没崩"证明不了它安全 */
-    extern unsigned long tlsfp_ext_hits[6];
+    extern unsigned long browserfp_ext_hits[6];
     printf("EXT");
-    for (int i = 0; i < 6; i++) printf(" %lu", tlsfp_ext_hits[i]);
+    for (int i = 0; i < 6; i++) printf(" %lu", browserfp_ext_hits[i]);
     printf("\n");
 #endif
     return 0;

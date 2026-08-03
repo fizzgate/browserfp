@@ -64,7 +64,7 @@ def main():
     gates = sorted(f[:-3] for f in os.listdir(HERE)
                    if f.startswith("test_") and f.endswith(".py")
                    and f[:-3] not in EXCLUDE)
-    work = tempfile.mkdtemp(prefix="tlsfp-clean-")
+    work = tempfile.mkdtemp(prefix="browserfp-clean-")
     try:
         _export(work)
         # 导出的可能是仓库根下的子目录结构，找到 spec/ 在哪

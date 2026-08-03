@@ -51,7 +51,7 @@ def _free_udp_port():
 
 
 def capture_browser(binary, pin):
-    profile = tempfile.mkdtemp(prefix="tlsfp-h3-")
+    profile = tempfile.mkdtemp(prefix="browserfp-h3-")
     port = _free_udp_port()
 
     def launch(p):
@@ -97,14 +97,14 @@ def capture_browser_firefox(binary):
     if not shutil.which("certutil"):
         raise RuntimeError("缺 certutil（brew install nss）—— Firefox 的 h3 采集"
                            "要往 profile 证书库装 CA，没有它做不到")
-    profile = tempfile.mkdtemp(prefix="tlsfp-h3-ff-")
+    profile = tempfile.mkdtemp(prefix="browserfp-h3-ff-")
     # **端口要先定下来**：capture(port, launch) 把 port 原样传给 launch，
     # 传 0 的话 pref 里写的是 h3=:0、URL 也是 :0，浏览器根本连不上，
     # 表现是"未收到 H3 请求头"，看着像 Firefox 不支持。
     port = _free_udp_port()
     subprocess.run(["certutil", "-N", "--empty-password", "-d", f"sql:{profile}"],
                    capture_output=True, timeout=60, check=True)
-    subprocess.run(["certutil", "-A", "-n", "tlsfp-ca", "-t", "CT,,", "-i",
+    subprocess.run(["certutil", "-A", "-n", "browserfp-ca", "-t", "CT,,", "-i",
                     CA_CERT, "-d", f"sql:{profile}"], capture_output=True,
                    timeout=60, check=True)
 

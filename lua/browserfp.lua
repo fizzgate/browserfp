@@ -1,7 +1,7 @@
--- tlsfp —— ClientHello 指纹识别的 LuaJIT FFI 绑定。
+-- browserfp —— ClientHello 指纹识别的 LuaJIT FFI 绑定。
 --
 -- 设计约束（这条是整个集成的前提）：
---   libtlsfp.so 里所有函数都是**内存进内存出、非阻塞**的，不做 socket/文件 I/O、
+--   libbrowserfp.so 里所有函数都是**内存进内存出、非阻塞**的，不做 socket/文件 I/O、
 --   不 sleep。因此可以在 nginx worker 里直接调用而不会阻塞事件循环。网络 I/O 一律
 --   由 Lua 侧的 cosocket 承担，在等待时 yield 给事件循环。
 --
@@ -9,10 +9,10 @@
 --   阻塞调用能让同 worker 上的并发请求卡住 8.88s。
 --
 -- 典型用法（入站识别，OpenResty 的 ssl_client_hello_by_lua*）：
---   local tlsfp = require "tlsfp"
+--   local browserfp = require "browserfp"
 --   local ssl_clt_hello = require "ngx.ssl.clienthello"
 --   local raw = ssl_clt_hello.get_client_hello_raw()   -- 需 OpenResty 支持
---   local r = tlsfp.identify(raw)
+--   local r = browserfp.identify(raw)
 --   if r then ngx.log(ngx.INFO, "client=", r.id, " ja4=", r.ja4)
 --   else       ngx.log(ngx.WARN, "unknown TLS fingerprint") end
 
@@ -22,21 +22,21 @@ ffi.cdef [[
 typedef struct {
     uint16_t items[64];
     size_t   len;
-} tlsfp_u16list;
+} browserfp_u16list;
 
 typedef struct {
     uint16_t      client_version;
     uint8_t       session_id_len;
-    tlsfp_u16list ciphers;
-    tlsfp_u16list extensions;
-    tlsfp_u16list curves;
-    tlsfp_u16list sig_algs;
-    tlsfp_u16list supported_versions;
+    browserfp_u16list ciphers;
+    browserfp_u16list extensions;
+    browserfp_u16list curves;
+    browserfp_u16list sig_algs;
+    browserfp_u16list supported_versions;
     int           has_grease;
     int           has_sni;
     char          alpn_first[16];
     size_t        alpn_count;
-} tlsfp_hello;
+} browserfp_hello;
 
 typedef struct {
     const char     *id;
@@ -47,35 +47,35 @@ typedef struct {
     const uint16_t *exts;      size_t n_exts;
     const uint16_t *curves;    size_t n_curves;
     const uint16_t *sigalgs;   size_t n_sigalgs;
-} tlsfp_profile;
+} browserfp_profile;
 
-int  tlsfp_parse_client_hello(const uint8_t *record, size_t len, tlsfp_hello *out);
-int  tlsfp_parse_ua(const char *ua, char *brand_out, size_t brand_cap,
+int  browserfp_parse_client_hello(const uint8_t *record, size_t len, browserfp_hello *out);
+int  browserfp_parse_ua(const char *ua, char *brand_out, size_t brand_cap,
                     uint16_t *version);
-const tlsfp_profile *tlsfp_lookup_ua(const char *brand, uint16_t version, int *confidence);
-int  tlsfp_ja4(const tlsfp_hello *h, char transport, char *out, size_t outlen);
-int  tlsfp_build_client_hello(const tlsfp_profile *p, const char *sni,
+const browserfp_profile *browserfp_lookup_ua(const char *brand, uint16_t version, int *confidence);
+int  browserfp_ja4(const browserfp_hello *h, char transport, char *out, size_t outlen);
+int  browserfp_build_client_hello(const browserfp_profile *p, const char *sni,
                               const uint8_t *random32, const uint8_t *session_id,
                               uint8_t *out, size_t outlen);
-typedef struct { uint16_t group; const uint8_t *pub; size_t pub_len; } tlsfp_keyshare;
-int  tlsfp_build_client_hello_ex(const tlsfp_profile *p, const char *sni,
+typedef struct { uint16_t group; const uint8_t *pub; size_t pub_len; } browserfp_keyshare;
+int  browserfp_build_client_hello_ex(const browserfp_profile *p, const char *sni,
                                  const uint8_t *random32, const uint8_t *session_id,
-                                 const tlsfp_keyshare *ks, size_t n_ks,
+                                 const browserfp_keyshare *ks, size_t n_ks,
                                  unsigned flags,
                                  uint8_t *out, size_t outlen);
-int  tlsfp_rebuild_hrr(const uint8_t *ch1, size_t ch1_len, uint16_t group,
+int  browserfp_rebuild_hrr(const uint8_t *ch1, size_t ch1_len, uint16_t group,
                        const uint8_t *pub, size_t publen,
                        uint8_t *out, size_t outlen);
-size_t tlsfp_key_share_groups(const tlsfp_profile *p, uint16_t *groups,
+size_t browserfp_key_share_groups(const browserfp_profile *p, uint16_t *groups,
                               size_t *lens, size_t max);
-int    tlsfp_kx_init(const char *libcrypto_path);
-const char *tlsfp_kx_openssl_version(void);
-size_t tlsfp_kx_pub_len(uint16_t group);
-size_t tlsfp_kx_secret_len(uint16_t group);
-int    tlsfp_kx_keygen(uint16_t group, uint8_t *pub, size_t publen, void **out);
-int    tlsfp_kx_derive(void *ctx, const uint8_t *peer, size_t peerlen,
+int    browserfp_kx_init(const char *libcrypto_path);
+const char *browserfp_kx_openssl_version(void);
+size_t browserfp_kx_pub_len(uint16_t group);
+size_t browserfp_kx_secret_len(uint16_t group);
+int    browserfp_kx_keygen(uint16_t group, uint8_t *pub, size_t publen, void **out);
+int    browserfp_kx_derive(void *ctx, const uint8_t *peer, size_t peerlen,
                        uint8_t *secret, size_t seclen);
-void   tlsfp_kx_free(void *ctx);
+void   browserfp_kx_free(void *ctx);
 typedef struct {
     const uint32_t *settings; size_t n_settings;
     uint32_t        window;
@@ -84,27 +84,27 @@ typedef struct {
     const char     *akamai;
     const char     *engine;
     uint16_t        ver_lo, ver_hi;
-} tlsfp_h2;
+} browserfp_h2;
 
-const tlsfp_h2 *tlsfp_lookup_h2(const char *brand, uint16_t version);
-const tlsfp_h2 *tlsfp_identify_h2(const char *akamai);
-int tlsfp_coherence(const char *ja4, const char *akamai,
+const browserfp_h2 *browserfp_lookup_h2(const char *brand, uint16_t version);
+const browserfp_h2 *browserfp_identify_h2(const char *akamai);
+int browserfp_coherence(const char *ja4, const char *akamai,
                     const char **tls_engine, const char **h2_engine);
-int  tlsfp_build_h2_preface(const tlsfp_h2 *h, uint8_t *out, size_t outlen);
-const char *tlsfp_h2_pseudo(const tlsfp_h2 *h);
-const tlsfp_profile *tlsfp_profile_at(size_t idx);
-const tlsfp_profile *tlsfp_lookup_ja4(const char *ja4);
-size_t tlsfp_profile_count(void);
+int  browserfp_build_h2_preface(const browserfp_h2 *h, uint8_t *out, size_t outlen);
+const char *browserfp_h2_pseudo(const browserfp_h2 *h);
+const browserfp_profile *browserfp_profile_at(size_t idx);
+const browserfp_profile *browserfp_lookup_ja4(const char *ja4);
+size_t browserfp_profile_count(void);
 ]]
 
 local _M = { _VERSION = "0.1" }
 
 local lib
 do
-    -- 依次尝试常见位置；调用方也可先设 package.cpath 或用 tlsfp.load(path)
+    -- 依次尝试常见位置；调用方也可先设 package.cpath 或用 browserfp.load(path)
     local candidates = {
-        "libtlsfp.so", "./libtlsfp.so", "csrc/libtlsfp.so",
-        "/usr/local/lib/libtlsfp.so",
+        "libbrowserfp.so", "./libbrowserfp.so", "csrc/libbrowserfp.so",
+        "/usr/local/lib/libbrowserfp.so",
     }
     for _, p in ipairs(candidates) do
         local ok, handle = pcall(ffi.load, p)
@@ -118,7 +118,7 @@ function _M.load(path)
 end
 
 -- 复用同一块 buffer，避免每请求分配（nginx worker 里这条很重要）
-local hello_buf = ffi.new("tlsfp_hello")
+local hello_buf = ffi.new("browserfp_hello")
 local ja4_buf   = ffi.new("char[40]")
 
 --- 解析 ClientHello 并算 JA4。
@@ -126,14 +126,14 @@ local ja4_buf   = ffi.new("char[40]")
 -- @param transport  "t"（TCP，默认）或 "q"（QUIC）
 -- @return ja4 字符串；失败返回 nil, err
 function _M.ja4(record, transport)
-    if not lib then return nil, "libtlsfp.so 未加载" end
+    if not lib then return nil, "libbrowserfp.so 未加载" end
     if type(record) ~= "string" or #record < 5 then return nil, "record 太短" end
 
-    local rc = lib.tlsfp_parse_client_hello(record, #record, hello_buf)
+    local rc = lib.browserfp_parse_client_hello(record, #record, hello_buf)
     if rc ~= 0 then return nil, "解析失败 rc=" .. tonumber(rc) end
 
     local t = (transport == "q") and 113 or 116   -- 'q' / 't'
-    if lib.tlsfp_ja4(hello_buf, t, ja4_buf, 40) ~= 0 then
+    if lib.browserfp_ja4(hello_buf, t, ja4_buf, 40) ~= 0 then
         return nil, "ja4 计算失败"
     end
     return ffi.string(ja4_buf)
@@ -148,7 +148,7 @@ function _M.identify(record, transport)
     local ja4, err = _M.ja4(record, transport)
     if not ja4 then return nil, err end
 
-    local p = lib.tlsfp_lookup_ja4(ja4)
+    local p = lib.browserfp_lookup_ja4(ja4)
     if p == nil then return nil, ja4 end
 
     return {
@@ -175,12 +175,12 @@ local conf_buf = ffi.new("int[1]")
 -- 调用方应放弃伪装。拿最近版本的指纹冒充另一个版本正是 split-brain 的来源。
 -- @return table{id, ja4, h2, confidence} 或 nil, err
 function _M.by_ua(brand, version)
-    if not lib then return nil, "libtlsfp.so 未加载" end
+    if not lib then return nil, "libbrowserfp.so 未加载" end
     if type(brand) ~= "string" or type(version) ~= "number" then
         return nil, "brand/version 类型错误"
     end
     conf_buf[0] = -1
-    local p = lib.tlsfp_lookup_ua(brand, version, conf_buf)
+    local p = lib.browserfp_lookup_ua(brand, version, conf_buf)
     local conf = conf_names[conf_buf[0]] or "unknown"
     if p == nil then
         -- 第三个返回值给出 confidence：调用方据此区分"该补录"与"本就没有"
@@ -204,7 +204,7 @@ end
 -- 拿到自己的字节，其余拿到别的品牌的、甚至解析都失败。
 -- 往这几行之后加代码时，先问一句"这里会不会让出"。
 local ch_buf   = ffi.new("uint8_t[16384]")
-local ks_buf   = ffi.new("tlsfp_keyshare[8]")
+local ks_buf   = ffi.new("browserfp_keyshare[8]")
 local ks_grp   = ffi.new("uint16_t[8]")
 local ks_len   = ffi.new("size_t[8]")
 local h2_buf = ffi.new("uint8_t[?]", 8192)
@@ -220,11 +220,11 @@ local _wrap_keys
 -- key_share 里，gen_key_shares() 不会为它产密钥。
 -- @return keys 对象（keys.shares = {[组号]=公钥}）或 nil, err
 function _M.keygen(group)
-    if not lib then return nil, "libtlsfp.so 未加载" end
-    if lib.tlsfp_kx_init(nil) ~= 0 then
+    if not lib then return nil, "libbrowserfp.so 未加载" end
+    if lib.browserfp_kx_init(nil) ~= 0 then
         return nil, "解析 libcrypto 符号失败"
     end
-    local want = tonumber(lib.tlsfp_kx_pub_len(group))
+    local want = tonumber(lib.browserfp_kx_pub_len(group))
     if want == 0 then
         return nil, string.format("组 0x%04x 不支持 —— 只做 X25519 / P-256 / "
                                   .. "P-384 / X25519MLKEM768", group)
@@ -240,19 +240,19 @@ end
 -- 就地改写让它们天然逐字节相同。记录层版本会换成 0x0303（只有首条是 0x0301）。
 --
 -- 服务端选的那个组多半不在 gen_key_shares() 产的那几组里，得单独生成：
---   local pub, h = tlsfp.keygen(group)
---   local ch2 = tlsfp.client_hello_hrr(ch1, group, pub)
+--   local pub, h = browserfp.keygen(group)
+--   local ch2 = browserfp.client_hello_hrr(ch1, group, pub)
 --
 -- @param ch1    第一条 ClientHello 的完整 record
 -- @param group  服务端在 HelloRetryRequest 里选的组
 -- @param pub    该组的公钥
 -- @return record 字符串；失败返回 nil, err
 function _M.client_hello_hrr(ch1, group, pub)
-    if not lib then return nil, "libtlsfp.so 未加载" end
+    if not lib then return nil, "libbrowserfp.so 未加载" end
     if type(ch1) ~= "string" or type(pub) ~= "string" then
         return nil, "ch1 与 pub 都必须是字符串"
     end
-    local n = lib.tlsfp_rebuild_hrr(ch1, #ch1, group, pub, #pub,
+    local n = lib.browserfp_rebuild_hrr(ch1, #ch1, group, pub, #pub,
                                     ch_buf, ffi.sizeof(ch_buf))
     if n < 0 then
         return nil, "重建 CH2 失败：ch1 不是完整的 ClientHello，或里面没有 key_share"
@@ -272,8 +272,8 @@ end
 --
 -- @return keys 对象（keys.shares = {[组号]=公钥字符串}）或 nil, err
 function _M.gen_key_shares(brand, version)
-    if not lib then return nil, "libtlsfp.so 未加载" end
-    if lib.tlsfp_kx_init(nil) ~= 0 then
+    if not lib then return nil, "libbrowserfp.so 未加载" end
+    if lib.browserfp_kx_init(nil) ~= 0 then
         return nil, "解析 libcrypto 符号失败：这个进程里没有加载 OpenSSL？"
     end
     local groups, err = _M.key_share_groups(brand, version)
@@ -292,14 +292,14 @@ function _wrap_keys(want)
     for group, len in pairs(want) do
         local buf = ffi.new("uint8_t[?]", len)
         local hp = ffi.new("void*[1]")
-        local n = lib.tlsfp_kx_keygen(group, buf, len, hp)
+        local n = lib.browserfp_kx_keygen(group, buf, len, hp)
         if n ~= len then
             return nil, string.format("组 0x%04x 生成密钥失败（要 %d 字节，得 %d）"
                                       .. "——这一组当前的 OpenSSL 可能不支持",
                                       group, len, tonumber(n))
         end
         shares[group] = ffi.string(buf, n)
-        handles[group] = ffi.gc(hp[0], lib.tlsfp_kx_free)
+        handles[group] = ffi.gc(hp[0], lib.browserfp_kx_free)
     end
 
     return {
@@ -310,9 +310,9 @@ function _wrap_keys(want)
             if not h then
                 return nil, string.format("没有为组 0x%04x 生成过密钥", group)
             end
-            local want = tonumber(lib.tlsfp_kx_secret_len(group))
+            local want = tonumber(lib.browserfp_kx_secret_len(group))
             local out = ffi.new("uint8_t[?]", want)
-            local n = lib.tlsfp_kx_derive(h, peer, #peer, out, want)
+            local n = lib.browserfp_kx_derive(h, peer, #peer, out, want)
             if n ~= want then
                 return nil, string.format("组 0x%04x 算共享密钥失败 —— "
                                           .. "服务端那段长度对不上？给了 %d 字节",
@@ -324,7 +324,7 @@ function _wrap_keys(want)
         free = function(self)
             for g, h in pairs(handles) do
                 ffi.gc(h, nil)
-                lib.tlsfp_kx_free(h)
+                lib.browserfp_kx_free(h)
                 handles[g] = nil
             end
         end,
@@ -338,10 +338,10 @@ end
 -- profile 对不上。GREASE 那条不列 —— 它的内容由库自己按 RFC 8701 填。
 -- @return 数组 {{group=…, len=…}, …}  或 nil, err
 function _M.key_share_groups(brand, version)
-    if not lib then return nil, "libtlsfp.so 未加载" end
-    local p = lib.tlsfp_lookup_ua(brand, version, conf_buf)
+    if not lib then return nil, "libbrowserfp.so 未加载" end
+    local p = lib.browserfp_lookup_ua(brand, version, conf_buf)
     if p == nil then return nil, "无可用 profile" end
-    local n = lib.tlsfp_key_share_groups(p, ks_grp, ks_len, 8)
+    local n = lib.browserfp_key_share_groups(p, ks_grp, ks_len, 8)
     local out = {}
     for i = 0, tonumber(n) - 1 do
         out[#out + 1] = { group = tonumber(ks_grp[i]), len = tonumber(ks_len[i]) }
@@ -360,10 +360,10 @@ end
 -- 调用方该做的是放弃伪装、走原来的通道，并把这次降级记下来。
 -- @return brand, version 或 nil
 function _M.parse_ua(ua)
-    if not lib then return nil, "libtlsfp.so 未加载" end
+    if not lib then return nil, "libbrowserfp.so 未加载" end
     if type(ua) ~= "string" or ua == "" then return nil, "ua 必须是非空字符串" end
     local vbuf = ffi.new("uint16_t[1]")
-    if lib.tlsfp_parse_ua(ua, ua_brand_buf, ffi.sizeof(ua_brand_buf), vbuf) ~= 1 then
+    if lib.browserfp_parse_ua(ua, ua_brand_buf, ffi.sizeof(ua_brand_buf), vbuf) ~= 1 then
         return nil, "认不出这个 User-Agent"
     end
     return ffi.string(ua_brand_buf), tonumber(vbuf[0])
@@ -387,7 +387,7 @@ end
 -- @param key_shares  {[组号] = 公钥字符串}，长度须与 key_share_groups() 给的一致
 -- @return record 字符串, profile 信息表；失败返回 nil, err
 function _M.client_hello(brand, version, sni, key_shares)
-    if not lib then return nil, "libtlsfp.so 未加载" end
+    if not lib then return nil, "libbrowserfp.so 未加载" end
     if type(sni) ~= "string" or sni == "" then
         return nil, "必须提供 sni：多租户站点缺 SNI 会直接 handshake_failure"
     end
@@ -411,13 +411,13 @@ function _M.client_hello(brand, version, sni, key_shares)
         end
     end
 
-    local p = lib.tlsfp_lookup_ua(brand, version, conf_buf)
+    local p = lib.browserfp_lookup_ua(brand, version, conf_buf)
     if p == nil then return nil, "profile 已失效" end
     -- 组必须**盖满**。C 侧只查"给进来的组在不在 profile 里"（多给会报错），
     -- 查不了"少给" —— 少给的那组会安静地沿用采集机的公钥。这一侧补上。
     local n_ks = 0
     local hold = {}
-    local want = lib.tlsfp_key_share_groups(p, ks_grp, ks_len, 8)
+    local want = lib.browserfp_key_share_groups(p, ks_grp, ks_len, 8)
     for i = 0, tonumber(want) - 1 do
         local g = tonumber(ks_grp[i])
         local pub = key_shares[g]
@@ -452,7 +452,7 @@ function _M.client_hello(brand, version, sni, key_shares)
                                       .. "key_share 里，注入会被丢掉", g)
         end
     end
-    local n = lib.tlsfp_build_client_hello_ex(p, sni, rnd_buf, sid_buf,
+    local n = lib.browserfp_build_client_hello_ex(p, sni, rnd_buf, sid_buf,
                                               ks_buf, n_ks,
                                               0, ch_buf, ffi.sizeof(ch_buf))
     if n < 0 then return nil, "组装失败（缓冲区不足或 profile 缺重建字段）" end
@@ -472,17 +472,17 @@ end
 --
 -- @return string 开场字节, string 伪头序   或  nil, err
 function _M.h2_preface(brand, version)
-    if not lib then return nil, "libtlsfp.so 未加载" end
+    if not lib then return nil, "libbrowserfp.so 未加载" end
     if type(brand) ~= "string" or type(version) ~= "number" then
         return nil, "brand 必须是字符串、version 必须是数字"
     end
-    local h = lib.tlsfp_lookup_h2(brand, version)
+    local h = lib.browserfp_lookup_h2(brand, version)
     -- 查不到就明确失败。**不能退回一组默认 SETTINGS** —— 那等于发一个不属于
     -- 任何浏览器的 h2 指纹。调用方该走 HTTP/1.1，或换一个有数据的版本。
     if h == nil then return nil, "该品牌/版本没有 h2 数据，不能构造开场" end
-    local n = lib.tlsfp_build_h2_preface(h, h2_buf, ffi.sizeof(h2_buf))
+    local n = lib.browserfp_build_h2_preface(h, h2_buf, ffi.sizeof(h2_buf))
     if n < 0 then return nil, "组装失败（缓冲区不足）" end
-    local ps = lib.tlsfp_h2_pseudo(h)
+    local ps = lib.browserfp_h2_pseudo(h)
     return ffi.string(h2_buf, n), ps ~= nil and ffi.string(ps) or nil
 end
 
@@ -494,11 +494,11 @@ end
 -- h2 必须按 (品牌, 版本) 独立查 —— 与 h2_preface 同一个源。
 -- @return akamai 串 或 nil, err
 function _M.h2_akamai(brand, version)
-    if not lib then return nil, "libtlsfp.so 未加载" end
+    if not lib then return nil, "libbrowserfp.so 未加载" end
     if type(brand) ~= "string" or type(version) ~= "number" then
         return nil, "brand 必须是字符串、version 必须是数字"
     end
-    local h = lib.tlsfp_lookup_h2(brand, version)
+    local h = lib.browserfp_lookup_h2(brand, version)
     if h == nil then return nil, "该品牌/版本没有 h2 数据" end
     return h.akamai ~= nil and ffi.string(h.akamai) or nil
 end
@@ -511,9 +511,9 @@ end
 --
 -- @return table{engine, ver_lo, ver_hi, akamai} 或 nil
 function _M.identify_h2(akamai)
-    if not lib then return nil, "libtlsfp.so 未加载" end
+    if not lib then return nil, "libbrowserfp.so 未加载" end
     if type(akamai) ~= "string" then return nil, "akamai 必须是字符串" end
-    local h = lib.tlsfp_identify_h2(akamai)
+    local h = lib.browserfp_identify_h2(akamai)
     if h == nil then return nil end
     return {engine = ffi.string(h.engine), ver_lo = h.ver_lo,
             ver_hi = h.ver_hi, akamai = ffi.string(h.akamai)}
@@ -530,7 +530,7 @@ end
 -- 报"哪一层不一致"比只报一个布尔有用得多。
 local e1, e2 = ffi.new("const char*[1]"), ffi.new("const char*[1]")
 function _M.coherence(ja4, akamai)
-    if not lib then return nil, "libtlsfp.so 未加载" end
+    if not lib then return nil, "libbrowserfp.so 未加载" end
     -- **两个参数都必须是字符串或 nil**。FFI 遇到数字/布尔会抛
     -- "cannot convert 'number' to 'const char *'" —— 未捕获就是 500。
     local function str_or_nil(v)
@@ -538,7 +538,7 @@ function _M.coherence(ja4, akamai)
     end
     ja4, akamai = str_or_nil(ja4), str_or_nil(akamai)
     e1[0], e2[0] = nil, nil
-    local r = lib.tlsfp_coherence(ja4, akamai, e1, e2)
+    local r = lib.browserfp_coherence(ja4, akamai, e1, e2)
     local function str(b) return b[0] ~= nil and ffi.string(b[0]) or nil end
     return (r == 0 and "ok") or (r == 1 and "mismatch") or "unknown",
            {tls = str(e1), h2 = str(e2)}
@@ -546,7 +546,7 @@ end
 
 function _M.profile_count()
     if not lib then return 0 end
-    return tonumber(lib.tlsfp_profile_count())
+    return tonumber(lib.browserfp_profile_count())
 end
 
 return _M

@@ -1,4 +1,4 @@
-/* kxcli —— 把 tlsfp_kx 暴露给门禁。
+/* kxcli —— 把 browserfp_kx 暴露给门禁。
  *
  * 每行一条指令：
  *   gen <group>                       → <pubhex> <handle>
@@ -7,7 +7,7 @@
  * 句柄是本进程内的下标，**只在一次进程生命周期内有效** —— 门禁要在同一个
  * 进程里先 gen 再 derive，否则私钥早没了。
  */
-#include "tlsfp_kx.h"
+#include "browserfp_kx.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -34,7 +34,7 @@ static void puthex(const unsigned char *b, int n) {
 
 int main(int argc, char **argv) {
     const char *lib = argc > 1 ? argv[1] : NULL;
-    if (tlsfp_kx_init(lib) != 0) {
+    if (browserfp_kx_init(lib) != 0) {
         fprintf(stderr, "解析 libcrypto 符号失败\n");
         return 2;
     }
@@ -48,11 +48,11 @@ int main(int argc, char **argv) {
         char *nl = strchr(line, '\n');
         if (nl) *nl = 0;
         if (!strcmp(line, "version")) {
-            printf("%s\n", tlsfp_kx_openssl_version());
+            printf("%s\n", browserfp_kx_openssl_version());
         } else if (!strncmp(line, "gen ", 4)) {
             unsigned g = (unsigned)strtoul(line + 4, NULL, 0);
             void *ctx = NULL;
-            int n = tlsfp_kx_keygen((uint16_t)g, buf, sizeof(buf), &ctx);
+            int n = browserfp_kx_keygen((uint16_t)g, buf, sizeof(buf), &ctx);
             if (n < 0 || nh >= MAXH) { printf("ERR\n"); continue; }
             H[nh] = ctx;
             puthex(buf, n);
@@ -64,7 +64,7 @@ int main(int argc, char **argv) {
             int idx = atoi(line + 7);
             int pn = unhex(sp + 1, peer, sizeof(peer));
             if (idx < 0 || idx >= nh || pn < 0) { printf("ERR\n"); continue; }
-            int n = tlsfp_kx_derive(H[idx], peer, (size_t)pn, sec, sizeof(sec));
+            int n = browserfp_kx_derive(H[idx], peer, (size_t)pn, sec, sizeof(sec));
             if (n < 0) { printf("ERR\n"); continue; }
             puthex(sec, n);
             printf("\n");
@@ -73,6 +73,6 @@ int main(int argc, char **argv) {
         }
         fflush(stdout);
     }
-    for (int i = 0; i < nh; i++) tlsfp_kx_free(H[i]);
+    for (int i = 0; i < nh; i++) browserfp_kx_free(H[i]);
     return 0;
 }

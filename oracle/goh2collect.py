@@ -16,7 +16,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from oracle.h2probe import H2Probe                            # noqa: E402
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-PROBE = os.path.join(HERE, "gotls", "tlsfp-probe")
+PROBE = os.path.join(HERE, "gotls", "browserfp-probe")
 OUT = os.path.join(HERE, "..", "spec", "golden", "h2_tls_client.json")
 
 

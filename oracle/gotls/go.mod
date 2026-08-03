@@ -1,4 +1,4 @@
-module fizztls/gotls
+module browserfp/gotls
 
 go 1.24.1
 

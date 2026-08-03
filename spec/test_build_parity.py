@@ -130,7 +130,7 @@ def check_random_varies():
         rec = bytes.fromhex(r.stdout.strip())
         randoms.add(rec[11:43].hex())        # record(5)+hs 头(4)+版本(2) 之后是 random
     # snitest 用固定种子，所以这里只验"字段位置正确"而非"每次都变"；
-    # 真正的随机由 Lua 侧 resty.random 提供，见 lua/tlsfp.lua 的 client_hello
+    # 真正的随机由 Lua 侧 resty.random 提供，见 lua/browserfp.lua 的 client_hello
     if not randoms:
         return ["取不到 random 字段"]
     return []
@@ -139,7 +139,7 @@ def check_random_varies():
 def _ensure_fresh():
     """跑之前先确保 C 产物是当前源码编出来的。
 
-    **这个坑撞过三次**：改了 tlsfp.c 或数据源后忘了重建，门禁比对的是陈旧的
+    **这个坑撞过三次**：改了 browserfp.c 或数据源后忘了重建，门禁比对的是陈旧的
     .o / profiles.inc，报出的差异真实存在却与当前代码无关 —— 排查方向会被
     彻底带偏。让门禁自己跑一次 make，比依赖人记得跑可靠。
     """

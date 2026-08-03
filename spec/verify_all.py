@@ -61,7 +61,7 @@ def _pick_verdict(lines):
 # 大小、又常落在同一秒，缓存就被判定有效，执行的是变异版本、inspect 读到
 # 的却是还原后的源码。实测因此追查了很久：门禁坚持报 chrome 上限是 150，
 # 而文件里、git 里、getsource 里全是 153。
-_PYCACHE = tempfile.mkdtemp(prefix="tlsfp-pyc-")
+_PYCACHE = tempfile.mkdtemp(prefix="browserfp-pyc-")
 
 
 def _run(mod, timeout=300):

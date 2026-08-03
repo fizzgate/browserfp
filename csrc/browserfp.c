@@ -1,5 +1,5 @@
 /* ClientHello 解析与 JA4 计算。行为以 the Python reference (clienthello.py) 为准。 */
-#include "tlsfp.h"
+#include "browserfp.h"
 
 #include <string.h>
 #include <stdio.h>
@@ -15,7 +15,7 @@
  *      它是**纯 C 无外部依赖**，随便哪个 Linux 工具链都能出。
  *   ② 一个进程里别出现两份 OpenSSL。宿主是 OpenResty，它自带 OpenSSL（本机实测
  *      3.5.7）；再链一份系统 libcrypto 进来就是两份。RTLD_DEFAULT 拿到的正是
- *      **宿主已经加载的那一份**，与 tlsfp_kx.c 的做法一致。
+ *      **宿主已经加载的那一份**，与 browserfp_kx.c 的做法一致。
  *
  * 拿不到就返回 -1，调用方按失败处理 —— 不自带一份 SHA-256 兜底：那等于在指纹
  * 库里塞第二套密码学实现，两套算出来不一致时症状是「指纹莫名其妙不对」。 */
@@ -24,7 +24,7 @@
 #endif
 
 typedef unsigned char *(*fn_sha256)(const unsigned char *, size_t, unsigned char *);
-static fn_sha256 tlsfp_sha256_fn;
+static fn_sha256 browserfp_sha256_fn;
 
 /* 先看宿主进程里有没有（OpenResty 里 nginx 已经链了 libcrypto，这条就够）；
  * 没有就按常见 soname 自己 dlopen 一个。**纯 LuaJIT 进程属于后者** —— 门禁大多
@@ -36,8 +36,8 @@ static const char *const TLSFP_CRYPTO_SONAMES[] = {
     NULL
 };
 
-static int tlsfp_sha256_init(void) {
-    if (tlsfp_sha256_fn) return 0;
+static int browserfp_sha256_init(void) {
+    if (browserfp_sha256_fn) return 0;
     void *p = dlsym(RTLD_DEFAULT, "SHA256");
     if (!p) {
         for (int i = 0; TLSFP_CRYPTO_SONAMES[i]; i++) {
@@ -48,56 +48,56 @@ static int tlsfp_sha256_init(void) {
         }
     }
     if (!p) return -1;
-    tlsfp_sha256_fn = (fn_sha256)p;
+    browserfp_sha256_fn = (fn_sha256)p;
     return 0;
 }
 
-/* 让调用方显式指定 libcrypto（与 tlsfp_kx_init 同一口径）。返回 0 成功。 */
-int tlsfp_crypto_init(const char *libcrypto_path) {
-    if (tlsfp_sha256_fn) return 0;
+/* 让调用方显式指定 libcrypto（与 browserfp_kx_init 同一口径）。返回 0 成功。 */
+int browserfp_crypto_init(const char *libcrypto_path) {
+    if (browserfp_sha256_fn) return 0;
     if (libcrypto_path && *libcrypto_path) {
         void *h = dlopen(libcrypto_path, RTLD_NOW | RTLD_GLOBAL);
         if (h) {
             void *p = dlsym(h, "SHA256");
-            if (p) { tlsfp_sha256_fn = (fn_sha256)p; return 0; }
+            if (p) { browserfp_sha256_fn = (fn_sha256)p; return 0; }
         }
     }
-    return tlsfp_sha256_init();
+    return browserfp_sha256_init();
 }
 
 /* 与 OpenSSL 的 SHA256() 同签名；拿不到实现时把输出清零并返回 NULL。 */
 static unsigned char *SHA256(const unsigned char *d, size_t n, unsigned char *md) {
-    if (tlsfp_sha256_init() != 0) return NULL;
-    return tlsfp_sha256_fn(d, n, md);
+    if (browserfp_sha256_init() != 0) return NULL;
+    return browserfp_sha256_fn(d, n, md);
 }
 
 #include "profiles.inc"
 
-const tlsfp_profile *tlsfp_lookup_ja4(const char *ja4) {
+const browserfp_profile *browserfp_lookup_ja4(const char *ja4) {
     if (!ja4) return NULL;
     for (size_t i = 0; i < TLSFP_PROFILE_COUNT; i++)
-        if (strcmp(tlsfp_profiles[i].ja4, ja4) == 0) return &tlsfp_profiles[i];
+        if (strcmp(browserfp_profiles[i].ja4, ja4) == 0) return &browserfp_profiles[i];
     return NULL;
 }
 
-size_t tlsfp_profile_count(void) { return TLSFP_PROFILE_COUNT; }
+size_t browserfp_profile_count(void) { return TLSFP_PROFILE_COUNT; }
 
 #define ERR_SHORT      -1
 #define ERR_NOT_HS     -2
 #define ERR_NOT_CH     -3
 #define ERR_TRUNCATED  -4
 
-static void list_push(tlsfp_u16list *l, uint16_t v) {
+static void list_push(browserfp_u16list *l, uint16_t v) {
     if (l->len < TLSFP_MAX_ITEMS) l->items[l->len++] = v;
 }
 
 #ifdef TLSFP_FUZZ_COUNTERS
-unsigned long tlsfp_ext_hits[6];         /* SNI/groups/sigalgs/alpn/versions/其它 */
+unsigned long browserfp_ext_hits[6];         /* SNI/groups/sigalgs/alpn/versions/其它 */
 /* **计数必须放在每个 case 的体内**，不能放在 switch 之前：放前面计的是
    "看见了这个扩展"，而不是"解析体真的执行了" —— 实测把四个 case 的体改空之后，
    放在 switch 前的计数器照样满额，断言完全失灵。这与并发检查那次"比错字段"
    是同一类错误：测了一个相邻但不等价的东西。 */
-#define TLSFP_EXT_SEEN(i) (tlsfp_ext_hits[i]++)
+#define TLSFP_EXT_SEEN(i) (browserfp_ext_hits[i]++)
 #else
 #define TLSFP_EXT_SEEN(id) ((void)0)
 #endif
@@ -107,19 +107,19 @@ static uint16_t rd16(const uint8_t *p) { return (uint16_t)((p[0] << 8) | p[1]); 
 /* 解析 supported_groups / signature_algorithms 这类「2 字节长度 + u16 数组」的扩展。
  * skip_grease 仅对 curves 有意义：Chrome 会在 supported_groups 里塞 GREASE。 */
 static void parse_u16_vector(const uint8_t *body, size_t len,
-                             tlsfp_u16list *out, int skip_grease) {
+                             browserfp_u16list *out, int skip_grease) {
     if (len < 2) return;
     size_t n = rd16(body);
     if (n + 2 > len) n = len - 2;
     for (size_t i = 0; i + 1 < n; i += 2) {
         uint16_t v = rd16(body + 2 + i);
-        if (skip_grease && tlsfp_is_grease(v)) continue;
+        if (skip_grease && browserfp_is_grease(v)) continue;
         list_push(out, v);
     }
 }
 
-int tlsfp_parse_client_hello(const uint8_t *rec, size_t len,
-                               tlsfp_hello *out) {
+int browserfp_parse_client_hello(const uint8_t *rec, size_t len,
+                               browserfp_hello *out) {
     memset(out, 0, sizeof(*out));
     if (len < 5) return ERR_SHORT;
     if (rec[0] != 0x16) return ERR_NOT_HS;
@@ -144,7 +144,7 @@ int tlsfp_parse_client_hello(const uint8_t *rec, size_t len,
     if (o + cs_len > body_len) return ERR_TRUNCATED;
     for (size_t i = 0; i + 1 < cs_len; i += 2) {
         uint16_t c = rd16(b + o + i);
-        if (tlsfp_is_grease(c)) { out->has_grease = 1; continue; }
+        if (browserfp_is_grease(c)) { out->has_grease = 1; continue; }
         list_push(&out->ciphers, c);
     }
     o += cs_len;
@@ -165,7 +165,7 @@ int tlsfp_parse_client_hello(const uint8_t *rec, size_t len,
         if (o + elen > end) break;
         const uint8_t *ebody = b + o;
 
-        if (tlsfp_is_grease(eid)) {
+        if (browserfp_is_grease(eid)) {
             out->has_grease = 1;
         } else {
             list_push(&out->extensions, eid);
@@ -211,7 +211,7 @@ int tlsfp_parse_client_hello(const uint8_t *rec, size_t len,
                     if (n + 1 > elen) n = elen - 1;
                     for (size_t i = 0; i + 1 < n; i += 2) {
                         uint16_t v = rd16(ebody + 1 + i);
-                        if (!tlsfp_is_grease(v))
+                        if (!browserfp_is_grease(v))
                             list_push(&out->supported_versions, v);
                     }
                 }
@@ -239,10 +239,10 @@ static void hash12(const char *s, char *out) {
     out[12] = '\0';
 }
 
-int tlsfp_ja4(const tlsfp_hello *h, char transport, char *out, size_t outlen) {
+int browserfp_ja4(const browserfp_hello *h, char transport, char *out, size_t outlen) {
     /* **空指针必须挡在门口**：这些函数跑在 nginx worker 里，解引用一个 NULL
        不是"这个请求失败"，是整个 worker 挂掉。实测 ASan 下
-       tlsfp_ja4(NULL, …) 直接 SEGV。 */
+       browserfp_ja4(NULL, …) 直接 SEGV。 */
     if (!h || !out || outlen == 0) return -1;
     if (outlen < TLSFP_JA4_LEN) return -1;
 
@@ -294,7 +294,7 @@ int tlsfp_ja4(const tlsfp_hello *h, char transport, char *out, size_t outlen) {
         /* GREASE 处处忽略，签名算法列表也算（见 oracle/clienthello.py 同处注释） */
         int first = 1;
         for (size_t i = 0; i < h->sig_algs.len; i++) {
-            if (tlsfp_is_grease(h->sig_algs.items[i])) continue;
+            if (browserfp_is_grease(h->sig_algs.items[i])) continue;
             p += sprintf(cbuf + p, first ? "%04x" : ",%04x", h->sig_algs.items[i]);
             first = 0;
         }
@@ -380,7 +380,7 @@ static int ua_ios_third_party(const char *ua) {
     return 0;
 }
 
-int tlsfp_parse_ua(const char *ua, char *brand_out, size_t brand_cap,
+int browserfp_parse_ua(const char *ua, char *brand_out, size_t brand_cap,
                    uint16_t *version) {
     if (!ua || !brand_out || !version || brand_cap < 16) return 0;
     if (strncmp(ua, "Mozilla/", 8) != 0) return 0;   /* 不是浏览器 */
@@ -437,9 +437,9 @@ int tlsfp_parse_ua(const char *ua, char *brand_out, size_t brand_cap,
 }
 
 
-const tlsfp_profile *tlsfp_lookup_ua(const char *brand, uint16_t version,
+const browserfp_profile *browserfp_lookup_ua(const char *brand, uint16_t version,
                                      int *confidence) {
-    return tlsfp_lookup_ua_ex(brand, version, confidence, 0);
+    return browserfp_lookup_ua_ex(brand, version, confidence, 0);
 }
 
 /* Chromium 系衍生浏览器：指纹由内核决定，调用方传进来的 version 必须已经是
@@ -458,13 +458,13 @@ static const char *chromium_engine(const char *brand) {
     return NULL;
 }
 
-const tlsfp_profile *tlsfp_lookup_ua_ex(const char *brand, uint16_t version,
+const browserfp_profile *browserfp_lookup_ua_ex(const char *brand, uint16_t version,
                                         int *confidence, int relaxed) {
     if (!brand) return NULL;
     /* 区分"表里没有该品牌"与"有品牌但没有可用版本"：两者都返回 NULL，但
        confidence 不同，好与 Python 侧的命名对齐（差分门禁逐字符比对）。 */
     int brand_seen = 0;
-    const tlsfp_ua_entry *exact = NULL, *lo = NULL, *hi = NULL;
+    const browserfp_ua_entry *exact = NULL, *lo = NULL, *hi = NULL;
     const char *engine = chromium_engine(brand);
 
     /* Python 侧的语义是"把内核表并进自家表后再统一查"（own 覆盖 engine），
@@ -473,7 +473,7 @@ const tlsfp_profile *tlsfp_lookup_ua_ex(const char *brand, uint16_t version,
        分两趟查则各自都缺一端而弃权。所以这里在**一趟遍历**里同时收两个
        品牌的条目，并在版本号撞车时让自家表优先。 */
     for (size_t i = 0; i < TLSFP_UA_COUNT; i++) {
-        const tlsfp_ua_entry *e = &tlsfp_ua_table[i];
+        const browserfp_ua_entry *e = &browserfp_ua_table[i];
         int own = strcmp(e->brand, brand) == 0;
         int eng = engine && strcmp(e->brand, engine) == 0;
         if (!own && !eng) continue;
@@ -504,17 +504,17 @@ const tlsfp_profile *tlsfp_lookup_ua_ex(const char *brand, uint16_t version,
         if (confidence)
             *confidence = exact->from_seg ? TLSFP_CONF_SAME_SEG
                                           : TLSFP_CONF_EXACT;
-        return &tlsfp_profiles[exact->profile];
+        return &browserfp_profiles[exact->profile];
     }
 
     /* same-seg 需两端指纹同组**且**来源库有交集 —— 跨库的"相同"是巧合，
      * 实测 29 个多库收录的版本里 17 个存在跨库分歧。 */
     if (lo && hi && lo->fp_group == hi->fp_group && (lo->src_mask & hi->src_mask)) {
         if (confidence) *confidence = TLSFP_CONF_SAME_SEG;
-        return &tlsfp_profiles[hi->profile];
+        return &browserfp_profiles[hi->profile];
     }
 
-    const tlsfp_ua_entry *near = hi ? hi : lo;
+    const browserfp_ua_entry *near = hi ? hi : lo;
     if (!near) {
         /* 衍生品牌即便自家表为空，只要内核表在就不该报 no-brand */
         if (confidence) *confidence = (brand_seen || engine) ? -2 : -1;
@@ -523,12 +523,12 @@ const tlsfp_profile *tlsfp_lookup_ua_ex(const char *brand, uint16_t version,
     if (confidence) *confidence = TLSFP_CONF_FALLBACK;
     /* 严格模式（默认）：跨指纹段的最近版本**不返回** —— 用它伪装等于制造
      * split-brain。调用方据 confidence 得知存在最近版本，但拿不到 profile。 */
-    return relaxed ? &tlsfp_profiles[near->profile] : NULL;
+    return relaxed ? &browserfp_profiles[near->profile] : NULL;
 }
 
 
-const tlsfp_profile *tlsfp_profile_at(size_t idx) {
-    return idx < TLSFP_PROFILE_COUNT ? &tlsfp_profiles[idx] : NULL;
+const browserfp_profile *browserfp_profile_at(size_t idx) {
+    return idx < TLSFP_PROFILE_COUNT ? &browserfp_profiles[idx] : NULL;
 }
 
 /* ---- HTTP/2 连接开场组装 ------------------------------------------------- */
@@ -559,15 +559,15 @@ static size_t put_frame_head(uint8_t *p, uint32_t len, uint8_t type,
     return n;
 }
 
-int tlsfp_coherence(const char *ja4, const char *akamai,
+int browserfp_coherence(const char *ja4, const char *akamai,
                     const char **tls_engine, const char **h2_engine) {
     const char *t = NULL, *h = NULL;
     if (ja4) {
-        const tlsfp_profile *p = tlsfp_lookup_ja4(ja4);
+        const browserfp_profile *p = browserfp_lookup_ja4(ja4);
         if (p && p->engine && *p->engine) t = p->engine;
     }
     if (akamai) {
-        const tlsfp_h2 *x = tlsfp_identify_h2(akamai);
+        const browserfp_h2 *x = browserfp_identify_h2(akamai);
         if (x) h = x->engine;
     }
     if (tls_engine) *tls_engine = t;
@@ -576,31 +576,31 @@ int tlsfp_coherence(const char *ja4, const char *akamai,
     return strcmp(t, h) != 0;            /* 1=矛盾 */
 }
 
-const tlsfp_h2 *tlsfp_identify_h2(const char *akamai) {
+const browserfp_h2 *browserfp_identify_h2(const char *akamai) {
     if (!akamai) return NULL;
     for (size_t i = 0; i < TLSFP_H2_RECORD_COUNT; i++)
-        if (strcmp(tlsfp_h2_records[i].akamai, akamai) == 0)
-            return &tlsfp_h2_records[i];
+        if (strcmp(browserfp_h2_records[i].akamai, akamai) == 0)
+            return &browserfp_h2_records[i];
     return NULL;
 }
 
-const char *tlsfp_h2_pseudo(const tlsfp_h2 *h) {
+const char *browserfp_h2_pseudo(const browserfp_h2 *h) {
     return h ? h->pseudo : NULL;
 }
 
 /* (品牌, 版本) → h2 记录。表按 (品牌, 版本) 建，与 TLS 的 profile 表分开 ——
    h2 与 TLS 的变更点不是同一批，绑在一起就会出现"TLS 对、h2 错"。 */
-const tlsfp_h2 *tlsfp_lookup_h2(const char *brand, uint16_t version) {
+const browserfp_h2 *browserfp_lookup_h2(const char *brand, uint16_t version) {
     if (!brand) return NULL;
     for (size_t i = 0; i < TLSFP_H2_COUNT; i++) {
-        const tlsfp_h2_entry *e = &tlsfp_h2_table[i];
+        const browserfp_h2_entry *e = &browserfp_h2_table[i];
         if (e->version == version && strcmp(e->brand, brand) == 0)
-            return &tlsfp_h2_records[e->rec];
+            return &browserfp_h2_records[e->rec];
     }
     return NULL;
 }
 
-int tlsfp_build_h2_preface(const tlsfp_h2 *p, uint8_t *out, size_t outlen) {
+int browserfp_build_h2_preface(const browserfp_h2 *p, uint8_t *out, size_t outlen) {
     if (!p || !out) return -1;
     /* 查不到 h2 数据时调用方拿到的是 NULL，走不到这里；这里再挡一层空记录，
        免得凭空造出一个不属于任何浏览器的开场。 */
@@ -667,7 +667,7 @@ static size_t put_u16(uint8_t *p, uint16_t v) {
  * 告警报 protocol_version，而先怀疑的是三处扩展 —— **告警码指向的是"哪一类"，
  * 不是"哪一处"**。
  */
-int tlsfp_rebuild_hrr(const uint8_t *ch1, size_t ch1_len, uint16_t group,
+int browserfp_rebuild_hrr(const uint8_t *ch1, size_t ch1_len, uint16_t group,
                       const uint8_t *pub, size_t publen,
                       uint8_t *out, size_t outlen) {
     if (!ch1 || ch1_len < 5 + 4 + 2 + 32 + 1 || !pub || !publen) return -1;
@@ -744,7 +744,7 @@ int tlsfp_rebuild_hrr(const uint8_t *ch1, size_t ch1_len, uint16_t group,
     return (int)w;
 }
 
-size_t tlsfp_key_share_groups(const tlsfp_profile *p, uint16_t *groups,
+size_t browserfp_key_share_groups(const browserfp_profile *p, uint16_t *groups,
                               size_t *lens, size_t max) {
     if (!p) return 0;
     for (size_t i = 0; i < p->n_rawext; i++) {
@@ -755,7 +755,7 @@ size_t tlsfp_key_share_groups(const tlsfp_profile *p, uint16_t *groups,
         while (j + 4 <= blen && n < max) {
             uint16_t g = (uint16_t)((b[j] << 8) | b[j + 1]);
             uint16_t l = (uint16_t)((b[j + 2] << 8) | b[j + 3]);
-            if (!tlsfp_is_grease(g)) { groups[n] = g; lens[n] = l; n++; }
+            if (!browserfp_is_grease(g)) { groups[n] = g; lens[n] = l; n++; }
             j += 4 + l;
         }
         return n;
@@ -763,7 +763,7 @@ size_t tlsfp_key_share_groups(const tlsfp_profile *p, uint16_t *groups,
     return 0;
 }
 
-int tlsfp_build_client_hello(const tlsfp_profile *p, const char *sni,
+int browserfp_build_client_hello(const browserfp_profile *p, const char *sni,
                              const uint8_t *random32, const uint8_t *session_id,
                              uint8_t *out, size_t outlen) {
     /* **默认是出网口径**，与 Python 侧一致。
@@ -772,7 +772,7 @@ int tlsfp_build_client_hello(const tlsfp_profile *p, const char *sni,
        修复全是死的。实测四次调用字节完全一样。
        默认值要选"错了会响"的那个：重建门禁忘了传 VERBATIM 会当场比对失败（看得见），
        而生产忘了传 flags=0 是静默地发固定字节（看不见）。 */
-    return tlsfp_build_client_hello_ex(p, sni, random32, session_id,
+    return browserfp_build_client_hello_ex(p, sni, random32, session_id,
                                        NULL, 0, 0, out, outlen);
 }
 
@@ -832,12 +832,12 @@ static size_t perm_below(perm_rng *s, size_t n) {
 }
 
 /* 就地打乱 seq[]，GREASE / padding / pre_shared_key 的位置钉住。 */
-static void permute_seq(const tlsfp_profile *p, size_t *seq, size_t n_seq,
+static void permute_seq(const browserfp_profile *p, size_t *seq, size_t n_seq,
                         const uint8_t *random32) {
     size_t mov[TLSFP_MAX_ITEMS + 1], n_mov = 0;
     for (size_t k = 0; k < n_seq; k++) {
         uint16_t id = seq[k] == SNI_SLOT ? 0x0000 : p->rawext[seq[k]];
-        if (id == 0x0015 || id == 0x0029 || tlsfp_is_grease(id)) continue;
+        if (id == 0x0015 || id == 0x0029 || browserfp_is_grease(id)) continue;
         mov[n_mov++] = k;
     }
     if (n_mov < 2) return;
@@ -857,7 +857,7 @@ static void permute_seq(const tlsfp_profile *p, size_t *seq, size_t n_seq,
    26 次本地抓包（curl_cffi chrome119 与 chrome131）实测都是这四个，两两差 32，
    且与 profile 自身大小无关。照抄 golden 会让我们的 JA4 永不变化，而真实客户端
    在变 —— 一个 JA4 恒定的"Chrome"在聚合统计里很显眼。推导见 oracle/chbuild.py。 */
-static const uint16_t tlsfp_ech_body_lens[4] = {186, 218, 250, 282};
+static const uint16_t browserfp_ech_body_lens[4] = {186, 218, 250, 282};
 
 static int rewrite_ech(const uint8_t *body, uint16_t blen,
                        const uint8_t *random32, int verbatim,
@@ -872,11 +872,11 @@ static int rewrite_ech(const uint8_t *body, uint16_t blen,
        凭空造一个没人发过的长度。没测过的栈保持 golden 长度。 */
     if (!verbatim) {
         int known = 0;
-        for (int i = 0; i < 4; i++) if (tlsfp_ech_body_lens[i] == blen) known = 1;
+        for (int i = 0; i < 4; i++) if (browserfp_ech_body_lens[i] == blen) known = 1;
         if (known) {
             uint8_t pick[1];
             ech_bytes(random32, 7, pick, 1);
-            uint16_t want = tlsfp_ech_body_lens[pick[0] & 3];
+            uint16_t want = browserfp_ech_body_lens[pick[0] & 3];
             if (want > 10 + enc_len) pay_len = (uint16_t)(want - 10 - enc_len);
         }
     }
@@ -898,7 +898,7 @@ static int rewrite_ech(const uint8_t *body, uint16_t blen,
    两个扩展 id 每次随机且**恒不相同**；密码套件独立；supported_groups 首项随机
    且 **key_share 里那条与它相同**；supported_versions 独立。
    取值域是 RFC 8701 的 16 个。随机性从调用方给的 random32 派生（库内无 RNG）。 */
-typedef struct { uint16_t ext[2], cipher, group, version; } tlsfp_grease;
+typedef struct { uint16_t ext[2], cipher, group, version; } browserfp_grease;
 
 static uint16_t grease_at(const uint8_t *random32, uint32_t idx) {
     uint8_t b[1];
@@ -906,7 +906,7 @@ static uint16_t grease_at(const uint8_t *random32, uint32_t idx) {
     return (uint16_t)(0x0A0A + 0x1010 * (b[0] & 0x0F));
 }
 
-static void pick_grease(const uint8_t *random32, tlsfp_grease *g) {
+static void pick_grease(const uint8_t *random32, browserfp_grease *g) {
     g->ext[0] = grease_at(random32, 0);
     uint32_t k = 1;
     do { g->ext[1] = grease_at(random32, k++); } while (g->ext[1] == g->ext[0]);
@@ -921,14 +921,14 @@ static void regrease_u16(uint8_t *p, size_t n_vals, const uint16_t *repl,
     size_t j = 0;
     for (size_t i = 0; i < n_vals; i++) {
         uint16_t v = (uint16_t)((p[i * 2] << 8) | p[i * 2 + 1]);
-        if (!tlsfp_is_grease(v)) continue;
+        if (!browserfp_is_grease(v)) continue;
         uint16_t nv = repl[j % n_repl]; j++;
         p[i * 2] = (uint8_t)(nv >> 8); p[i * 2 + 1] = (uint8_t)(nv & 0xff);
     }
 }
 
 static int rewrite_key_share(const uint8_t *body, uint16_t blen,
-                             const tlsfp_keyshare *ks, size_t n_ks,
+                             const browserfp_keyshare *ks, size_t n_ks,
                              uint16_t grease_group,
                              uint8_t *out, uint16_t *outlen) {
     if (blen < 2) return -1;
@@ -938,10 +938,10 @@ static int rewrite_key_share(const uint8_t *body, uint16_t blen,
         uint16_t n = (uint16_t)((body[i + 2] << 8) | body[i + 3]);
         if (i + 4 + n > blen) return -1;
         const uint8_t *pub = body + i + 4;
-        if (tlsfp_is_grease(g) && grease_group) {
+        if (browserfp_is_grease(g) && grease_group) {
             g = grease_group;            /* 与 supported_groups 那条一致 */
         }
-        if (!tlsfp_is_grease(g)) {
+        if (!browserfp_is_grease(g)) {
             for (size_t k = 0; k < n_ks; k++) {
                 if (ks[k].group != g) continue;
                 if (ks[k].pub_len != n) return -1;   /* 长度必须相同 */
@@ -974,9 +974,9 @@ static int rewrite_key_share(const uint8_t *body, uint16_t blen,
     return 0;
 }
 
-int tlsfp_build_client_hello_ex(const tlsfp_profile *p, const char *sni,
+int browserfp_build_client_hello_ex(const browserfp_profile *p, const char *sni,
                                 const uint8_t *random32, const uint8_t *session_id,
-                                const tlsfp_keyshare *ks, size_t n_ks,
+                                const browserfp_keyshare *ks, size_t n_ks,
                                 unsigned flags,
                                 uint8_t *out, size_t outlen) {
     /* 注入了 key_share = 调用方真要握手。这时候不能把 profile 里那张采集当时的
@@ -1002,7 +1002,7 @@ int tlsfp_build_client_hello_ex(const tlsfp_profile *p, const char *sni,
     for (size_t i = 0; i < p->n_rawext; i++) {
         if (p->rawext[i] == 0x0000) { sni_done = 1; break; }
     }
-    tlsfp_grease g;
+    browserfp_grease g;
     int regrease = !(flags & TLSFP_BUILD_VERBATIM);
     size_t n_ext_g = 0;
     if (regrease) pick_grease(random32, &g);
@@ -1010,7 +1010,7 @@ int tlsfp_build_client_hello_ex(const tlsfp_profile *p, const char *sni,
     size_t sni_at = 0;
     if (!sni_done && sni) {
         /* 首个 GREASE 之后；没有 GREASE 就放最前 */
-        if (p->n_rawext && tlsfp_is_grease(p->rawext[0])) sni_at = 1;
+        if (p->n_rawext && browserfp_is_grease(p->rawext[0])) sni_at = 1;
     }
 
     /* —— Chrome 106+ 每连接打乱扩展顺序 ——
@@ -1057,7 +1057,7 @@ int tlsfp_build_client_hello_ex(const tlsfp_profile *p, const char *sni,
             continue;
         }
         uint16_t id = p->rawext[i];
-        if (regrease && tlsfp_is_grease(id)) id = g.ext[n_ext_g++ % 2];
+        if (regrease && browserfp_is_grease(id)) id = g.ext[n_ext_g++ % 2];
         const uint8_t *body = p->extblob + p->extoff[i];
         uint16_t blen = p->extlen[i];
 
@@ -1185,7 +1185,7 @@ int tlsfp_build_client_hello_ex(const tlsfp_profile *p, const char *sni,
     o += put_u16(out + o, (uint16_t)(p->n_rawciph * 2));
     for (size_t i = 0; i < p->n_rawciph; i++) {
         uint16_t c = p->rawciph[i];
-        if (regrease && tlsfp_is_grease(c)) c = g.cipher;
+        if (regrease && browserfp_is_grease(c)) c = g.cipher;
         o += put_u16(out + o, c);
     }
     out[o++] = 0x01;                              /* compression 长度 */

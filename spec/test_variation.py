@@ -106,7 +106,7 @@ def observe_c(pid, rounds=ROUNDS):
 
 LUA_SNIPPET = """
 package.path = "%s/lua/?.lua;" .. package.path
-local t = require "tlsfp"
+local t = require "browserfp"
 t.load("%s")
 for i = 1, %d do
   local rec = t.client_hello("%s", %d, "example.com")
@@ -128,7 +128,7 @@ def observe_lua(brand, version, rounds=ROUNDS):
     lua = shutil.which("luajit") or shutil.which("resty")
     if not lua:
         return None
-    lib = os.path.join(ROOT, "csrc", "libtlsfp.so")
+    lib = os.path.join(ROOT, "csrc", "libbrowserfp.so")
     if not os.path.exists(lib):
         return None
     with tempfile.NamedTemporaryFile("w", suffix=".lua", delete=False) as f:
@@ -206,8 +206,8 @@ def main():
                 continue
             varying, seqs = got
             # **key_share（0x33）不算在发货路径的必变项里**：C 库内不产密钥，
-            # 公钥由调用方注入（架构约束，见 tlsfp_build_client_hello_ex 的
-            # tlsfp_keyshare 参数），kscli 这里没注入，所以非 GREASE 的那几条
+            # 公钥由调用方注入（架构约束，见 browserfp_build_client_hello_ex 的
+            # browserfp_keyshare 参数），kscli 这里没注入，所以非 GREASE 的那几条
             # 恒定。chromium/webkit 之所以还在变，是因为里面那条 GREASE 在换。
             # "注入了公钥就必须用上"由 test_keyshare 单独验。
             missing = spec["must_vary"] - {0x0033} - varying
@@ -228,7 +228,7 @@ def main():
             continue
         got = observe_lua(*ua)
         if got is None:
-            print(f"  ？ Lua {engine}: 缺 luajit 或 libtlsfp.so，跳过（非通过）")
+            print(f"  ？ Lua {engine}: 缺 luajit 或 libbrowserfp.so，跳过（非通过）")
             continue
         varying, seqs, n = got
         missing = spec["must_vary"] - {0x0033} - varying

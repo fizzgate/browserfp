@@ -313,7 +313,7 @@ def fetch(profile, h2_profile, host, pid=None, use_c=False):
             return NET, f"没协商出 h2（{conn.negotiated_alpn}）", None
         h2 = H2Client(conn, h2_profile).connect()
         sid = h2.request("GET", ECHO_PATH, host,
-                         headers=[("user-agent", "tlsfp-echo"),
+                         headers=[("user-agent", "browserfp-echo"),
                                   ("accept", "application/json")])
         headers, body = h2.read_response(sid)
         status = dict(headers).get(":status")

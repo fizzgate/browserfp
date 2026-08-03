@@ -3,7 +3,7 @@
    构造失败（含形状不符、分组不存在）打 "ERR"。
 
    按 id 而不是下标取 profile：下标会随注册表增删漂移，而门禁是按 id 遍历的。 */
-#include "tlsfp.h"
+#include "browserfp.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -23,9 +23,9 @@ static int hex2bin(const char *h, uint8_t *out, size_t cap, size_t *n) {
     return 0;
 }
 
-static const tlsfp_profile *by_id(const char *id) {
-    for (size_t i = 0; i < tlsfp_profile_count(); i++) {
-        const tlsfp_profile *p = tlsfp_profile_at(i);
+static const browserfp_profile *by_id(const char *id) {
+    for (size_t i = 0; i < browserfp_profile_count(); i++) {
+        const browserfp_profile *p = browserfp_profile_at(i);
         if (p && p->id && strcmp(p->id, id) == 0) return p;
     }
     return NULL;
@@ -57,7 +57,7 @@ int main(void) {
         unsigned flags = 0;
         char *idp = line;
         if (*idp == '=') { flags = TLSFP_BUILD_VERBATIM; idp++; }
-        const tlsfp_profile *p = by_id(idp);
+        const browserfp_profile *p = by_id(idp);
         if (!p) { printf("ERR\n"); fflush(stdout); continue; }
         char *sni = tab + 1;
         char *tab2 = strchr(sni, '\t');
@@ -65,7 +65,7 @@ int main(void) {
         *tab2 = 0;
         if (!*sni) sni = NULL;
 
-        tlsfp_keyshare ks[MAX_KS];
+        browserfp_keyshare ks[MAX_KS];
         size_t n_ks = 0;
         char *spec = tab2 + 1, *tok = strtok(spec, ",");
         int bad = 0;
@@ -83,7 +83,7 @@ int main(void) {
         }
         if (bad) { printf("ERR\n"); fflush(stdout); continue; }
 
-        int n = tlsfp_build_client_hello_ex(p, sni, rnd, sid,
+        int n = browserfp_build_client_hello_ex(p, sni, rnd, sid,
                                             n_ks ? ks : NULL, n_ks, flags,
                                             out, sizeof(out));
         if (n < 0) { printf("ERR\n"); fflush(stdout); continue; }

@@ -4,7 +4,7 @@
 
 ```
 oracle/chbuild.py   发货用（Python 侧），也是 golden 重建的判据
-csrc/tlsfp.c        发货用（C/Lua 侧），生产真正调的那份
+csrc/browserfp.c        发货用（C/Lua 侧），生产真正调的那份
 oracle/tls13.py     参考实现自带的一份，真机端到端握手用它
 ```
 

@@ -2,8 +2,8 @@
 -- 判据：**不得抛出未捕获的错误**（在 content_by_lua_block 里那就是 500），
 -- 也不得让 LuaJIT 崩掉。返回 nil+err 是合格的。
 package.path = "lua/?.lua;" .. package.path
-local tlsfp = require "tlsfp"
-tlsfp.load("csrc/libtlsfp.so")
+local browserfp = require "browserfp"
+browserfp.load("csrc/libbrowserfp.so")
 
 local big = string.rep("A", 70000)
 local vals = {nil, "", " ", "chrome", big, "chrome-mobile", "\255\254",
@@ -24,21 +24,21 @@ for i = 1, N do
   local a = vals[i]
   for j = 1, N do
     local b = vals[j]
-    try("by_ua", tlsfp.by_ua, a, b)
-    try("client_hello", tlsfp.client_hello, a, b, "x")
-    try("h2_preface", tlsfp.h2_preface, a, b)
+    try("by_ua", browserfp.by_ua, a, b)
+    try("client_hello", browserfp.client_hello, a, b, "x")
+    try("h2_preface", browserfp.h2_preface, a, b)
   end
-  try("identify_h2", tlsfp.identify_h2, a)
-  try("identify", tlsfp.identify, a)
-  try("ja4", tlsfp.ja4, a)
-  try("coherence", tlsfp.coherence, a, a)
+  try("identify_h2", browserfp.identify_h2, a)
+  try("identify", browserfp.identify, a)
+  try("ja4", browserfp.ja4, a)
+  try("coherence", browserfp.coherence, a, a)
 end
 
 -- 截断的 TLS record 逐长度喂给识别器
 local rec = string.rep("\0", 400)
-for k = 0, 300 do try("identify-trunc", tlsfp.identify, rec:sub(1, k)) end
+for k = 0, 300 do try("identify-trunc", browserfp.identify, rec:sub(1, k)) end
 local hdr = "\22\3\1\255\255" .. string.rep("\0", 300)
-for k = 5, 300 do try("identify-lie", tlsfp.identify, hdr:sub(1, k)) end
+for k = 5, 300 do try("identify-lie", browserfp.identify, hdr:sub(1, k)) end
 
 print(n)
 for i = 1, math.min(#bad, 8) do print("BAD " .. bad[i]) end

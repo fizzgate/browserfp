@@ -42,26 +42,26 @@ ROOT = os.path.dirname(HERE)
 # 每条都得是**语义**改动。改注释、改变量名、加空行不算 —— 那种"变异"不红是
 # 应该的，混进来只会稀释信号。
 MUTANTS = [
-    ("ja4:cipher 不排序", "csrc/tlsfp.c",
+    ("ja4:cipher 不排序", "csrc/browserfp.c",
      "    qsort(tmp, h->ciphers.len, sizeof(uint16_t), cmp_u16);",
      "    /* 变异：不排序 */",
      ["test_ja4_vectors", "test_c_parity", "test_lua_parity"],
      "JA4 的 cipher 段必须排序后再哈希"),
 
-    ("ja4:扩展段没排除 SNI", "csrc/tlsfp.c",
+    ("ja4:扩展段没排除 SNI", "csrc/browserfp.c",
      "        if (e == 0x0000 || e == 0x0010) continue;",
      "        if (e == 0x0010) continue;",
      ["test_ja4_vectors", "test_c_parity"],
      "JA4 的扩展段要排除 SNI 与 ALPN"),
 
-    ("解析:GREASE 不剔除", "csrc/tlsfp.c",
-     "        if (tlsfp_is_grease(eid)) {\n            out->has_grease = 1;",
+    ("解析:GREASE 不剔除", "csrc/browserfp.c",
+     "        if (browserfp_is_grease(eid)) {\n            out->has_grease = 1;",
      "        if (0) {\n            out->has_grease = 1;",
      ["test_c_parity", "test_ja4t"],
      "扩展列表里的 GREASE 要剔除并置 has_grease"),
 
-    ("构造:SNI 插在首个 GREASE 之前", "csrc/tlsfp.c",
-     "        if (p->n_rawext && tlsfp_is_grease(p->rawext[0])) sni_at = 1;",
+    ("构造:SNI 插在首个 GREASE 之前", "csrc/browserfp.c",
+     "        if (p->n_rawext && browserfp_is_grease(p->rawext[0])) sni_at = 1;",
      "        sni_at = 0;",
      ["test_build_parity"],
      "重建 ClientHello 时 SNI 排在首个 GREASE 之后"),
@@ -96,7 +96,7 @@ MUTANTS = [
      ["test_hrr"],
      "RFC 8446 §5.1：首条 ClientHello 之后的记录必须用 0x0303"),
 
-    ("发货路径:C 默认改回重建口径", "csrc/tlsfp.c",
+    ("发货路径:C 默认改回重建口径", "csrc/browserfp.c",
      "                                       NULL, 0, 0, out, outlen);",
      "                                       NULL, 0, TLSFP_BUILD_VERBATIM, out, outlen);",
      ["test_variation"],
@@ -126,7 +126,7 @@ MUTANTS = [
      ["test_keyshare"],
      "GREASE ECH 必须每次新鲜（固定 config_id 会撞上服务端真实配置）"),
 
-    ("ECH:C 侧不重写", "csrc/tlsfp.c",
+    ("ECH:C 侧不重写", "csrc/browserfp.c",
      "        if (id == 0xFE0D && blen >= 8) {",
      "        if (0) {",
      ["test_keyshare"],
@@ -144,7 +144,7 @@ MUTANTS = [
      ["test_keyshare"],
      "注入的公钥长度与 profile 不符必须报错，不能将就"),
 
-    ("解析:supported_versions 长度不夹紧", "csrc/tlsfp.c",
+    ("解析:supported_versions 长度不夹紧", "csrc/browserfp.c",
      "                    if (n + 1 > elen) n = elen - 1;",
      "                    /* 变异：不夹紧 */",
      ["test_robustness"],
@@ -165,13 +165,13 @@ MUTANTS = [
      ["test_h2_table", "test_h2_build", "test_coherence"],
      "源码推导出的 PRIORITY 帧不能被丢掉（Firefox 发 6 条）"),
 
-    ("coherence:矛盾不报", "csrc/tlsfp.c",
+    ("coherence:矛盾不报", "csrc/browserfp.c",
      "    return strcmp(t, h) != 0;            /* 1=矛盾 */",
      "    return 0;",
      ["test_coherence"],
      "TLS 与 h2 两层引擎不一致时必须报矛盾（split-brain 正是这么漏出去的）"),
 
-    ("h2:开场不发 WINDOW_UPDATE", "csrc/tlsfp.c",
+    ("h2:开场不发 WINDOW_UPDATE", "csrc/browserfp.c",
      "    if (p->window) {\n",
      "    if (0) {\n",
      ["test_h2_build"],
@@ -208,27 +208,27 @@ MUTANTS = [
      ["test_ja4_vectors"],
      "GREASE 要处处忽略，签名算法列表也算（规范原文如此）"),
 
-    ("JA4:C 侧签名算法不滤 GREASE", "csrc/tlsfp.c",
-     "            if (tlsfp_is_grease(h->sig_algs.items[i])) continue;",
+    ("JA4:C 侧签名算法不滤 GREASE", "csrc/browserfp.c",
+     "            if (browserfp_is_grease(h->sig_algs.items[i])) continue;",
      "            ;",
      ["test_ja4_vectors"],
      "C 侧同样要滤 —— 三方照同一份错理解写，互比永远一致"),
 
     # —— UA 字符串解析（"按用户自己的浏览器出指纹"的第一步）
-    ("UA:Safari 规则放松成\"后面有 Safari 就算\"", "csrc/tlsfp.c",
+    ("UA:Safari 规则放松成\"后面有 Safari 就算\"", "csrc/browserfp.c",
      '    while (*end == \'.\' || (*end >= \'0\' && *end <= \'9\')) end++;   /* [\\d.]* */',
      "    return strstr(end, \"Safari/\") ? v : -1;",
      ["test_ua_parse"],
      "Safari 那个标记必须紧跟版本号（UC Browser 后面也有 Safari）"),
 
-    ("UA:衍生品牌不取内核版本", "csrc/tlsfp.c",
+    ("UA:衍生品牌不取内核版本", "csrc/browserfp.c",
      '            int core = ua_after(ua, "Chrome/");\n'
      "            if (core >= 0) v = core;",
      "            ;",
      ["test_ua_parse"],
      "Opera 110 的 UA 里内核是 Chrome/125，差了 15 个大版本"),
 
-    ("UA:版本号溢出夹到 65535 而不是判认不出", "csrc/tlsfp.c",
+    ("UA:版本号溢出夹到 65535 而不是判认不出", "csrc/browserfp.c",
      "    if (overflow) return -1;",
      "    (void)overflow;",
      ["test_ua_parse"],
@@ -266,19 +266,19 @@ MUTANTS = [
      ["test_permute"],
      "verbatim 是照采集那条重建，打乱会让重建门禁比两条不同的报文"),
 
-    ("置换:C 侧 gecko 也打乱", "csrc/tlsfp.c",
+    ("置换:C 侧 gecko 也打乱", "csrc/browserfp.c",
      '        && !strcmp(p->engine, "chromium")',
      '        && strcmp(p->engine, "zzz")',
      ["test_permute"],
      "只有 Chromium 系打乱；Firefox 每次连接顺序恒定（本仓实测 5/5 同序）"),
 
-    ("置换:C 侧不打乱", "csrc/tlsfp.c",
+    ("置换:C 侧不打乱", "csrc/browserfp.c",
      "        permute_seq(p, seq, n_seq, random32);",
      "        (void)0;",
      ["test_permute"],
      "C 是生产用的那份；只有 Python 打乱等于没做"),
 
-    ("置换:C 侧取模有偏置", "csrc/tlsfp.c",
+    ("置换:C 侧取模有偏置", "csrc/browserfp.c",
      "    size_t limit = 256 - (256 % n);\n"
      "    for (;;) {\n"
      "        uint8_t b = perm_next(s);\n"
@@ -288,34 +288,34 @@ MUTANTS = [
      ["test_permute"],
      "两侧必须逐字节同算法，取模偏置会让顺序对不上"),
 
-    ("置换:C 侧 padding 不钉住", "csrc/tlsfp.c",
-     "        if (id == 0x0015 || id == 0x0029 || tlsfp_is_grease(id)) continue;",
-     "        if (id == 0x0029 || tlsfp_is_grease(id)) continue;",
+    ("置换:C 侧 padding 不钉住", "csrc/browserfp.c",
+     "        if (id == 0x0015 || id == 0x0029 || browserfp_is_grease(id)) continue;",
+     "        if (id == 0x0029 || browserfp_is_grease(id)) continue;",
      ["test_permute"],
      "padding 要留在末尾承担补齐"),
 
     # —— HRR 的第二条 ClientHello。RFC 8446 §4.1.2 只允许它与 CH1 差指定的几处，
     # 每违反一条都会被拒，而**告警码指向的是"哪一类"，不是"哪一处"**。
-    ("HRR:CH2 仍用首条的记录层版本", "csrc/tlsfp.c",
+    ("HRR:CH2 仍用首条的记录层版本", "csrc/browserfp.c",
      "    w += put_u16(out + w, 0x0303);                    /* CH2 的记录层版本 */",
      "    w += put_u16(out + w, 0x0301);",
      ["test_hrr"],
      "RFC 8446 §5.1：首条 ClientHello 之后的记录必须用 0x0303"),
 
-    ("HRR:CH2 留着 CH1 的旧 key_share", "csrc/tlsfp.c",
+    ("HRR:CH2 留着 CH1 的旧 key_share", "csrc/browserfp.c",
      "        if (id == 0x0033) {\n            seen_ks = 1;",
      "        if (id == 0x0033) {\n            seen_ks = 1;\n"
      "            memcpy(tmp + o, ext + j, 4 + n); o += 4 + n;",
      ["test_hrr"],
      "CH2 的 key_share 只留服务端选的那一条"),
 
-    ("HRR:CH2 照抄 CH1 的 padding", "csrc/tlsfp.c",
+    ("HRR:CH2 照抄 CH1 的 padding", "csrc/browserfp.c",
      "        if (id == 0x0015) { j += 4 + n; continue; }   /* padding 后面重算 */",
      "        if (0) { j += 4 + n; continue; }",
      ["test_hrr"],
      "key_share 缩短后总长变了，padding 要按新长度重算"),
 
-    ("HRR:CH2 不带回 GREASE ECH", "csrc/tlsfp.c",
+    ("HRR:CH2 不带回 GREASE ECH", "csrc/browserfp.c",
      "        if (id == 0x0015) { j += 4 + n; continue; }   /* padding 后面重算 */",
      "        if (id == 0x0015 || id == 0xfe0d) { j += 4 + n; continue; }",
      ["test_hrr"],
@@ -323,7 +323,7 @@ MUTANTS = [
 
     # —— 密钥交换。**错了不会报错**：本地照样算得出一个共享密钥，只是与服务端
     # 算的不同，症状是握手在 Finished 阶段失败、报"解密失败"。
-    ("KX:混合组公钥两段对调", "csrc/tlsfp_kx.c",
+    ("KX:混合组公钥两段对调", "csrc/browserfp_kx.c",
      '            int m = raw_pub(k->a, pub, publen);\n'
      '            int x = (m == MLKEM_EK_LEN)\n'
      '                    ? raw_pub(k->b, pub + MLKEM_EK_LEN, publen - MLKEM_EK_LEN) : -1;',
@@ -333,7 +333,7 @@ MUTANTS = [
      ["test_kx"],
      "X25519MLKEM768 的 key_share 是 ML-KEM 封装密钥在前、X25519 在后"),
 
-    ("KX:共享密钥两段对调", "csrc/tlsfp_kx.c",
+    ("KX:共享密钥两段对调", "csrc/browserfp_kx.c",
      '        int x = derive_ecdh(k->b, "X25519", peer + MLKEM_CT_LEN, X25519_LEN,\n'
      '                            secret + MLKEM_SS_LEN, seclen - MLKEM_SS_LEN);',
      '        unsigned char tmp[MLKEM_SS_LEN]; memcpy(tmp, secret, MLKEM_SS_LEN);\n'
@@ -343,20 +343,20 @@ MUTANTS = [
      ["test_kx"],
      "混合组共享密钥同样是 ML-KEM 那 32 字节在前"),
 
-    ("KX:混合组丢掉 X25519 那半段", "csrc/tlsfp_kx.c",
+    ("KX:混合组丢掉 X25519 那半段", "csrc/browserfp_kx.c",
      '        int x = derive_ecdh(k->b, "X25519", peer + MLKEM_CT_LEN, X25519_LEN,\n'
      '                            secret + MLKEM_SS_LEN, seclen - MLKEM_SS_LEN);',
      '        memset(secret + MLKEM_SS_LEN, 0, X25519_LEN); int x = X25519_LEN;',
      ["test_kx"],
      "混合组两半都要真算——少一半长度仍然对，只有比字节才看得出来"),
 
-    ("KX:P-256 用错曲线", "csrc/tlsfp_kx.c",
+    ("KX:P-256 用错曲线", "csrc/browserfp_kx.c",
      'gen_ec(group == P256_GROUP ? "prime256v1" : "secp384r1")',
      'gen_ec("secp384r1")',
      ["test_kx"],
      "每个组要用它自己的曲线（Firefox 的 key_share 带 P-256）"),
 
-    ("KX:复用同一把 X25519 密钥", "csrc/tlsfp_kx.c",
+    ("KX:复用同一把 X25519 密钥", "csrc/browserfp_kx.c",
      'static void *gen_named(const char *name) {\n'
      '    void *c = S.ctx_new_from_name(NULL, name, NULL);\n'
      '    if (!c) return NULL;\n'
@@ -379,19 +379,19 @@ MUTANTS = [
      ["test_kx"],
      "每次握手都要新密钥——复用等于一把固定公钥反复上线"),
 
-    ("KX-Lua:derive 用错私钥", "lua/tlsfp.lua",
+    ("KX-Lua:derive 用错私钥", "lua/browserfp.lua",
      "            local h = handles[group]",
      "            local h = next(handles) and handles[(next(handles))]",
      ["test_kx"],
      "每一组要用它自己那把私钥算共享密钥"),
 
-    ("KX-Lua:共享密钥只取一半", "lua/tlsfp.lua",
+    ("KX-Lua:共享密钥只取一半", "lua/browserfp.lua",
      "            return ffi.string(out, n)",
      "            return ffi.string(out, n / 2)",
      ["test_kx"],
      "共享密钥要整段返回——截半后长度看着还像模像样"),
 
-    ("KX:0x6399 拼成 Kyber 在前", "csrc/tlsfp_kx.c",
+    ("KX:0x6399 拼成 Kyber 在前", "csrc/browserfp_kx.c",
      "            int x = raw_pub(k->b, pub, publen);\n"
      "            int m = (x == X25519_LEN)\n"
      "                    ? raw_pub(k->a, pub + X25519_LEN, publen - X25519_LEN) : -1;\n"
@@ -403,14 +403,14 @@ MUTANTS = [
      ["test_kx"],
      "X25519Kyber768Draft00 的顺序与 X25519MLKEM768 相反：X25519 在前"),
 
-    ("KX:0x6399 少那层 Kyber 包装", "csrc/tlsfp_kx.c",
+    ("KX:0x6399 少那层 Kyber 包装", "csrc/browserfp_kx.c",
      "        if (kyber_wrap(K, peer + X25519_LEN, MLKEM_CT_LEN,\n"
      "                       secret + X25519_LEN) != 0) return -1;",
      "        memcpy(secret + X25519_LEN, K, MLKEM_SS_LEN);",
      ["test_kx"],
      "ML-KEM 要补回 SHAKE-256(K || SHA3-256(ct)) 才等于 Kyber 第三轮"),
 
-    ("KX:Kyber 包装少喂 SHA3(ct)", "csrc/tlsfp_kx.c",
+    ("KX:Kyber 包装少喂 SHA3(ct)", "csrc/browserfp_kx.c",
      "        && S.digest_update(c2, h, 32) == 1",
      "        && 1",
      ["test_kx"],
@@ -418,13 +418,13 @@ MUTANTS = [
 
     # —— 生产接口（Lua）这一层。**能力做在库里、出口没接上**是本项目撞过两次
     # 的形态（另一次是 C 构造器默认 VERBATIM），所以这四条从生产入口回打。
-    ("Lua:client_hello 不注入 key_share", "lua/tlsfp.lua",
+    ("Lua:client_hello 不注入 key_share", "lua/browserfp.lua",
      "                                              ks_buf, n_ks,",
      "                                              nil, 0,",
      ["test_lua_keyshare"],
      "生产接口发出去的公钥必须是调用方注入的，不是采集机那把"),
 
-    ("Lua:少给一组时零填充凑合", "lua/tlsfp.lua",
+    ("Lua:少给一组时零填充凑合", "lua/browserfp.lua",
      '        if type(pub) ~= "string" then\n'
      '            return nil, string.format("key_share 缺组 0x%04x（或不是字符串）", g)\n'
      '        end',
@@ -432,13 +432,13 @@ MUTANTS = [
      ["test_lua_keyshare"],
      "key_shares 少给一组必须报错，不能凑合出握不上手的字节"),
 
-    ("Lua:多给的组静默丢掉", "lua/tlsfp.lua",
+    ("Lua:多给的组静默丢掉", "lua/browserfp.lua",
      "        if not listed then",
      "        if false then",
      ["test_lua_keyshare"],
      "profile 里没有的组要报错——静默丢会让调用方以为注入成功了"),
 
-    ("Lua:组查询漏掉最后一组", "lua/tlsfp.lua",
+    ("Lua:组查询漏掉最后一组", "lua/browserfp.lua",
      "    for i = 0, tonumber(want) - 1 do\n        local g = tonumber(ks_grp[i])",
      "    for i = 0, tonumber(want) - 2 do\n        local g = tonumber(ks_grp[i])",
      ["test_lua_keyshare"],
@@ -470,8 +470,8 @@ def _snapshot(dest):
 def _force_rebuild(work):
     """删掉临时副本里的 C 产物，逼下一次 make 真的重编。
 
-    **不能指望 mtime**。变异是一条接一条写同一个 `tlsfp.c` 的，上一条留下的
-    `tlsfp.o` 常常与本次写入落在同一秒里，make 就认为不用重编 —— 于是门禁比的
+    **不能指望 mtime**。变异是一条接一条写同一个 `browserfp.c` 的，上一条留下的
+    `browserfp.o` 常常与本次写入落在同一秒里，make 就认为不用重编 —— 于是门禁比的
     是上一条变异（或原样）的二进制。实测这条是**偶发**的：同一份代码连跑两次，
     "SNI 插在首个 GREASE 之前"一次红一次不红。
 
@@ -503,7 +503,7 @@ def _run(workdir, gate, timeout=300):
 
 
 def main():
-    work = tempfile.mkdtemp(prefix="tlsfp-mut-")
+    work = tempfile.mkdtemp(prefix="browserfp-mut-")
     bad, guarded = [], 0
     try:
         _snapshot(work)

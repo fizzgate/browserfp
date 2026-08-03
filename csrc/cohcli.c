@@ -1,5 +1,5 @@
 /* 从 stdin 读 "ja4<TAB>akamai"（空段用 -），打出 "verdict<TAB>tls<TAB>h2" */
-#include "tlsfp.h"
+#include "browserfp.h"
 #include <stdio.h>
 #include <string.h>
 /* **分隔符必须用 TAB 不能用竖线**：akamai 指纹本身就是竖线分段的
@@ -18,7 +18,7 @@ int main(void) {
         char *p = line;
         char *ja4 = cut(&p), *ak = cut(&p);
         const char *t = NULL, *h = NULL;
-        int r = tlsfp_coherence(ja4, ak, &t, &h);
+        int r = browserfp_coherence(ja4, ak, &t, &h);
         printf("%s\t%s\t%s\n",
                r == 0 ? "ok" : r == 1 ? "mismatch" : "unknown",
                t ? t : "-", h ? h : "-");

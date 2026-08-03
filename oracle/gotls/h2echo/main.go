@@ -34,7 +34,7 @@ func main() {
 	initWin := flag.Int("initwin", 32768, "advertise SETTINGS_INITIAL_WINDOW_SIZE")
 	// Go 在 MaxUploadBufferPerConnection < 65535 时会退回 1MB，所以连接窗口
 	// 最小只能压到 65535。压不下去就意味着"无视发送窗口"这个缺陷在本地观察
-	// 不到 —— 这一点写在 tlsfp_h2.lua 里。
+	// 不到 —— 这一点写在 browserfp_h2.lua 里。
 	connWin := flag.Int("connwin", 65535, "advertise connection-level window")
 	// 只接受某一个密钥交换组，用来把客户端逼到那条路径上。0 = 不限制。
 	// 0x6399 (X25519Kyber768Draft00) 与 0x11ec (X25519MLKEM768) 都能点名。

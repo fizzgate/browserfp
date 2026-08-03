@@ -41,7 +41,7 @@ def capture_firefox(binary, port):
     关键是 alt-svc-mapping-for-testing —— 没有它，Firefox 只会在服务端广播过
     Alt-Svc 之后才尝试 h3，而旁路观测端根本不完成握手、也就广播不了。
     """
-    profile = tempfile.mkdtemp(prefix="tlsfp-quic-ff-")
+    profile = tempfile.mkdtemp(prefix="browserfp-quic-ff-")
     with open(os.path.join(profile, "user.js"), "w") as f:
         f.write(
             'user_pref("network.http.http3.enable", true);\n'
@@ -58,7 +58,7 @@ def capture_firefox(binary, port):
 
 
 def capture(binary, port, timeout=40):
-    profile = tempfile.mkdtemp(prefix="tlsfp-quic-")
+    profile = tempfile.mkdtemp(prefix="browserfp-quic-")
     proc = subprocess.Popen(
         [binary, "--headless=new", f"--user-data-dir={profile}",
          "--no-first-run", "--disable-gpu", "--enable-quic",

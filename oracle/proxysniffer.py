@@ -167,7 +167,7 @@ user_pref("network.dns.disablePrefetch", true);
 def firefox_profile(port):
     """建一个只在本次采集使用的 profile，把代理指到观测点。"""
     import tempfile
-    d = tempfile.mkdtemp(prefix="tlsfp-ff-")
+    d = tempfile.mkdtemp(prefix="browserfp-ff-")
     with open(os.path.join(d, "user.js"), "w") as f:
         f.write(FIREFOX_PREFS.format(port=port))
     return d
@@ -187,7 +187,7 @@ def launch_argv(path, port, url):
     if is_firefox(path):
         prof = firefox_profile(port)
         return [path, "-profile", prof, "-no-remote", "-new-instance", url], prof
-    prof = tempfile.mkdtemp(prefix="tlsfp-cr-")
+    prof = tempfile.mkdtemp(prefix="browserfp-cr-")
     return ([path,
              f"--proxy-server=http://127.0.0.1:{port}",
              f"--user-data-dir={prof}",

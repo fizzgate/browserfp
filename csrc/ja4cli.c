@@ -1,5 +1,5 @@
 /* 读十六进制 ClientHello（每行一条），输出 JA4。供与 Python 差分比对。 */
-#include "tlsfp.h"
+#include "browserfp.h"
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -16,10 +16,10 @@ int main(int argc, char **argv) {
         for (size_t i = 0; i < blen; i++) {
             unsigned v; sscanf(line + i*2, "%2x", &v); buf[i] = (uint8_t)v;
         }
-        tlsfp_hello h;
+        browserfp_hello h;
         char ja4[TLSFP_JA4_LEN];
-        if (tlsfp_parse_client_hello(buf, blen, &h) == 0 &&
-            tlsfp_ja4(&h, transport, ja4, sizeof(ja4)) == 0)
+        if (browserfp_parse_client_hello(buf, blen, &h) == 0 &&
+            browserfp_ja4(&h, transport, ja4, sizeof(ja4)) == 0)
             printf("%s\n", ja4);
         else
             printf("ERROR\n");

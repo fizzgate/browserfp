@@ -11,7 +11,7 @@ h2 表让某个组合的指纹变了，台账里那条旧记录还挂着，看�
     有记录没用例      profile 改名/删除后的残留，会把"全部已确认"撑虚
     记录过期          超过 STALE_DAYS 天没复验，浏览器与回显服务都在变
 
-台账由 spec/tlsfp_echo_it.sh（网关那侧）在验过之后写入，**只记这一轮全对的**。
+台账由 spec/browserfp_echo_it.sh（网关那侧）在验过之后写入，**只记这一轮全对的**。
 
 跑：python -m spec.test_echo_ledger
 """
@@ -41,7 +41,7 @@ def main():
     for k in missing:
         c = by_key[k]
         bad.append(f"{c['brand']} {c['version']}（{c['pid']}）从未被第三方确认过 —— "
-                   "这种字节没有任何外部判据。跑 LIVE=1 bash spec/tlsfp_echo_it.sh")
+                   "这种字节没有任何外部判据。跑 LIVE=1 bash spec/browserfp_echo_it.sh")
 
     orphan = sorted(set(led) - keys)
     for k in orphan:

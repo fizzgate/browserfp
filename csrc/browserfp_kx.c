@@ -1,4 +1,4 @@
-#include "tlsfp_kx.h"
+#include "browserfp_kx.h"
 
 #include <dlfcn.h>
 #include <stdlib.h>
@@ -93,7 +93,7 @@ typedef struct {
         S.field = (fn_##field)p;                                \
     } while (0)
 
-/* 与 tlsfp.c 的 SHA-256 同一套兜底：**这个 .so 不再链 libcrypto**（为了能交叉
+/* 与 browserfp.c 的 SHA-256 同一套兜底：**这个 .so 不再链 libcrypto**（为了能交叉
  * 编译），所以不能指望 RTLD_DEFAULT 里现成就有 EVP 符号 —— 那只在宿主自己链了
  * libcrypto 时成立（OpenResty 是，纯 LuaJyIT 进程不是）。
  * 2026-08-03 实测：只留 RTLD_DEFAULT 的话 test_kx / test_hrr / test_lua_keyshare
@@ -104,7 +104,7 @@ static const char *const KX_CRYPTO_SONAMES[] = {
     NULL
 };
 
-int tlsfp_kx_init(const char *libcrypto_path) {
+int browserfp_kx_init(const char *libcrypto_path) {
     if (S.loaded) return 0;
     void *h = NULL;
     if (libcrypto_path) {
@@ -150,11 +150,11 @@ int tlsfp_kx_init(const char *libcrypto_path) {
     return 0;
 }
 
-const char *tlsfp_kx_openssl_version(void) {
+const char *browserfp_kx_openssl_version(void) {
     return S.loaded ? S.version(0) : NULL;
 }
 
-size_t tlsfp_kx_pub_len(uint16_t group) {
+size_t browserfp_kx_pub_len(uint16_t group) {
     switch (group) {
     case X25519_GROUP: return X25519_LEN;
     case P256_GROUP:   return 65;
@@ -165,7 +165,7 @@ size_t tlsfp_kx_pub_len(uint16_t group) {
     }
 }
 
-size_t tlsfp_kx_secret_len(uint16_t group) {
+size_t browserfp_kx_secret_len(uint16_t group) {
     switch (group) {
     case X25519_GROUP: return 32;
     case P256_GROUP:   return 32;
@@ -241,9 +241,9 @@ static int ec_pub(void *pk, uint8_t *out, size_t cap) {
     return (int)n;
 }
 
-int tlsfp_kx_keygen(uint16_t group, uint8_t *pub, size_t publen, void **out) {
+int browserfp_kx_keygen(uint16_t group, uint8_t *pub, size_t publen, void **out) {
     if (!S.loaded || !out) return -1;
-    size_t need = tlsfp_kx_pub_len(group);
+    size_t need = browserfp_kx_pub_len(group);
     if (!need || publen < need) return -1;
 
     kx_ctx *k = calloc(1, sizeof(*k));
@@ -291,7 +291,7 @@ int tlsfp_kx_keygen(uint16_t group, uint8_t *pub, size_t publen, void **out) {
         break;
     }
 
-    if (n != (int)need) { tlsfp_kx_free(k); return -1; }
+    if (n != (int)need) { browserfp_kx_free(k); return -1; }
     *out = k;
     return n;
 }
@@ -322,11 +322,11 @@ static int derive_ecdh(void *priv, const char *rawname,
     return n;
 }
 
-int tlsfp_kx_derive(void *ctx, const uint8_t *peer, size_t peerlen,
+int browserfp_kx_derive(void *ctx, const uint8_t *peer, size_t peerlen,
                     uint8_t *secret, size_t seclen) {
     kx_ctx *k = (kx_ctx *)ctx;
     if (!S.loaded || !k) return -1;
-    size_t need = tlsfp_kx_secret_len(k->group);
+    size_t need = browserfp_kx_secret_len(k->group);
     if (!need || seclen < need) return -1;
 
     switch (k->group) {
@@ -372,7 +372,7 @@ int tlsfp_kx_derive(void *ctx, const uint8_t *peer, size_t peerlen,
     }
 }
 
-void tlsfp_kx_free(void *ctx) {
+void browserfp_kx_free(void *ctx) {
     kx_ctx *k = (kx_ctx *)ctx;
     if (!k) return;
     if (S.loaded) {

@@ -86,7 +86,7 @@ def capture(name, engine, binary, port, timeout=30, sniffer=None):
     Safari——会在屏幕上弹一个窗口，这是它唯一的采集方式。
     """
     url = f"https://127.0.0.1:{port}/"
-    profile = tempfile.mkdtemp(prefix=f"tlsfp-{name}-")
+    profile = tempfile.mkdtemp(prefix=f"browserfp-{name}-")
     proc = None
     try:
         if engine == "chromium":

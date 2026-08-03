@@ -1,9 +1,9 @@
 .venv/
 __pycache__/
-oracle/gotls/fizztls-probe
+oracle/gotls/browserfp-probe
 oracle/gotls/hrrserver/hrrserver
-oracle/goutls/fizztls-utls
-oracle/gosurf/fizztls-surf
+oracle/goutls/browserfp-utls
+oracle/gosurf/browserfp-surf
 csrc/*.o
 csrc/*.so
 csrc/ja4cli

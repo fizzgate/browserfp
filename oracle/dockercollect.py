@@ -55,7 +55,7 @@ def capture(image, binary, sniffer, extra=(), timeout=60):
     proc = subprocess.Popen(
         ["docker", "run", "--rm", "--entrypoint", binary, image,
          "--headless=new", "--no-sandbox", "--disable-gpu",
-         "--user-data-dir=/tmp/tlsfp-profile", "--no-first-run",
+         "--user-data-dir=/tmp/browserfp-profile", "--no-first-run",
          "--ignore-certificate-errors", *extra,
          f"https://host.docker.internal:{sniffer.port}/"],
         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)

@@ -99,7 +99,7 @@ def t_real_browser():
     if not chromium:
         return False, "本机无 chromium 系浏览器"
     name, binary, version = chromium[0]
-    profile = tempfile.mkdtemp(prefix="tlsfp-quictest-")
+    profile = tempfile.mkdtemp(prefix="browserfp-quictest-")
     with QuicProbe() as probe:
         proc = subprocess.Popen(
             [binary, "--headless=new", f"--user-data-dir={profile}",

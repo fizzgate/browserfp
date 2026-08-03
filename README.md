@@ -1,4 +1,4 @@
-# tlsfp — 浏览器 TLS / HTTP2 / QUIC 指纹覆盖与验证
+# browserfp — 浏览器 TLS / HTTP2 / QUIC 指纹覆盖与验证
 
 目标两条：**覆盖市面主流浏览器指纹**，以及**有办法证明覆盖是对的**。
 
@@ -113,19 +113,19 @@ ML-DSA（`0x0904/0905/0906`），连 `tls_client:chrome_146` 都没有。所以�
 网关拿到 UA 之后，整条链是：
 
 ```
-UA → parse_ua → 段表/等价关系选 profile → tlsfp_build_client_hello() → cosocket 发出
+UA → parse_ua → 段表/等价关系选 profile → browserfp_build_client_hello() → cosocket 发出
 ```
 
-C 侧的构造器 `tlsfp_build_client_hello()` 与库里其他函数一样是**内存进内存出、
+C 侧的构造器 `browserfp_build_client_hello()` 与库里其他函数一样是**内存进内存出、
 非阻塞**的，可直接在 nginx worker 里调。Lua 侧一步到位：
 
 ```lua
 -- 先问这个 profile 要哪些组的密钥（组是 profile 决定的，逐版本不同）
-local groups = tlsfp.key_share_groups("chrome", 151)   -- {{group=0x11ec,len=1216},…}
+local groups = browserfp.key_share_groups("chrome", 151)   -- {{group=0x11ec,len=1216},…}
 local ks = {}
 for _, g in ipairs(groups) do ks[g.group] = my_keygen(g.group) end
 
-local rec, prof = tlsfp.client_hello("chrome", 151, "example.com", ks)
+local rec, prof = browserfp.client_hello("chrome", 151, "example.com", ks)
 -- rec 是可直接 sock:send() 的完整 TLS record
 ```
 
@@ -191,7 +191,7 @@ python -m spec.verify_all --live   # 再加端到端（对外发真实请求）
 
 · 派生 profile 缺 h2 层那次，字段级门禁全绿，只有真去握手才暴露
 · `test_openresty` 第一次跑就撞到 `invalid ELF header` —— 本机编译的
-  `libtlsfp.so` 是 macOS 的 Mach-O，而生产跑在 Linux OpenResty 上，这条链
+  `libbrowserfp.so` 是 macOS 的 Mach-O，而生产跑在 Linux OpenResty 上，这条链
   此前**从未在 Linux 上编译并加载过**。裸 luajit 的差分门禁验得了 FFI 语义，
   验不到平台/ABI 匹配与 nginx worker 内的加载时机。
 
@@ -281,9 +281,9 @@ QUIC 形态作为**独立条目**入库而非 TCP 那条的附加字段：实测
 ## C 模块与 OpenResty 集成
 
 ```
-csrc/tlsfp.{h,c}      ClientHello 解析 + JA4 计算 + 内置 profile 查表
+csrc/browserfp.{h,c}      ClientHello 解析 + JA4 计算 + 内置 profile 查表
 csrc/gen_profiles.py  把 spec/profiles.json 编译成 C 静态数组（构建期常量）
-lua/tlsfp.lua         LuaJIT FFI 绑定
+lua/browserfp.lua         LuaJIT FFI 绑定
 ```
 
 **架构约束（集成的前提）**：库内所有函数都是**内存进内存出、非阻塞**的——不做
@@ -328,7 +328,7 @@ C       照抄 golden 整段
 
 改法是**形状照抄、内容可注入**：分组、顺序、每条长度全部按 golden 走，公钥由
 调用方给（`build_client_hello(..., key_shares={group: pub})` /
-`tlsfp_build_client_hello_ex`）。GREASE 那条不接受注入 —— 按 RFC 8701 它的内容
+`browserfp_build_client_hello_ex`）。GREASE 那条不接受注入 —— 按 RFC 8701 它的内容
 本来就是固定的。
 
 **不合法的注入一律报错，不将就。** 长度不符会改变形状；分组在 profile 里不存在
@@ -341,7 +341,7 @@ C       照抄 golden 整段
 
 ##### 修完之后，生产接口上并没有它
 
-上面这些都做在 Python 与 C 的构造器里，`test_keyshare` 全绿。但 `lua/tlsfp.lua`
+上面这些都做在 Python 与 C 的构造器里，`test_keyshare` 全绿。但 `lua/browserfp.lua`
 的 `client_hello()` 调的是**不带注入参数的那个 C 入口** —— 于是生产接口发出去的
 仍然是 golden 里那把采集机公钥。实测确认过：Lua 发的 `0x001d` 公钥与 golden
 逐字节相同。
@@ -357,7 +357,7 @@ C       照抄 golden 整段
 
 #### h2 那一层也要按 (品牌, 版本) 独立查
 
-Lua 侧新增 `tlsfp.h2_akamai(brand, version)`，给出这个版本应该呈现的 Akamai
+Lua 侧新增 `browserfp.h2_akamai(brand, version)`，给出这个版本应该呈现的 Akamai
 指纹串。**不要拿 `by_ua().h2` 当这个用** —— 那是「采集这条 TLS 指纹时顺带看到
 的 h2」，而注册表按 TLS 指纹去重：两个版本 TLS 相同、h2 不同是常态，还有一批
 profile 那个字段干脆是空的。实测 firefox 153 就是空的，而第三方回显给出的是
@@ -472,8 +472,8 @@ key_share 从 1216 字节缩到几十字节，总长会掉进 [256,512) 这一�
 Lua 侧：
 
 ```lua
-local pub  = tlsfp.keygen(group).shares[group]     -- 服务端选的组多半不在 profile 里
-local ch2  = tlsfp.client_hello_hrr(ch1, group, pub)
+local pub  = browserfp.keygen(group).shares[group]     -- 服务端选的组多半不在 profile 里
+local ch2  = browserfp.client_hello_hrr(ch1, group, pub)
 ```
 
 判据是**与参考实现逐字节相同** —— 参考实现能跟真服务端完成 HRR，两条路殊途
@@ -498,7 +498,7 @@ local ch2  = tlsfp.client_hello_hrr(ch1, group, pub)
 | Kyber768Draft00 | 5.6% | 4.2% |
 | X25519 + P-256（Firefox） | 3.3% | 18.6% |
 
-于是 `csrc/tlsfp_kx.c` 提供四组：X25519 / secp256r1 / secp384r1 /
+于是 `csrc/browserfp_kx.c` 提供四组：X25519 / secp256r1 / secp384r1 /
 X25519MLKEM768，Lua 侧 `key_share_groups()` 告诉调用方该产哪几组。
 
 **这里差点走上一条错路。** 容器里 `openssl version` 报 3.0.20，ML-KEM 要 3.5
@@ -512,7 +512,7 @@ X25519MLKEM768，Lua 侧 `key_share_groups()` 告诉调用方该产哪几组。
 OpenSSL。`test_kx` 把解析到的版本打出来，并在版本低于 3.5 时**当场判红**——
 悄悄跳过等于把"生产上这条根本不能用"藏起来。
 
-Lua 侧一步到位：`tlsfp.gen_key_shares(brand, version)` 按 profile 把每一组的
+Lua 侧一步到位：`browserfp.gen_key_shares(brand, version)` 按 profile 把每一组的
 密钥都生成好，`keys.shares` 直接喂给 `client_hello()`，拿到 ServerHello 后用
 `keys:derive(group, peer)` 算共享密钥。**私钥不出这个模块**，挂在 `ffi.gc` 上，
 协程被 kill 掉也会回收。
@@ -758,7 +758,7 @@ ClientHello，不是让我们按长度重算的 profile**。给构造器加了�
 ```
 
 **全部七处修复在发货那条路上一次都没生效。** 根因是我自己埋的：C 的旧签名
-`tlsfp_build_client_hello` 当时默认 `VERBATIM`，理由是"不动既有调用方"，而
+`browserfp_build_client_hello` 当时默认 `VERBATIM`，理由是"不动既有调用方"，而
 **Lua 绑定用的正是这个签名**。为门禁图方便，把修复在生产上关掉了。
 
 **默认值要选"错了会响"的那个。** 重建门禁忘了传 `VERBATIM` 会当场比对失败
@@ -981,7 +981,7 @@ padding 补不补，于是**同一个客户端打同一个目标会产生两个�
 路** —— 两者一旦分叉，这一档全绿也说明不了生产没问题，而本项目已经栽过五次
 "两份实现悄悄分叉"。
 
-key_share 注入（`tlsfp_build_client_hello_ex`）正好让这件事可做：让 **C 构造器出
+key_share 注入（`browserfp_build_client_hello_ex`）正好让这件事可做：让 **C 构造器出
 ClientHello**、把我们生成的公钥注进去，Python 只负责完成握手与密钥调度。于是上线
 的字节就是生产那份。断言是最直接的性质：
 
@@ -1000,7 +1000,7 @@ C 路径（生产发的字节）8/8 条，覆盖引擎 ['chromium', 'gecko', 'we
 
 **扩面还抓到一个真缺陷**：`linux:firefox-111-linux` 的 profile 写着 6 条 PRIORITY
 帧，对端却看到 `0` —— 我们的 `H2Client` **根本不发 PRIORITY 帧**。C 侧的
-`tlsfp_build_h2_preface` 一直在发，**又是一处两份实现的分叉**，而此前所有 h2
+`browserfp_build_h2_preface` 一直在发，**又是一处两份实现的分叉**，而此前所有 h2
 端到端只看 ServerHello 与 `:status`，没有一条去问"对端看到的 h2 指纹是什么"。
 
 #### 改完必须重跑真机，否则只是"离线门禁绿了"
@@ -1071,10 +1071,10 @@ C 去掉 cipher 排序、C 不排除 SNI、Python 把一处 `sorted()` 换成 `l
 是别的形态"的 split-brain，比不伪装更容易被判。
 
 三层实现语义一致（由差分门禁保证）：Python `oracle/uamap.py` 是权威，
-C `tlsfp_lookup_ua()` 与 Lua `tlsfp.by_ua()` 供生产使用。
+C `browserfp_lookup_ua()` 与 Lua `browserfp.by_ua()` 供生产使用。
 
 ```lua
-local r = tlsfp.by_ua("chrome", 150)
+local r = browserfp.by_ua("chrome", 150)
 -- r.id="real:edge"  r.confidence="exact"  r.ja4=...  r.h2=...
 -- confidence 必须检查：fallback 表示跨指纹段取的最近版本，有 split-brain 风险
 ```
@@ -1130,12 +1130,12 @@ TLS 层覆盖 99.5%，**h2 层 99.1%**。两层剩下的缺口现在是**同一�
 补齐了对称的一套：
 
 ```
-TLS 层   tlsfp_build_client_hello()   → ClientHello 字节
-h2 层    tlsfp_build_h2_preface()     → PREFACE + SETTINGS + WINDOW_UPDATE + PRIORITY
+TLS 层   browserfp_build_client_hello()   → ClientHello 字节
+h2 层    browserfp_build_h2_preface()     → PREFACE + SETTINGS + WINDOW_UPDATE + PRIORITY
 ```
 
 HEADERS 不在其中：它的内容依赖具体请求，本库只给出伪头**顺序**
-（`tlsfp_h2_pseudo()`，形如 `m,a,s,p`）。
+（`browserfp_h2_pseudo()`，形如 `m,a,s,p`）。
 
 **没有 h2 数据的 profile 一律拒绝构造**，不退回一组默认 SETTINGS —— 那等于
 发一个不属于任何浏览器的 h2 指纹。24 条 profile 属此列，门禁逐条断言它们确实
@@ -1290,7 +1290,7 @@ pref 名里的 `.` 和 `-` 一律压成 `_`，而 `network.http.priority_header.
 也得能查：使用者能拿它自审伪装，我们能拿它守住"库产出的三层永远同源"。
 
 ```
-tlsfp_coherence(ja4, akamai, header_order, &tls_eng, &h2_eng, &hdr_eng)
+browserfp_coherence(ja4, akamai, header_order, &tls_eng, &h2_eng, &hdr_eng)
     0 = 有观测的那些层一致    1 = 矛盾    -1 = 信息不足
 ```
 
@@ -1359,15 +1359,15 @@ akamai 只对应一两个版本，说明数据变了，"只能认引擎"这句�
 头顺序"需要伪造。自己合成 `sec-ch-ua` 只会凭空多出一处可能与来访请求对不上的
 东西，那是给自己造破绽。
 
-删掉的是：C 的 `tlsfp_header_order` / `tlsfp_header_value` / `tlsfp_sec_ch_ua` /
-`tlsfp_ua_platform` / `tlsfp_engine_of_headers` 与配套 CLI，Lua 的同名绑定，
+删掉的是：C 的 `browserfp_header_order` / `browserfp_header_value` / `browserfp_sec_ch_ua` /
+`browserfp_ua_platform` / `browserfp_engine_of_headers` 与配套 CLI，Lua 的同名绑定，
 oracle 下的 `headerorder.py` / `uach.py` / `hdrcollect.py`，
 spec 下的 `uach.json` 与 golden 里的 `headers_real.json` / `uach_real.json`，
 以及 `test_header_order` / `test_uach` / `test_uach_platform` /
 `test_masquerade_live` 四条门禁。（这些名字下面不带路径前缀是有意的 ——
 文档门禁会核对 `oracle/…` 形式的路径是否存在，而它们已经不存在了。）
 
-`tlsfp_coherence` 从三层降为**两层**（TLS 与 h2）。它仍是有价值的：TLS 说
+`browserfp_coherence` 从三层降为**两层**（TLS 与 h2）。它仍是有价值的：TLS 说
 Chromium 而 h2 说 Gecko，一眼就假 —— 那两层都是**连接握手**的一部分，由我们
 自己发出，与请求头不是一回事。
 
@@ -2037,7 +2037,7 @@ alt-svc 存储就绪时序，路在 h3probe 加 TCP 端"，而不是重新试一
 
 ## 模块级共享缓冲：单线程测试永远看不出来
 
-`lua/tlsfp.lua` 有 9 个 `ffi.new` 出来的模块级缓冲（`ch_buf` / `h2_buf` /
+`lua/browserfp.lua` 有 9 个 `ffi.new` 出来的模块级缓冲（`ch_buf` / `h2_buf` /
 `e1..e3` …），一个 worker 里所有协程共用。安全的前提只有一条 —— **写进去和
 `ffi.string` 读出来之间不能有让出点**。此前所有 Lua 验证都是单线程的，这条前提
 从没被验过。
@@ -2067,7 +2067,7 @@ alt-svc 存储就绪时序，路在 h3probe 加 TCP 端"，而不是重新试一
 **必须带 ASan + UBSan**：不带的话"没崩"只说明这次没踩到 —— 越界读发生在只读的
 静态表上时常常无声无息，而那种最难查。
 
-第一次跑就抓到 `tlsfp_ja4(NULL, …)` 直接 SEGV（少一个空指针检查）。
+第一次跑就抓到 `browserfp_ja4(NULL, …)` 直接 SEGV（少一个空指针检查）。
 
 喂进去的：NULL、空串、单空格、70KB 超长串、非 UTF-8 字节、全逗号、越界与
 `(size_t)-1` 下标、零长缓冲、差一字节的缓冲、**截断到每一个长度**的 TLS record、
@@ -2079,7 +2079,7 @@ alt-svc 存储就绪时序，路在 h3probe 加 TCP 端"，而不是重新试一
 heap-buffer-overflow：
 
 ```
-tlsfp.c: supported_versions 用 n = ebody[0] 当列表长度，不检查 n 是否超出扩展体
+browserfp.c: supported_versions 用 n = ebody[0] 当列表长度，不检查 n 是否超出扩展体
 恶意 ClientHello 声称 255 字节 → 读到扩展外、缓冲外
 ```
 
@@ -2088,7 +2088,7 @@ tlsfp.c: supported_versions 用 n = ebody[0] 当列表长度，不检查 n 是�
 ASan 根本看不见 —— 换成精确大小立刻报出来。
 
 调用次数本身也有下限断言 —— 程序若因编译宏或早退只跑了几次，"没崩"证明不了
-任何事。变异验过：去掉 `tlsfp_ja4` 的空指针检查、让 `lookup_ua` 不挡 NULL brand、
+任何事。变异验过：去掉 `browserfp_ja4` 的空指针检查、让 `lookup_ua` 不挡 NULL brand、
 去掉 record 长度截断检查、放宽 u16 列表边界、去掉 cipher 列表边界、去掉刚修的
 `supported_versions` 夹紧 —— 六种全部变红。
 
@@ -2264,7 +2264,7 @@ h3      webkit         iOS Safari 根本不发起 QUIC。装好 CA 后 Alt-Svc �
 覆盖。补了第二段，逐品牌比这五个函数，65 项。
 
 **最后一条是偶发的。** 修完之后 SNI 那条一次红一次不红 —— make 按 mtime 判断，
-上一条变异留下的 `tlsfp.o` 常与本次写入落在同一秒，于是跳过重编。
+上一条变异留下的 `browserfp.o` 常与本次写入落在同一秒，于是跳过重编。
 **偶发的绿比稳定的红危险得多**，它会被当成噪声解释掉。所以不去调 mtime，
 直接删产物强制重编（第 6 次撞同一族问题）。
 
@@ -2584,7 +2584,7 @@ Windows/Linux 桌面版是否与 macOS 同指纹，目前**没有直接证据**�
   ```
   alt-svc-mapping-for-testing = "127.0.0.1;h3=\":port\""        ❌
   alt-svc-mapping-for-testing = "127.0.0.1:port;h3=\":port\""   ❌
-  域名方式（network.dns.localDomains + tlsfp.test）              ❌
+  域名方式（network.dns.localDomains + browserfp.test）              ❌
   ```
 
   需强调这是**采集侧的限制，不是实现缺失**：`quicprobe`/`h3probe` 处理的是任意

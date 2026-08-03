@@ -1,5 +1,5 @@
 /* 从 stdin 读 profile 下标，把构造出的 ClientHello 以 hex 打到 stdout */
-#include "tlsfp.h"
+#include "browserfp.h"
 #include <stdio.h>
 #include <string.h>
 int main(void) {
@@ -28,14 +28,14 @@ int main(void) {
             while (q[n] && q[n] != '\n' && n + 1 < sizeof(id)) { id[n] = q[n]; n++; }
             id[n] = 0;
             while (n && (id[n-1] == ' ' || id[n-1] == '\r')) id[--n] = 0;
-            for (size_t k = 0; k < tlsfp_profile_count(); k++) {
-                if (!strcmp(tlsfp_profile_at(k)->id, id)) { idx = (int)k; break; }
+            for (size_t k = 0; k < browserfp_profile_count(); k++) {
+                if (!strcmp(browserfp_profile_at(k)->id, id)) { idx = (int)k; break; }
             }
             if (idx < 0) { printf("-\n"); continue; }
         }
-        if (idx < 0 || (size_t)idx >= tlsfp_profile_count()) { printf("-\n"); continue; }
-        const tlsfp_profile *p = tlsfp_profile_at((size_t)idx);
-        int n = tlsfp_build_client_hello_ex(p, NULL, rnd, sid, NULL, 0,
+        if (idx < 0 || (size_t)idx >= browserfp_profile_count()) { printf("-\n"); continue; }
+        const browserfp_profile *p = browserfp_profile_at((size_t)idx);
+        int n = browserfp_build_client_hello_ex(p, NULL, rnd, sid, NULL, 0,
                                     flags, out, sizeof(out));
         if (n < 0) { printf("-\n"); continue; }
         for (int k = 0; k < n; k++) printf("%02x", out[k]);

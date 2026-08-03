@@ -109,7 +109,7 @@ def attempt(brand, ver, host):
     try:
         s.sendall(rec)
         s.sendall(_frame(1, 0x5, sid,
-                         Encoder().encode(headers + [("user-agent", "tlsfp")])))
+                         Encoder().encode(headers + [("user-agent", "browserfp")])))
         buf, seen, status = b"", [], None
         while True:
             d = s.recv(65535)

@@ -124,7 +124,7 @@ def _run(workdir, gate, timeout=200):
 def main():
     bad, checked = [], 0
     for rel, (how, gates) in SOURCES.items():
-        work = tempfile.mkdtemp(prefix="tlsfp-tp-")
+        work = tempfile.mkdtemp(prefix="browserfp-tp-")
         try:
             _snapshot(work)
             target = os.path.join(work, rel)

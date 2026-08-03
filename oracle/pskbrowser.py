@@ -55,7 +55,7 @@ def _launch(name, engine, binary, url, pin):
 
 def tempfile_mkdtemp(name):
     import tempfile
-    return tempfile.mkdtemp(prefix=f"tlsfp-psk-{name}-")
+    return tempfile.mkdtemp(prefix=f"browserfp-psk-{name}-")
 
 
 def capture(name, engine, binary, tap, pin, wait=25):

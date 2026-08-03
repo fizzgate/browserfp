@@ -51,7 +51,7 @@ class H2Client:
         # 第三段；本客户端此前一条都不发，于是对端看到的是 `…|0|…` 而 profile 里
         # 写着 `…|3:0:0:201|5:0:0:101|…` —— 端到端一直是绿的，因为那些门禁只看
         # ServerHello 与 :status，没有一条去问"对端看到的 h2 指纹是什么"。
-        # C 侧的 tlsfp_build_h2_preface 一直在发，又是一处两份实现的分叉。
+        # C 侧的 browserfp_build_h2_preface 一直在发，又是一处两份实现的分叉。
         for pr in (self.profile.get("priorities") or []):
             sid, dep, excl, weight = pr
             out += _frame(FRAME_PRIORITY, 0, sid,

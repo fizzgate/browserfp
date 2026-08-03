@@ -1,5 +1,5 @@
 /* hrrcli —— 每行 "<ch1hex> <group> <pubhex>"，输出重建出的 CH2 的 hex。 */
-#include "tlsfp.h"
+#include "browserfp.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -32,7 +32,7 @@ int main(void) {
         unsigned g = (unsigned)strtoul(s1 + 1, NULL, 0);
         int np = unhex(s2 + 1, strlen(s2 + 1), pub, sizeof(pub));
         if (n1 < 0 || np < 0) { printf("ERR\n"); continue; }
-        int n = tlsfp_rebuild_hrr(ch1, (size_t)n1, (uint16_t)g, pub, (size_t)np,
+        int n = browserfp_rebuild_hrr(ch1, (size_t)n1, (uint16_t)g, pub, (size_t)np,
                                   out, sizeof(out));
         if (n < 0) { printf("ERR\n"); continue; }
         for (int i = 0; i < n; i++) printf("%02x", out[i]);

@@ -1,4 +1,4 @@
-module fizztls/goutls
+module browserfp/goutls
 
 go 1.24
 

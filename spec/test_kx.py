@@ -1,6 +1,6 @@
 """密钥交换：C 侧算出的共享密钥必须与**另一份独立实现**逐字节相同。
 
-`tlsfp.client_hello()` 现在要求调用方把每一组的公钥交进来，于是调用方得先能
+`browserfp.client_hello()` 现在要求调用方把每一组的公钥交进来，于是调用方得先能
 产出这些密钥。生产 UA 里 64.9% 落在需要 X25519MLKEM768 的 profile 上，这不是
 可选项。
 
@@ -142,8 +142,8 @@ def peer_side(group, pub):
 
 LUA_REPL = r"""
 package.path = "%s/lua/?.lua;" .. package.path
-local tlsfp = require "tlsfp"
-assert(tlsfp.load("%s"))
+local browserfp = require "browserfp"
+assert(browserfp.load("%s"))
 local function hex(s)
     return (s:gsub(".", function(c) return string.format("%%02x", c:byte()) end))
 end
@@ -152,11 +152,11 @@ for line in io.lines() do
     local brand, ver = line:match("^gen (%%S+) (%%d+)$")
     if brand then
         if keys then keys:free() end
-        local k, e = tlsfp.gen_key_shares(brand, tonumber(ver))
+        local k, e = browserfp.gen_key_shares(brand, tonumber(ver))
         if not k then print("ERR " .. tostring(e)) else
             keys = k
             -- 顺带确认这些密钥真能被 client_hello 收下
-            local rec, prof = tlsfp.client_hello(brand, tonumber(ver), "example.com",
+            local rec, prof = browserfp.client_hello(brand, tonumber(ver), "example.com",
                                                  k.shares)
             if not rec then print("ERR client_hello: " .. tostring(prof)) else
                 local out = {}
@@ -186,7 +186,7 @@ end
 def lua_arm(bad):
     """第二段：从**生产入口**（Lua）过一遍。
 
-    第一段验的是 C 那一层。但生产上调用它的是 `tlsfp.gen_key_shares()`，中间
+    第一段验的是 C 那一层。但生产上调用它的是 `browserfp.gen_key_shares()`，中间
     隔着 FFI 的输出缓冲、句柄所有权与 ffi.gc —— 这些都能在不崩溃的情况下给出
     错误结果（比如私钥被 GC 掉后 derive 出一段垃圾）。这一段的判据仍然是
     "与 cryptography 算出同一个共享密钥"，只是密钥这次由 Lua 产。
@@ -201,7 +201,7 @@ def lua_arm(bad):
         bad.append("缺 luajit/resty —— 生产入口这一段没验到，不能算通过")
         return 0
 
-    script = LUA_REPL % (ROOT, os.path.join(ROOT, "csrc", "libtlsfp.so"))
+    script = LUA_REPL % (ROOT, os.path.join(ROOT, "csrc", "libbrowserfp.so"))
     # 写临时文件而不是 spec/cache —— 变异测试里那个目录是软链回真仓的。
     import tempfile
     fd, src = tempfile.mkstemp(prefix="kx_repl_", suffix=".lua")
@@ -261,7 +261,7 @@ def main():
     # 门禁却按变异的行为报错）。仓里 test_mutation 的 _force_rebuild 记的是
     # 同一个坑。
     csrc = os.path.join(ROOT, "csrc")
-    for f in ("kxcli", "tlsfp_kx.o"):
+    for f in ("kxcli", "browserfp_kx.o"):
         try:
             os.unlink(os.path.join(csrc, f))
         except FileNotFoundError:

@@ -1,7 +1,7 @@
 """Lua 的 by_ua() 与 Python / C 的差分门禁。
 
 **这是生产实际调用的入口**。网关在 CDN 之后拿不到 ClientHello，只能按 UA 选
-指纹，走的就是 `tlsfp.by_ua(brand, version)` —— 而 test_lua_parity 只比
+指纹，走的就是 `browserfp.by_ua(brand, version)` —— 而 test_lua_parity 只比
 ClientHello 解析（ja4 / identify），by_ua 一直没被任何 Lua 侧门禁覆盖过。
 
 FFI 绑定层有独立的出错空间：confidence 的 out 参数、NULL 返回的判定、结构体
@@ -28,7 +28,7 @@ from oracle.uamap import UAMapper, parse_ua                   # noqa: E402
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
-LIB = os.path.join(ROOT, "csrc", "libtlsfp.so")
+LIB = os.path.join(ROOT, "csrc", "libbrowserfp.so")
 FIXTURES = os.path.join(HERE, "fixtures", "prod_user_agents.json")
 
 # 与 test_c_ua_parity 同一个水位：Lua 直接调 C，两者分歧数应当一致。
@@ -37,12 +37,12 @@ FULL_RANGE_BASELINE = 0
 
 LUA_SCRIPT = """
 package.path = "%s/lua/?.lua;" .. package.path
-local tlsfp = require "tlsfp"
-tlsfp.load("%s")
+local browserfp = require "browserfp"
+browserfp.load("%s")
 for line in io.lines("%s") do
     local brand, ver = line:match("^(%%S+)%%s+(%%d+)$")
     if brand then
-        local r, err, conf = tlsfp.by_ua(brand, tonumber(ver))
+        local r, err, conf = browserfp.by_ua(brand, tonumber(ver))
         if r then
             print(brand .. "\\t" .. ver .. "\\t" .. r.id .. "\\t" .. r.confidence)
         else

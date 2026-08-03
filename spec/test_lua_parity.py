@@ -4,7 +4,7 @@ C 版已由 test_c_parity 对齐 Python。但 FFI 绑定层还有独立的出错
 布局不匹配、字符串所有权、transport 参数传错等，都会在不崩溃的情况下给出错误
 结果。所以 Lua 侧要单独比一遍，而不是"C 对了 Lua 就一定对"。
 
-需要 luajit（或 OpenResty 自带的 resty）与已编译的 csrc/libtlsfp.so。
+需要 luajit（或 OpenResty 自带的 resty）与已编译的 csrc/libbrowserfp.so。
 
 跑：python -m spec.test_lua_parity
 """
@@ -23,7 +23,7 @@ from oracle.clienthello import fingerprint                    # noqa: E402
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
-LIB = os.path.join(ROOT, "csrc", "libtlsfp.so")
+LIB = os.path.join(ROOT, "csrc", "libbrowserfp.so")
 REGISTRY = os.path.join(HERE, "profiles.json")
 
 # 防平凡通过：注册表被截断或读空时，"0 一致，0 不符"看着是绿的 —— 实测过，
@@ -33,13 +33,13 @@ MIN_PROFILES = 50
 
 LUA_SCRIPT = """
 package.path = "%s/lua/?.lua;" .. package.path
-local tlsfp = require "tlsfp"
-tlsfp.load("%s")
+local browserfp = require "browserfp"
+browserfp.load("%s")
 for line in io.lines("%s") do
     local hex, want, id = line:match("^(%%x+)\\t(%%S+)\\t(%%S+)$")
     if hex then
         local raw = hex:gsub("%%x%%x", function(c) return string.char(tonumber(c,16)) end)
-        local got = tlsfp.ja4(raw)
+        local got = browserfp.ja4(raw)
         if got ~= want then print("MISMATCH\\t" .. id .. "\\t" .. want .. "\\t" .. tostring(got)) end
     end
 end
@@ -60,7 +60,7 @@ def main():
     if not lua:
         print("缺 luajit/resty，跳过（非失败）", file=sys.stderr)
         return 0
-    # **门禁自己 make**：不然改坏 tlsfp.c 之后比的是上一次编出来的 .so，
+    # **门禁自己 make**：不然改坏 browserfp.c 之后比的是上一次编出来的 .so，
     # 断言静默失灵（本项目第 5 次撞这个形态，见 test_c_parity 的同名说明）。
     r = subprocess.run(["make", "-s"], cwd=os.path.join(ROOT, "csrc"),
                        capture_output=True, text=True, timeout=300)

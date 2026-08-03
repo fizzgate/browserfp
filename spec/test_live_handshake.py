@@ -53,7 +53,7 @@ def try_profile(rec, host, timeout=15):
             return True, f"TLS1.3 {group} (无 h2 profile)"
         h2 = H2Client(conn, rec["h2"]).connect()
         sid = h2.request("GET", "/", host,
-                         headers=[("user-agent", "tlsfp-ref"), ("accept", "*/*")])
+                         headers=[("user-agent", "browserfp-ref"), ("accept", "*/*")])
         headers, _ = h2.read_response(sid)
         return True, f"TLS1.3 {group} h2 {dict(headers).get(':status')}"
     finally:

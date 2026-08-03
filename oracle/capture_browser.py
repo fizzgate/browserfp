@@ -93,7 +93,7 @@ def capture(browser="chrome", sni="example.com", timeout=30, path=None):
         raise FileNotFoundError(f"{browser} not found at {path}")
 
     version = browser_version(path)
-    profile = tempfile.mkdtemp(prefix=f"tlsfp-{browser}-")
+    profile = tempfile.mkdtemp(prefix=f"browserfp-{browser}-")
     proc = None
     try:
         with ClientHelloSniffer() as sniffer:

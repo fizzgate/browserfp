@@ -5,7 +5,7 @@
   · profile 数据是构建期就确定的常量，编译进只读段既快又省心；
   · 少一个 JSON 解析器就少一类解析漏洞。
 
-生成的 profiles.inc 由 tlsfp.c 直接 #include。
+生成的 profiles.inc 由 browserfp.c 直接 #include。
 
 跑：python csrc/gen_profiles.py > csrc/profiles.inc
 """
@@ -93,7 +93,7 @@ def _h2_tables():
         lines.append(c_u32_array(f"h2r{i}_set", st))
         lines.append(c_u32_array(f"h2r{i}_prio", pr))
     lines.append("")
-    lines.append("static const tlsfp_h2 tlsfp_h2_records[] = {")
+    lines.append("static const browserfp_h2 browserfp_h2_records[] = {")
     for key, (i, r) in sorted(recs.items(), key=lambda kv: kv[1][0]):
         pseudo = ",".join(k[1] for k in (r.get("pseudo_header_order") or []))
         engs, lo, hi = span[key]
@@ -106,8 +106,8 @@ def _h2_tables():
     lines.append(f"#define TLSFP_H2_RECORD_COUNT {len(recs)}")
     lines.append("")
     lines.append("typedef struct { const char *brand; uint16_t version;"
-                 " uint16_t rec; } tlsfp_h2_entry;")
-    lines.append("static const tlsfp_h2_entry tlsfp_h2_table[] = {")
+                 " uint16_t rec; } browserfp_h2_entry;")
+    lines.append("static const browserfp_h2_entry browserfp_h2_table[] = {")
     for brand, ver, ri in index:
         lines.append(f'    {{"{brand}", {ver}, {ri}}},')
     lines.append("};")
@@ -383,7 +383,7 @@ def main():
                              "三层一致性检查的前提不成立")
         return next(iter(es)) if es else ""
 
-    out.append("static const tlsfp_profile tlsfp_profiles[] = {")
+    out.append("static const browserfp_profile browserfp_profiles[] = {")
     for i, rec in enumerate(profiles):
         tls = rec["tls"]
         h2 = (rec.get("h2") or {}).get("akamai_fingerprint") or ""
@@ -403,7 +403,7 @@ def main():
     out.append("};")
     out.append(f"#define TLSFP_PROFILE_COUNT {len(profiles)}")
     out.append("")
-    out.append("static const tlsfp_ua_entry tlsfp_ua_table[] = {")
+    out.append("static const browserfp_ua_entry browserfp_ua_table[] = {")
     for brand, ver, idx, grp, mask, from_seg in ua_rows:
         out.append(f'    {{"{brand}", {ver}, {idx}, {grp}, {mask}, {from_seg}}},')
     out.append("};")

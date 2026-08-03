@@ -1,7 +1,7 @@
 """生产接口发出去的公钥必须是**调用方注入的那把**，不是采集机上那把。
 
 这一条以前没有任何门禁看着，而它是"接口做不了接口该做的事"那一类：
-`tlsfp.client_hello()` 组装出来的字节，所有指纹字段都对、JA4/JA3 全绿、
+`browserfp.client_hello()` 组装出来的字节，所有指纹字段都对、JA4/JA3 全绿、
 test_openresty 的逐字段比对也全绿 —— 因为 **JA4 和 JA3 都不看 key_share 的
 公钥内容**。唯一会发现问题的是服务端，它拿这把公钥算共享密钥，而我们没有对应
 私钥，于是握手在 Finished 阶段失败，报错指向"解密失败"，与真因隔着两层。
@@ -38,7 +38,7 @@ from oracle.clienthello import is_grease, parse_client_hello   # noqa: E402
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
-LIB = os.path.join(ROOT, "csrc", "libtlsfp.so")
+LIB = os.path.join(ROOT, "csrc", "libbrowserfp.so")
 
 FILL = 0xAB
 
@@ -49,14 +49,14 @@ CASES = [("chrome", 151), ("firefox", 153),
 
 LUA = r"""
 package.path = "%s/lua/?.lua;" .. package.path
-local tlsfp = require "tlsfp"
-assert(tlsfp.load("%s"))
+local browserfp = require "browserfp"
+assert(browserfp.load("%s"))
 local function hex(s)
     return (s:gsub(".", function(c) return string.format("%%02x", c:byte()) end))
 end
 for line in io.lines("%s") do
     local brand, ver = line:match("^(%%S+)\t(%%d+)$")
-    local gs, gerr = tlsfp.key_share_groups(brand, tonumber(ver))
+    local gs, gerr = browserfp.key_share_groups(brand, tonumber(ver))
     if not gs then
         print(brand .. "\t" .. ver .. "\tGROUPS_ERR\t" .. tostring(gerr))
     else
@@ -65,7 +65,7 @@ for line in io.lines("%s") do
             ks[g.group] = string.rep(string.char(%d), g.len)
             sizes[#sizes + 1] = string.format("%%04x:%%d", g.group, g.len)
         end
-        local rec, prof = tlsfp.client_hello(brand, tonumber(ver), "example.com", ks)
+        local rec, prof = browserfp.client_hello(brand, tonumber(ver), "example.com", ks)
         if not rec then
             print(brand .. "\t" .. ver .. "\tBUILD_ERR\t" .. tostring(prof))
         else
@@ -76,7 +76,7 @@ for line in io.lines("%s") do
         -- 也会拒，但它报的是"组装失败（缓冲区不足或 profile 缺重建字段）"，
         -- 指向一个完全无关的原因。所以下面连报错内容一起验。
         local function call(v)
-            local ok, r, e = pcall(tlsfp.client_hello, brand, tonumber(ver),
+            local ok, r, e = pcall(browserfp.client_hello, brand, tonumber(ver),
                                    "example.com", v)
             if not ok then return "THREW", tostring(r) end   -- 抛异常不算拒绝
             return tostring(r == nil), tostring(e)

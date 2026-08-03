@@ -3,7 +3,7 @@
    该版本 h2 指纹的一部分，验证时要一起比。
    查不到 h2 数据时打 "-\t-"，调用方据此走 HTTP/1.1，而不是发一个不属于任何
    浏览器的开场。 */
-#include "tlsfp.h"
+#include "browserfp.h"
 #include <stdio.h>
 int main(void) {
     /* 行缓冲：错误分支用 continue 跳过了 fflush，缓冲住会让交互式调用方挂死。 */
@@ -13,11 +13,11 @@ int main(void) {
     uint8_t out[8192];
     while (fgets(line, sizeof(line), stdin)) {
         if (sscanf(line, "%63s %u", brand, &ver) != 2) continue;
-        const tlsfp_h2 *h = tlsfp_lookup_h2(brand, (uint16_t)ver);
-        int n = h ? tlsfp_build_h2_preface(h, out, sizeof(out)) : -1;
+        const browserfp_h2 *h = browserfp_lookup_h2(brand, (uint16_t)ver);
+        int n = h ? browserfp_build_h2_preface(h, out, sizeof(out)) : -1;
         if (n < 0) { printf("-\t-\n"); continue; }
         for (int k = 0; k < n; k++) printf("%02x", out[k]);
-        printf("\t%s\n", tlsfp_h2_pseudo(h) ? tlsfp_h2_pseudo(h) : "");
+        printf("\t%s\n", browserfp_h2_pseudo(h) ? browserfp_h2_pseudo(h) : "");
     }
     return 0;
 }

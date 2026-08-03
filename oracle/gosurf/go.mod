@@ -1,4 +1,4 @@
-module fizztls/gosurf
+module browserfp/gosurf
 
 go 1.27
 

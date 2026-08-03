@@ -24,7 +24,7 @@ from oracle.clienthello import fingerprint                    # noqa: E402
 from oracle.sniffer import ClientHelloSniffer                 # noqa: E402
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-PROBE = os.path.join(HERE, "gotls", "tlsfp-probe")
+PROBE = os.path.join(HERE, "gotls", "browserfp-probe")
 OUT = os.path.join(HERE, "..", "spec", "golden", "tls_client_nosni.json")
 
 
@@ -43,7 +43,7 @@ def capture_one(name, sniffer):
 
 def main(argv):
     if not os.path.exists(PROBE):
-        print(f"缺 {PROBE}；先在 oracle/gotls 下 go build -o tlsfp-probe .",
+        print(f"缺 {PROBE}；先在 oracle/gotls 下 go build -o browserfp-probe .",
               file=sys.stderr)
         return 2
 

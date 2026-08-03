@@ -3,14 +3,14 @@
 这是生产实际运行的形态。此前 test_lua_parity / test_lua_ua_parity 用的是本机
 luajit，它们能验 FFI 绑定的语义，但验不到两件只有真 OpenResty 才暴露的事：
 
-  1. **平台/ABI 匹配** —— 本机编译的 libtlsfp.so 是 macOS 的 Mach-O，挂进 Linux
+  1. **平台/ABI 匹配** —— 本机编译的 libbrowserfp.so 是 macOS 的 Mach-O，挂进 Linux
      容器直接 `invalid ELF header`。生产跑在 Linux 上，而这条链此前从未在 Linux
      编译并加载过。
   2. **在 nginx worker 内加载** —— lua_package_path、FFI 加载时机、worker 生命
      周期都与命令行跑脚本不同。
 
 做法：用 gcc 容器编译出 Linux 版 .so，挂进 openresty 容器，起一个把
-`tlsfp.by_ua()` 与 `tlsfp.client_hello()` 暴露成 HTTP 接口的 worker，逐版本与
+`browserfp.by_ua()` 与 `browserfp.client_hello()` 暴露成 HTTP 接口的 worker，逐版本与
 Python 比对。
 
 **两个入口都要验**：by_ua 只走查表，client_hello 还要走 resty.random 与 FFI 的
@@ -41,7 +41,7 @@ from oracle.uamap import UAMapper                             # noqa: E402
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 PORT = 18081                      # 与手工调试用的 18080 错开
-CONTAINER = "tlsfp-openresty-gate"
+CONTAINER = "browserfp-openresty-gate"
 GCC_IMAGE = "gcc:12-bookworm"
 ORTY_IMAGE = "openresty/openresty:bookworm"
 
@@ -55,10 +55,10 @@ http {
 
         location /by_ua {
             content_by_lua_block {
-                local tlsfp = require "tlsfp"
-                tlsfp.load("/app/csrc/libtlsfp.so")
+                local browserfp = require "browserfp"
+                browserfp.load("/app/csrc/libbrowserfp.so")
                 local a = ngx.req.get_uri_args()
-                local r, err, conf = tlsfp.by_ua(a.brand, tonumber(a.version))
+                local r, err, conf = browserfp.by_ua(a.brand, tonumber(a.version))
                 if r then
                     ngx.say(r.id .. "\\t" .. r.confidence)
                 else
@@ -69,10 +69,10 @@ http {
 
         location /h2 {
             content_by_lua_block {
-                local tlsfp = require "tlsfp"
-                tlsfp.load("/app/csrc/libtlsfp.so")
+                local browserfp = require "browserfp"
+                browserfp.load("/app/csrc/libbrowserfp.so")
                 local a = ngx.req.get_uri_args()
-                local rec, pseudo = tlsfp.h2_preface(a.brand, tonumber(a.version))
+                local rec, pseudo = browserfp.h2_preface(a.brand, tonumber(a.version))
                 if not rec then
                     ngx.say("ERR\\t" .. tostring(pseudo))
                 else
@@ -86,13 +86,13 @@ http {
 
         location /coh {
             content_by_lua_block {
-                local tlsfp = require "tlsfp"
-                tlsfp.load("/app/csrc/libtlsfp.so")
+                local browserfp = require "browserfp"
+                browserfp.load("/app/csrc/libbrowserfp.so")
                 local a = ngx.req.get_uri_args()
                 -- 两层都由库自己产出，再交给库自审
-                local prof = tlsfp.by_ua(a.brand, tonumber(a.version))
-                local h2 = tlsfp.identify_h2(a.akamai or "")
-                local v, e = tlsfp.coherence(prof and prof.ja4 or nil, a.akamai)
+                local prof = browserfp.by_ua(a.brand, tonumber(a.version))
+                local h2 = browserfp.identify_h2(a.akamai or "")
+                local v, e = browserfp.coherence(prof and prof.ja4 or nil, a.akamai)
                 ngx.say(v .. "\\t" .. tostring(e.tls) .. "\\t"
                         .. tostring(e.h2) .. "\\t" .. tostring(h2 and h2.engine))
             }
@@ -100,19 +100,19 @@ http {
 
         location /client_hello {
             content_by_lua_block {
-                local tlsfp = require "tlsfp"
-                tlsfp.load("/app/csrc/libtlsfp.so")
+                local browserfp = require "browserfp"
+                browserfp.load("/app/csrc/libbrowserfp.so")
                 local a = ngx.req.get_uri_args()
                 -- 生产调用的完整形状：先问该产哪些组的密钥，再把公钥交回去。
                 -- 这里填的是常数字节而不是真密钥 —— 本门禁只验"注入有没有落到
                 -- 线上字节里"，密钥的合法性由 test_live_handshake 在真握手里验。
-                local groups, gerr = tlsfp.key_share_groups(a.brand, tonumber(a.version))
+                local groups, gerr = browserfp.key_share_groups(a.brand, tonumber(a.version))
                 if not groups then ngx.say("ERR\\t" .. tostring(gerr)) return end
                 local ks = {}
                 for _, g in ipairs(groups) do
                     ks[g.group] = string.rep(string.char(0xab), g.len)
                 end
-                local rec, prof = tlsfp.client_hello(a.brand, tonumber(a.version),
+                local rec, prof = browserfp.client_hello(a.brand, tonumber(a.version),
                                                      a.sni, ks)
                 if not rec then
                     ngx.say("ERR\\t" .. tostring(prof))
@@ -152,7 +152,7 @@ def _build_linux_so(workdir):
     out = subprocess.run(
         ["docker", "run", "--rm", "-v", f"{workdir}:/w", GCC_IMAGE, "bash", "-c",
          "cd /w/csrc && rm -f *.o *.so *.inc ja4cli uacli lookup_test && "
-         "(make libtlsfp.so 2>&1 | tail -3) && file libtlsfp.so"],
+         "(make libbrowserfp.so 2>&1 | tail -3) && file libbrowserfp.so"],
         capture_output=True, text=True, timeout=600)
     return "ELF" in out.stdout, out.stdout.strip()[:80]
 
@@ -319,7 +319,7 @@ def _check_h2(opener):
 def _check_concurrency(port, rounds=60):
     """并发打不同品牌，每个响应必须属于它自己的请求。
 
-    **模块级缓冲是这里唯一要查的东西**：lua/tlsfp.lua 里有 9 个
+    **模块级缓冲是这里唯一要查的东西**：lua/browserfp.lua 里有 9 个
     `ffi.new` 出来的模块级缓冲（ch_buf / h2_buf / e1..e3 …），一个 worker
     跑多个协程共用它们。只要写缓冲和读回之间存在让出点，两个请求就会互相串 ——
     而这在单线程测试里**永远看不出来**，本项目此前所有 Lua 验证都是单线程的。
@@ -449,7 +449,7 @@ def main():
         print("无 docker，跳过（非失败）", file=sys.stderr)
         return 0
 
-    work = tempfile.mkdtemp(prefix="tlsfp-orty-")
+    work = tempfile.mkdtemp(prefix="browserfp-orty-")
     conf = os.path.join(work, "nginx.conf")
     try:
         ok, info = _build_linux_so(work)
