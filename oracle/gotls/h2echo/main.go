@@ -36,6 +36,9 @@ func main() {
 	// 最小只能压到 65535。压不下去就意味着"无视发送窗口"这个缺陷在本地观察
 	// 不到 —— 这一点写在 tlsfp_h2.lua 里。
 	connWin := flag.Int("connwin", 65535, "advertise connection-level window")
+	// 只接受某一个密钥交换组，用来把客户端逼到那条路径上。0 = 不限制。
+	// 0x6399 (X25519Kyber768Draft00) 与 0x11ec (X25519MLKEM768) 都能点名。
+	curve := flag.Int("curve", 0, "only accept this TLS group (hex ok, 0=any)")
 	flag.Parse()
 
 	c, err := tls.LoadX509KeyPair(*cert, *key)
@@ -66,12 +69,28 @@ func main() {
 			fmt.Fprintf(w, `{"proto":%q,"pad":%q}`, r.Proto, strings.Repeat("x", n))
 			return
 		}
-		fmt.Fprintf(w, `{"proto":%q,"method":%q,"path":%q,"authority":%q,"bodylen":%d,"probe":%q}`,
-			r.Proto, r.Method, r.URL.Path, r.Host, len(b), r.Header.Get("x-probe"))
+		// 回显真正协商到的密钥交换组 —— 门禁要能断言"确实走了 0x6399"，
+		// 而不是"握上手了"（服务端可能退回 X25519，一样能成）
+		var grp uint16
+		if cs, ok := w.(interface{ Unwrap() http.ResponseWriter }); ok {
+			_ = cs
+		}
+		if r.TLS != nil {
+			grp = uint16(r.TLS.CurveID)
+		}
+		fmt.Fprintf(w, `{"proto":%q,"method":%q,"path":%q,"authority":%q,"bodylen":%d,"probe":%q,"curve":"0x%04x"}`,
+			r.Proto, r.Method, r.URL.Path, r.Host, len(b), r.Header.Get("x-probe"), grp)
 	})
 	srv := &http.Server{Handler: mux,
 		TLSConfig: &tls.Config{Certificates: []tls.Certificate{c},
 			NextProtos: []string{"h2", "http/1.1"}}}
+	fmt.Fprintf(os.Stderr, "h2echo curve=0x%04x\n", *curve)
+	if *curve != 0 {
+		// **0x6399 不能单独出现**：Go 的 defaults.go 写着 "must always be
+		// followed by X25519"，只给它一个会直接 handshake_failure(40) ——
+		// 报的错与"客户端不支持"一模一样，很容易归错因。
+		srv.TLSConfig.CurvePreferences = []tls.CurveID{tls.CurveID(*curve), tls.X25519}
+	}
 	http2.ConfigureServer(srv, &http2.Server{
 		MaxReadFrameSize:              uint32(*maxFrame),
 		MaxUploadBufferPerStream:      int32(*initWin),
