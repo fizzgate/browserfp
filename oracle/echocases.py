@@ -48,6 +48,52 @@ def _ja4c_without(raw, drop):
     return hashlib.sha256(text.encode()).hexdigest()[:12]
 
 
+def _bodies(ch):
+    """从建好的 ClientHello 里取那几个此前没人比的扩展体。
+
+    取值口径按回显服务的呈现来：它把 ALPN 与 application_settings 直接给字符串
+    列表，supported_versions 给 "TLS 1.3" 这类名字，psk 模式与证书压缩算法给
+    "名字 (数字)"。GREASE 一律剔除。
+    """
+    b = {int(k) if isinstance(k, str) else k: v
+         for k, v in (ch.get("extension_bodies") or {}).items()}
+
+    def u16list(body, off):
+        """body[off] 起是 u8 或 u16 长度前缀的 u16 列表 —— 各扩展格式不同，
+        所以长度前缀的宽度由调用方给。"""
+        out = []
+        i = off
+        while i + 1 < len(body):
+            out.append((body[i] << 8) | body[i + 1])
+            i += 2
+        return out
+
+    def alpn_list(raw):
+        out, i = [], 2                      # 跳过 list 长度
+        while i < len(raw):
+            n = raw[i]
+            out.append(raw[i + 1:i + 1 + n].decode("ascii", "replace"))
+            i += 1 + n
+        return out
+
+    def hx(x):
+        return bytes.fromhex(x) if isinstance(x, str) else x
+
+    alpn = alpn_list(hx(b[0x0010])) if 0x0010 in b else []
+    aps = alpn_list(hx(b[0x44CD])) if 0x44CD in b else []
+    vers = [v for v in u16list(hx(b[0x002B]), 1) if not is_grease(v)] \
+        if 0x002B in b else []
+    psk = list(hx(b[0x002D])[1:]) if 0x002D in b else []
+    cc = [v for v in u16list(hx(b[0x001B]), 1)] if 0x001B in b else []
+    return {
+        "alpn": ",".join(alpn),
+        "alps": ",".join(aps),
+        "sup_versions": ",".join(f"{v:04x}" for v in vers),
+        "psk_modes": ",".join(str(v) for v in psk),
+        "cert_comp": ",".join(str(v) for v in cc),
+    }
+
+
 def _engine_of(pid, rec):
     names = " ".join([pid] + list(rec.get("aliases") or [])).lower()
     if any(k in names for k in ("firefox", "gecko", "tor")):
@@ -114,6 +160,11 @@ def cases():
                 "ja3_curves": csv([x for x in (ch.get("curves") or [])
                                    if not is_grease(x)]),
                 "ja3_pf": csv(ch.get("point_formats") or []),
+                # —— 下面这几个扩展体**此前没有任何门禁比过** ——
+                # JA3 只覆盖曲线与点格式，JA4 只覆盖扩展 id 与签名算法，
+                # akamai 只覆盖 h2 那一层。这几项都进真实检测器的指纹
+                # （peetprint 就把它们全算进去），错了我们这边一片绿。
+                **_bodies(ch),
             })
     return out
 
@@ -127,7 +178,8 @@ def load_ledger():
 
 TSV_FIELDS = ("brand", "version", "ja4_a", "ja4_b", "ja4_c", "ja4_c_alt",
               "akamai", "order", "engine", "pid", "ja3_version",
-              "ja3_ciphers", "ja3_exts", "ja3_curves", "ja3_pf")
+              "ja3_ciphers", "ja3_exts", "ja3_curves", "ja3_pf",
+              "alpn", "alps", "sup_versions", "psk_modes", "cert_comp")
 
 
 def to_tsv(case):

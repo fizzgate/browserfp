@@ -351,8 +351,23 @@ def _check_concurrency(port, rounds=60):
         return (brand, ver, got)
 
     bad = []
+    randoms, sids = set(), set()
     with _cf.ThreadPoolExecutor(max_workers=16) as ex:
         for brand, ver, got in ex.map(one, range(rounds)):
+            if len(got) == 3:
+                # **random 与 session_id 必须每连接新鲜**。这是最致命的一种指纹
+                # 失效：固定的 ClientHello.random 意味着所有连接逐字节相同，
+                # 不用比长度、不用算哈希，看两次就够。而它此前**只在 Python
+                # 构造器上验过**（test_builder_parity）—— 生产路径走的是 Lua 的
+                # resty.random，不在 OpenResty 里会退回 math.random，那条退路
+                # 没有任何断言看着。
+                raw = bytes.fromhex(got[2])
+                randoms.add(raw[11:43])
+                sid_len = raw[43]
+                sids.add(raw[44:44 + sid_len])
+                if sid_len != 32:
+                    bad.append(f"{brand} {ver}: session_id 长 {sid_len} 字节，"
+                               "真浏览器恒发 32 —— 长度本身就是指纹")
             if len(got) != 3:
                 bad.append(f"{brand} {ver}: 响应列数 {len(got)}")
                 continue
@@ -370,6 +385,15 @@ def _check_concurrency(port, rounds=60):
             if diff:
                 bad.append(f"{brand} {ver}: 并发下拿到的字节与 {pid} 差 "
                            f"{diff[:3]} —— 共享缓冲被别的请求串了")
+
+    # 允许极少量重复（理论上 32 字节碰撞不可能，这里留一点余量防偶发丢包），
+    # 但**接近全同就是写死了**
+    if len(randoms) < rounds - 1:
+        bad.append(f"{rounds} 次请求只出了 {len(randoms)} 个不同的 random —— "
+                   "固定的 ClientHello.random 意味着所有连接逐字节相同")
+    if len(sids) < rounds - 1:
+        bad.append(f"{rounds} 次请求只出了 {len(sids)} 个不同的 session_id —— "
+                   "同上，真浏览器每次连接都换")
     return bad, rounds
 
 
