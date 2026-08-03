@@ -28,7 +28,7 @@ import time
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from oracle.browsers import discover                          # noqa: E402
-from oracle.clienthello import fingerprint                    # noqa: E402
+from oracle.clienthello import fingerprint, is_grease         # noqa: E402
 from oracle.h2collect import make_firefox_profile             # noqa: E402
 from oracle.match import Matcher                              # noqa: E402
 from oracle.sniffer import ClientHelloSniffer                 # noqa: E402
@@ -44,6 +44,14 @@ def _launch(engine, binary, url):
         profile = tempfile.mkdtemp(prefix="tlsfp-stab-")
         cmd = [binary, "--headless=new", f"--user-data-dir={profile}",
                "--no-first-run", "--disable-gpu", url]
+    elif engine == "safari":
+        # **Safari 没有 headless、也不能用独立 profile**，只能 `open -a` 唤起
+        # 用户那个真实的 Safari —— 屏幕上会弹一个窗口。这就是它默认不在清单里
+        # 的原因（每次跑门禁都弹窗太扰人），而不是因为 webkit 不值得验。
+        # 加 SAFARI=1 才跑。
+        subprocess.run(["open", "-a", "Safari", url], check=False,
+                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        return "safari", None      # 没有可 kill 的进程句柄
     else:
         return None, None
     return subprocess.Popen(cmd, stdout=subprocess.DEVNULL,
@@ -61,19 +69,27 @@ def probe_once(engine, binary, matcher):
             fp = fingerprint(sniffer.pop(timeout=30))
             return matcher.identify(fp), fp
         finally:
-            proc.terminate()
-            try:
-                proc.wait(timeout=10)
-            except subprocess.TimeoutExpired:
-                proc.kill()
-            shutil.rmtree(profile, ignore_errors=True)
+            # Safari 那条没有进程句柄（`open -a` 唤起的是用户已有的那个），
+            # 也没有临时 profile 要删 —— 不能对它调 terminate。
+            if proc != "safari":
+                proc.terminate()
+                try:
+                    proc.wait(timeout=10)
+                except subprocess.TimeoutExpired:
+                    proc.kill()
+                shutil.rmtree(profile, ignore_errors=True)
 
 
 def main(argv):
     rounds = int(argv[1]) if len(argv) > 1 else ROUNDS
     matcher = Matcher()
-    browsers = [(n, e, b, v) for n, e, b, v in discover()
-                if e in ("chromium", "firefox")]
+    # webkit 默认不跑：Safari 只能 `open -a` 唤起真实窗口（没有 headless），
+    # 每次跑门禁都弹窗太扰人。但**它是三个引擎里唯一没有真机识别证据的**，
+    # 所以留一个开关：SAFARI=1 python -m spec.test_real_stability
+    want = ["chromium", "firefox"]
+    if os.environ.get("SAFARI") == "1":
+        want.append("safari")
+    browsers = [(n, e, b, v) for n, e, b, v in discover() if e in want]
 
     print(f"每个浏览器连接 {rounds} 次\n")
     failures = []
@@ -84,7 +100,11 @@ def main(argv):
                 r, fp = probe_once(engine, binary, matcher)
                 results.append(r["confidence"])
                 ja4s.add(fp["ja4"])
-                orders.add(tuple(fp["raw_extensions"]))
+                # **GREASE 要归一**：它的取值每连接轮换，不归一的话"扩展
+                # 顺序变了"这个结论会被 GREASE 的变化冒充 —— 那样这条充分性
+                # 断言就分不出"真的乱序"和"只是 GREASE 换了值"。
+                orders.add(tuple("G" if is_grease(e) else e
+                                 for e in fp["raw_extensions"]))
             except Exception as e:
                 results.append(f"ERR:{type(e).__name__}")
             time.sleep(0.3)

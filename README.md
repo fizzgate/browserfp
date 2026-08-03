@@ -225,11 +225,22 @@ python -m oracle.srcaudit              # 源码审计：还有哪些扩展我们
 这种失效。实测（每浏览器 5 次连接）：
 
 ```
-chrome   151  exact×5   JA4 取值=1   扩展顺序取值=5
-chromium 142  exact×5   JA4 取值=1   扩展顺序取值=5
-edge     151  exact×5   JA4 取值=1   扩展顺序取值=5
-firefox  149  exact×5   JA4 取值=1   扩展顺序取值=1
+chrome   151  exact×4   JA4 取值=1   扩展顺序取值=4
+chromium 142  exact×4   JA4 取值=1   扩展顺序取值=4
+edge     151  exact×4   JA4 取值=1   扩展顺序取值=4
+firefox  153  exact×4   JA4 取值=1   扩展顺序取值=1
+safari    27  exact×4   JA4 取值=1   扩展顺序取值=1     ← SAFARI=1 才跑
 ```
+
+**「扩展顺序取值」这个指标原来是含 GREASE 算的**，而 GREASE 每连接轮换 —— 于是
+「顺序变了」会被 GREASE 的变化冒充，那条充分性断言分不出「真的乱序」和「只是
+GREASE 换了值」。归一之后重测，上面这组数才是真的：Chromium 系确实每连接换一个
+顺序，而 **Safari 不换**。后者此前只是假设（置换只开给 chromium），现在有真机
+证据；本来可能是另一个答案。
+
+Safari 默认不在清单里：它没有 headless、也不能用独立 profile，只能 `open -a`
+唤起用户那个真实窗口，每次跑门禁都弹窗太扰人。但 **webkit 是三个引擎里唯一
+没有真机识别证据的**，所以留了 `SAFARI=1` 这个开关。
 
 Chromium 系每次连接扩展顺序都不同（RFC 8701 permutation）、GREASE 10 种取值、
 ClientHello 长度在 1707/1739/1771/1803 间浮动，而识别始终命中 —— 这才说明稳定性
