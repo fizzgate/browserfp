@@ -93,11 +93,29 @@ typedef struct {
         S.field = (fn_##field)p;                                \
     } while (0)
 
+/* 与 tlsfp.c 的 SHA-256 同一套兜底：**这个 .so 不再链 libcrypto**（为了能交叉
+ * 编译），所以不能指望 RTLD_DEFAULT 里现成就有 EVP 符号 —— 那只在宿主自己链了
+ * libcrypto 时成立（OpenResty 是，纯 LuaJyIT 进程不是）。
+ * 2026-08-03 实测：只留 RTLD_DEFAULT 的话 test_kx / test_hrr / test_lua_keyshare
+ * 一起红，而在 OpenResty 里跑却是好的 —— 典型的「本机能跑不等于没坏」。 */
+static const char *const KX_CRYPTO_SONAMES[] = {
+    "libcrypto.so.3", "libcrypto.so.1.1", "libcrypto.so",
+    "libcrypto.3.dylib", "libcrypto.1.1.dylib", "libcrypto.dylib",
+    NULL
+};
+
 int tlsfp_kx_init(const char *libcrypto_path) {
     if (S.loaded) return 0;
     void *h = NULL;
     if (libcrypto_path) {
         h = dlopen(libcrypto_path, RTLD_NOW | RTLD_GLOBAL);
+        if (!h) return -1;
+    } else if (!dlsym(RTLD_DEFAULT, "EVP_PKEY_CTX_new_from_name")) {
+        /* 宿主没加载 libcrypto ⇒ 自己找一个 */
+        for (int i = 0; KX_CRYPTO_SONAMES[i]; i++) {
+            h = dlopen(KX_CRYPTO_SONAMES[i], RTLD_NOW | RTLD_GLOBAL);
+            if (h) break;
+        }
         if (!h) return -1;
     }
     SYM(ctx_new_from_name, "EVP_PKEY_CTX_new_from_name");

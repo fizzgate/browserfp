@@ -29,8 +29,12 @@ tlsfp.o: tlsfp.c tlsfp.h profiles.inc
 
 # 共享库供 LuaJIT FFI 加载：所有导出函数都是内存进内存出、非阻塞的，
 # 由 OpenResty 的 cosocket 在 Lua 侧驱动网络 I/O。
+# **不链 libcrypto**：SHA-256 与 EVP 都走运行时 dlsym（见 tlsfp.c / tlsfp_kx.c 顶部）。
+# 于是这个 .so 是纯 C 无外部依赖，可以按目标平台交叉编译后塞进部署包
+# （与 vendor/protobuf/<TARGET>/pb.so 同一做法），也不会在 OpenResty 进程里
+# 多塞一份 OpenSSL。链回去的话上面两条都会破。
 libtlsfp.so: tlsfp.o tlsfp_kx.o
-	$(CC) -shared -o $@ tlsfp.o tlsfp_kx.o $(LDFLAGS) -ldl
+	$(CC) -shared -o $@ tlsfp.o tlsfp_kx.o -ldl
 
 # **不 include openssl 头**：符号在运行时用 dlsym 解析，编译期不需要声明。
 # 这样打包机的 OpenSSL 版本与 worker 里那份不一致也不会出问题。

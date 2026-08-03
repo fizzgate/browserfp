@@ -5,7 +5,71 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include <openssl/sha.h>
+#include <dlfcn.h>
+
+/* SHA-256 走**运行时 dlsym**，不在链接期绑 libcrypto。
+ *
+ * 两个理由：
+ *   ① 交叉编译。这个 .so 要按目标平台预编进包（与 vendor/protobuf/<TARGET>/pb.so
+ *      同样的做法），链了 libcrypto 就得连目标平台的 openssl 一起准备。去掉之后
+ *      它是**纯 C 无外部依赖**，随便哪个 Linux 工具链都能出。
+ *   ② 一个进程里别出现两份 OpenSSL。宿主是 OpenResty，它自带 OpenSSL（本机实测
+ *      3.5.7）；再链一份系统 libcrypto 进来就是两份。RTLD_DEFAULT 拿到的正是
+ *      **宿主已经加载的那一份**，与 tlsfp_kx.c 的做法一致。
+ *
+ * 拿不到就返回 -1，调用方按失败处理 —— 不自带一份 SHA-256 兜底：那等于在指纹
+ * 库里塞第二套密码学实现，两套算出来不一致时症状是「指纹莫名其妙不对」。 */
+#ifndef SHA256_DIGEST_LENGTH
+#define SHA256_DIGEST_LENGTH 32
+#endif
+
+typedef unsigned char *(*fn_sha256)(const unsigned char *, size_t, unsigned char *);
+static fn_sha256 tlsfp_sha256_fn;
+
+/* 先看宿主进程里有没有（OpenResty 里 nginx 已经链了 libcrypto，这条就够）；
+ * 没有就按常见 soname 自己 dlopen 一个。**纯 LuaJIT 进程属于后者** —— 门禁大多
+ * 用 luajit 跑，只靠 RTLD_DEFAULT 的话 SHA256 拿不到、返回 NULL，症状是
+ * 82 个 profile 全部不符（JA4 与扩展置换都用它派生）。2026-08-03 实测过。 */
+static const char *const TLSFP_CRYPTO_SONAMES[] = {
+    "libcrypto.so.3", "libcrypto.so.1.1", "libcrypto.so",
+    "libcrypto.3.dylib", "libcrypto.1.1.dylib", "libcrypto.dylib",
+    NULL
+};
+
+static int tlsfp_sha256_init(void) {
+    if (tlsfp_sha256_fn) return 0;
+    void *p = dlsym(RTLD_DEFAULT, "SHA256");
+    if (!p) {
+        for (int i = 0; TLSFP_CRYPTO_SONAMES[i]; i++) {
+            void *h = dlopen(TLSFP_CRYPTO_SONAMES[i], RTLD_NOW | RTLD_GLOBAL);
+            if (!h) continue;
+            p = dlsym(h, "SHA256");
+            if (p) break;
+        }
+    }
+    if (!p) return -1;
+    tlsfp_sha256_fn = (fn_sha256)p;
+    return 0;
+}
+
+/* 让调用方显式指定 libcrypto（与 tlsfp_kx_init 同一口径）。返回 0 成功。 */
+int tlsfp_crypto_init(const char *libcrypto_path) {
+    if (tlsfp_sha256_fn) return 0;
+    if (libcrypto_path && *libcrypto_path) {
+        void *h = dlopen(libcrypto_path, RTLD_NOW | RTLD_GLOBAL);
+        if (h) {
+            void *p = dlsym(h, "SHA256");
+            if (p) { tlsfp_sha256_fn = (fn_sha256)p; return 0; }
+        }
+    }
+    return tlsfp_sha256_init();
+}
+
+/* 与 OpenSSL 的 SHA256() 同签名；拿不到实现时把输出清零并返回 NULL。 */
+static unsigned char *SHA256(const unsigned char *d, size_t n, unsigned char *md) {
+    if (tlsfp_sha256_init() != 0) return NULL;
+    return tlsfp_sha256_fn(d, n, md);
+}
 
 #include "profiles.inc"
 
