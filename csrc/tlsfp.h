@@ -179,6 +179,12 @@ int tlsfp_build_client_hello_ex(const tlsfp_profile *p, const char *sni,
                                 unsigned flags,
                                 uint8_t *out, size_t outlen);
 
+/* HRR：拿第一条 ClientHello 的字节，换掉 key_share 重发。见 .c 里的说明 ——
+ * CH2 与 CH1 只允许差指定的几处，所以是就地改写而不是重新造。 */
+int tlsfp_rebuild_hrr(const uint8_t *ch1, size_t ch1_len, uint16_t group,
+                      const uint8_t *pub, size_t publen,
+                      uint8_t *out, size_t outlen);
+
 /* profile 的 key_share 要哪些组、每条多长（GREASE 那条不列 —— 它的内容由库
  * 自己按 RFC 8701 填）。调用方据此生成密钥；**猜组是错的**，组不在 profile 里
  * 时 _ex 会直接报错而不是将就。返回写入的条数。 */

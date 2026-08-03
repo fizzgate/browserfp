@@ -455,6 +455,98 @@ static size_t put_u16(uint8_t *p, uint16_t v) {
     p[0] = (uint8_t)(v >> 8); p[1] = (uint8_t)v; return 2;
 }
 
+/* HelloRetryRequest：服务端要一个我们没发过的组时，必须补发第二条 ClientHello。
+ *
+ * 做法是**在 CH1 的字节上就地改写**，而不是照 profile 重新造一条。RFC 8446
+ * §4.1.2 要求 CH2 与 CH1 只差指定的几处 —— random / session_id / GREASE /
+ * GREASE ECH 的体全都必须原样带回。重新造就得让调用方把这些随机量存下来再传
+ * 进来，多一个能出错的环节；就地改写让它们天然逐字节相同。
+ *
+ * 唯二要动的：key_share 换成服务端选的那一个组（RFC 规定 CH2 的 key_share 只
+ * 有一条，GREASE 那条也不留），以及 padding 按新长度重算 —— key_share 从
+ * 1216 字节缩到几十字节，总长会掉进 [256,512) 这一档，BoringSSL 会补上。
+ *
+ * 记录层版本必须是 0x0303（只有首条才是 0x0301）。这条是最后才查出来的：
+ * 告警报 protocol_version，而先怀疑的是三处扩展 —— **告警码指向的是"哪一类"，
+ * 不是"哪一处"**。
+ */
+int tlsfp_rebuild_hrr(const uint8_t *ch1, size_t ch1_len, uint16_t group,
+                      const uint8_t *pub, size_t publen,
+                      uint8_t *out, size_t outlen) {
+    if (!ch1 || ch1_len < 5 + 4 + 2 + 32 + 1 || !pub || !publen) return -1;
+    const uint8_t *h = ch1 + 5;                       /* 握手头 */
+    if (h[0] != 0x01) return -1;
+    size_t hlen = ((size_t)h[1] << 16) | ((size_t)h[2] << 8) | h[3];
+    if (5 + 4 + hlen != ch1_len) return -1;
+
+    const uint8_t *b = h + 4;                         /* ClientHello 体 */
+    size_t i = 2 + 32;                                /* 版本 + random */
+    if (i + 1 > hlen) return -1;
+    size_t sid = b[i]; i += 1 + sid;
+    if (i + 2 > hlen) return -1;
+    size_t nciph = ((size_t)b[i] << 8) | b[i + 1]; i += 2 + nciph;
+    if (i + 1 > hlen) return -1;
+    size_t ncomp = b[i]; i += 1 + ncomp;
+    if (i + 2 > hlen) return -1;
+    size_t extlen = ((size_t)b[i] << 8) | b[i + 1]; i += 2;
+    if (i + extlen != hlen) return -1;
+
+    size_t prefix = i - 2;                            /* 扩展块长度字段之前 */
+    const uint8_t *ext = b + i;
+
+    /* 第一遍：算出去掉 padding、换掉 key_share 之后的扩展块长度。 */
+    uint8_t tmp[16384];
+    size_t o = 0;
+    int seen_ks = 0;
+    for (size_t j = 0; j + 4 <= extlen; ) {
+        uint16_t id = (uint16_t)((ext[j] << 8) | ext[j + 1]);
+        uint16_t n  = (uint16_t)((ext[j + 2] << 8) | ext[j + 3]);
+        if (j + 4 + n > extlen) return -1;
+        if (id == 0x0015) { j += 4 + n; continue; }   /* padding 后面重算 */
+        if (id == 0x0033) {
+            seen_ks = 1;
+            if (o + 4 + 2 + 4 + publen > sizeof(tmp)) return -1;
+            o += put_u16(tmp + o, 0x0033);
+            o += put_u16(tmp + o, (uint16_t)(2 + 4 + publen));
+            o += put_u16(tmp + o, (uint16_t)(4 + publen));
+            o += put_u16(tmp + o, group);
+            o += put_u16(tmp + o, (uint16_t)publen);
+            memcpy(tmp + o, pub, publen); o += publen;
+        } else {
+            if (o + 4 + n > sizeof(tmp)) return -1;
+            memcpy(tmp + o, ext + j, 4 + n); o += 4 + n;
+        }
+        j += 4 + n;
+    }
+    if (!seen_ks) return -1;                          /* CH1 里没有 key_share */
+
+    size_t fixed = 4 + prefix + 2 + o;
+    if (fixed >= 256 && fixed + 4 <= 512) {
+        size_t need = 512 - fixed - 4;
+        if (o + 4 + need > sizeof(tmp)) return -1;
+        o += put_u16(tmp + o, 0x0015);
+        o += put_u16(tmp + o, (uint16_t)need);
+        memset(tmp + o, 0, need); o += need;
+    }
+
+    size_t body_len = prefix + 2 + o;
+    size_t total = 5 + 4 + body_len;
+    if (total > outlen) return -1;
+
+    size_t w = 0;
+    out[w++] = 0x16;
+    w += put_u16(out + w, 0x0303);                    /* CH2 的记录层版本 */
+    w += put_u16(out + w, (uint16_t)(4 + body_len));
+    out[w++] = 0x01;
+    out[w++] = (uint8_t)(body_len >> 16);
+    out[w++] = (uint8_t)(body_len >> 8);
+    out[w++] = (uint8_t)body_len;
+    memcpy(out + w, b, prefix); w += prefix;
+    w += put_u16(out + w, (uint16_t)o);
+    memcpy(out + w, tmp, o); w += o;
+    return (int)w;
+}
+
 size_t tlsfp_key_share_groups(const tlsfp_profile *p, uint16_t *groups,
                               size_t *lens, size_t max) {
     if (!p) return 0;

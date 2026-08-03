@@ -20,3 +20,4 @@ csrc/snitest
 csrc/kxcli
 csrc/profiles.inc
 spec/cache/
+csrc/hrrcli

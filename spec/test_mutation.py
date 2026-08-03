@@ -202,6 +202,33 @@ MUTANTS = [
      ["test_registry_fresh", "test_rebuild", "test_derive"],
      "集合类字段要排序后才能当去重键，否则同一指纹被拆成多条"),
 
+    # —— HRR 的第二条 ClientHello。RFC 8446 §4.1.2 只允许它与 CH1 差指定的几处，
+    # 每违反一条都会被拒，而**告警码指向的是"哪一类"，不是"哪一处"**。
+    ("HRR:CH2 仍用首条的记录层版本", "csrc/tlsfp.c",
+     "    w += put_u16(out + w, 0x0303);                    /* CH2 的记录层版本 */",
+     "    w += put_u16(out + w, 0x0301);",
+     ["test_hrr"],
+     "RFC 8446 §5.1：首条 ClientHello 之后的记录必须用 0x0303"),
+
+    ("HRR:CH2 留着 CH1 的旧 key_share", "csrc/tlsfp.c",
+     "        if (id == 0x0033) {\n            seen_ks = 1;",
+     "        if (id == 0x0033) {\n            seen_ks = 1;\n"
+     "            memcpy(tmp + o, ext + j, 4 + n); o += 4 + n;",
+     ["test_hrr"],
+     "CH2 的 key_share 只留服务端选的那一条"),
+
+    ("HRR:CH2 照抄 CH1 的 padding", "csrc/tlsfp.c",
+     "        if (id == 0x0015) { j += 4 + n; continue; }   /* padding 后面重算 */",
+     "        if (0) { j += 4 + n; continue; }",
+     ["test_hrr"],
+     "key_share 缩短后总长变了，padding 要按新长度重算"),
+
+    ("HRR:CH2 不带回 GREASE ECH", "csrc/tlsfp.c",
+     "        if (id == 0x0015) { j += 4 + n; continue; }   /* padding 后面重算 */",
+     "        if (id == 0x0015 || id == 0xfe0d) { j += 4 + n; continue; }",
+     ["test_hrr"],
+     "GREASE ECH 的体每连接随机，CH2 必须原样带回"),
+
     # —— 密钥交换。**错了不会报错**：本地照样算得出一个共享密钥，只是与服务端
     # 算的不同，症状是握手在 Finished 阶段失败、报"解密失败"。
     ("KX:混合组公钥两段对调", "csrc/tlsfp_kx.c",

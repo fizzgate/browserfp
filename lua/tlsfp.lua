@@ -61,6 +61,9 @@ int  tlsfp_build_client_hello_ex(const tlsfp_profile *p, const char *sni,
                                  const tlsfp_keyshare *ks, size_t n_ks,
                                  unsigned flags,
                                  uint8_t *out, size_t outlen);
+int  tlsfp_rebuild_hrr(const uint8_t *ch1, size_t ch1_len, uint16_t group,
+                       const uint8_t *pub, size_t publen,
+                       uint8_t *out, size_t outlen);
 size_t tlsfp_key_share_groups(const tlsfp_profile *p, uint16_t *groups,
                               size_t *lens, size_t max);
 int    tlsfp_kx_init(const char *libcrypto_path);
@@ -206,6 +209,55 @@ local h2_buf = ffi.new("uint8_t[?]", 8192)
 local rnd_buf  = ffi.new("uint8_t[32]")
 local sid_buf  = ffi.new("uint8_t[32]")
 
+-- 前向声明：keygen / gen_key_shares 都用它，而它定义在后面。**要是 local，
+-- 不能漏** —— 漏了就成全局函数，污染 _G，两个模块同名时会互相覆盖。
+local _wrap_keys
+
+--- 为**单独一个组**生成密钥。HRR 用：服务端选的那个组多半不在 profile 的
+-- key_share 里，gen_key_shares() 不会为它产密钥。
+-- @return keys 对象（keys.shares = {[组号]=公钥}）或 nil, err
+function _M.keygen(group)
+    if not lib then return nil, "libtlsfp.so 未加载" end
+    if lib.tlsfp_kx_init(nil) ~= 0 then
+        return nil, "解析 libcrypto 符号失败"
+    end
+    local want = tonumber(lib.tlsfp_kx_pub_len(group))
+    if want == 0 then
+        return nil, string.format("组 0x%04x 不支持 —— 只做 X25519 / P-256 / "
+                                  .. "P-384 / X25519MLKEM768", group)
+    end
+    return _wrap_keys({ [group] = want })
+end
+
+
+--- HelloRetryRequest：服务端要一个我们没发过的组，补发第二条 ClientHello。
+--
+-- **拿第一条的字节改，不要重新造一条**。RFC 8446 §4.1.2 要求 CH2 与 CH1 只差
+-- 指定的几处 —— random / session_id / GREASE / GREASE ECH 全都必须原样带回，
+-- 就地改写让它们天然逐字节相同。记录层版本会换成 0x0303（只有首条是 0x0301）。
+--
+-- 服务端选的那个组多半不在 gen_key_shares() 产的那几组里，得单独生成：
+--   local pub, h = tlsfp.keygen(group)
+--   local ch2 = tlsfp.client_hello_hrr(ch1, group, pub)
+--
+-- @param ch1    第一条 ClientHello 的完整 record
+-- @param group  服务端在 HelloRetryRequest 里选的组
+-- @param pub    该组的公钥
+-- @return record 字符串；失败返回 nil, err
+function _M.client_hello_hrr(ch1, group, pub)
+    if not lib then return nil, "libtlsfp.so 未加载" end
+    if type(ch1) ~= "string" or type(pub) ~= "string" then
+        return nil, "ch1 与 pub 都必须是字符串"
+    end
+    local n = lib.tlsfp_rebuild_hrr(ch1, #ch1, group, pub, #pub,
+                                    ch_buf, ffi.sizeof(ch_buf))
+    if n < 0 then
+        return nil, "重建 CH2 失败：ch1 不是完整的 ClientHello，或里面没有 key_share"
+    end
+    return ffi.string(ch_buf, n)
+end
+
+
 --- 为一个 profile 的每一组生成密钥，直接交给 client_hello 用。
 --
 -- **这是伪装链上唯一一处需要私钥的地方**，所以私钥不出这个模块：返回的
@@ -224,18 +276,27 @@ function _M.gen_key_shares(brand, version)
     local groups, err = _M.key_share_groups(brand, version)
     if not groups then return nil, err end
 
+    local want = {}
+    for _, g in ipairs(groups) do want[g.group] = g.len end
+    return _wrap_keys(want)
+end
+
+
+-- 产一组密钥并包成 keys 对象。**私钥只存在这个闭包里** —— 不放模块级表，
+-- 免得两个协程互相看得见对方的私钥。
+function _wrap_keys(want)
     local shares, handles = {}, {}
-    for _, g in ipairs(groups) do
-        local buf = ffi.new("uint8_t[?]", g.len)
+    for group, len in pairs(want) do
+        local buf = ffi.new("uint8_t[?]", len)
         local hp = ffi.new("void*[1]")
-        local n = lib.tlsfp_kx_keygen(g.group, buf, g.len, hp)
-        if n ~= g.len then
+        local n = lib.tlsfp_kx_keygen(group, buf, len, hp)
+        if n ~= len then
             return nil, string.format("组 0x%04x 生成密钥失败（要 %d 字节，得 %d）"
                                       .. "——这一组当前的 OpenSSL 可能不支持",
-                                      g.group, g.len, tonumber(n))
+                                      group, len, tonumber(n))
         end
-        shares[g.group] = ffi.string(buf, n)
-        handles[g.group] = ffi.gc(hp[0], lib.tlsfp_kx_free)
+        shares[group] = ffi.string(buf, n)
+        handles[group] = ffi.gc(hp[0], lib.tlsfp_kx_free)
     end
 
     return {
