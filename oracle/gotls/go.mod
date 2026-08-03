@@ -5,6 +5,7 @@ go 1.24.1
 require (
 	github.com/bogdanfinn/tls-client v1.14.0
 	github.com/bogdanfinn/utls v1.7.7-barnius
+	github.com/cloudflare/circl v1.6.3
 )
 
 require (

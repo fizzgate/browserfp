@@ -8,6 +8,7 @@
 #define P256_GROUP     0x0017
 #define P384_GROUP     0x0018
 #define MLKEM_GROUP    0x11EC
+#define KYBER_GROUP    0x6399     /* X25519Kyber768Draft00 */
 
 #define MLKEM_EK_LEN   1184
 #define MLKEM_CT_LEN   1088
@@ -38,6 +39,14 @@ typedef int (*fn_decap)(void *, unsigned char *, size_t *,
 typedef void (*fn_pkey_free)(void *);
 typedef void (*fn_ctx_free)(void *);
 typedef const char *(*fn_version)(int);
+typedef void *(*fn_md_fetch)(void *, const char *, const char *);
+typedef void (*fn_md_free)(void *);
+typedef void *(*fn_mdctx_new)(void);
+typedef void (*fn_mdctx_free)(void *);
+typedef int (*fn_digest_init)(void *, const void *, void *);
+typedef int (*fn_digest_update)(void *, const void *, size_t);
+typedef int (*fn_digest_final)(void *, unsigned char *, unsigned int *);
+typedef int (*fn_digest_xof)(void *, unsigned char *, size_t);
 
 static struct {
     int loaded;
@@ -60,6 +69,14 @@ static struct {
     fn_pkey_free         pkey_free;
     fn_ctx_free          ctx_free;
     fn_version           version;
+    fn_md_fetch          md_fetch;
+    fn_md_free           md_free;
+    fn_mdctx_new         mdctx_new;
+    fn_mdctx_free        mdctx_free;
+    fn_digest_init       digest_init;
+    fn_digest_update     digest_update;
+    fn_digest_final      digest_final;
+    fn_digest_xof        digest_xof;
 } S;
 
 /* 私钥句柄。混合组要拿两把。 */
@@ -102,6 +119,15 @@ int tlsfp_kx_init(const char *libcrypto_path) {
     SYM(pkey_free,         "EVP_PKEY_free");
     SYM(ctx_free,          "EVP_PKEY_CTX_free");
     SYM(version,           "OpenSSL_version");
+    /* SHA3-256 / SHAKE256：Kyber768Draft00 的那层包装要用，见 kyber_wrap() */
+    SYM(md_fetch,          "EVP_MD_fetch");
+    SYM(md_free,           "EVP_MD_free");
+    SYM(mdctx_new,         "EVP_MD_CTX_new");
+    SYM(mdctx_free,        "EVP_MD_CTX_free");
+    SYM(digest_init,       "EVP_DigestInit_ex");
+    SYM(digest_update,     "EVP_DigestUpdate");
+    SYM(digest_final,      "EVP_DigestFinal_ex");
+    SYM(digest_xof,        "EVP_DigestFinalXOF");
     S.loaded = 1;
     return 0;
 }
@@ -116,6 +142,7 @@ size_t tlsfp_kx_pub_len(uint16_t group) {
     case P256_GROUP:   return 65;
     case P384_GROUP:   return 97;
     case MLKEM_GROUP:  return MLKEM_EK_LEN + X25519_LEN;
+    case KYBER_GROUP:  return X25519_LEN + MLKEM_EK_LEN;
     default:           return 0;
     }
 }
@@ -126,8 +153,43 @@ size_t tlsfp_kx_secret_len(uint16_t group) {
     case P256_GROUP:   return 32;
     case P384_GROUP:   return 48;
     case MLKEM_GROUP:  return MLKEM_SS_LEN + X25519_LEN;
+    case KYBER_GROUP:  return X25519_LEN + MLKEM_SS_LEN;
     default:           return 0;
     }
+}
+
+/* Kyber768Draft00 的共享密钥 = SHAKE-256(K || SHA3-256(ct), 32)，K 是 ML-KEM
+ * 的解封装输出。
+ *
+ * **这一族不需要另一份密码学实现**。ML-KEM 相对 Kyber 第三轮只去掉了最后一步
+ * 哈希，补回来就是 Kyber v3 —— Go 标准库与 utls 都是这么做的（见 utls 的
+ * u_key_schedule.go）。本仓拿 CIRCL 的真·第三轮实现验过：它对我们生成的
+ * ML-KEM 公钥做封装，我们按上式解出来的共享密钥与它逐字节相同。
+ *
+ * 判据在 spec/test_kx.py 里，不是"看着像"。 */
+static int kyber_wrap(const uint8_t *K, const uint8_t *ct, size_t ctlen,
+                      uint8_t *out) {
+    void *sha3 = S.md_fetch(NULL, "SHA3-256", NULL);
+    void *shake = S.md_fetch(NULL, "SHAKE-256", NULL);
+    void *c1 = S.mdctx_new(), *c2 = S.mdctx_new();
+    int ok = 0;
+    uint8_t h[32];
+    unsigned int hn = 0;
+    if (sha3 && shake && c1 && c2
+        && S.digest_init(c1, sha3, NULL) == 1
+        && S.digest_update(c1, ct, ctlen) == 1
+        && S.digest_final(c1, h, &hn) == 1 && hn == 32
+        && S.digest_init(c2, shake, NULL) == 1
+        && S.digest_update(c2, K, MLKEM_SS_LEN) == 1
+        && S.digest_update(c2, h, 32) == 1
+        && S.digest_xof(c2, out, MLKEM_SS_LEN) == 1) {
+        ok = 1;
+    }
+    if (c1) S.mdctx_free(c1);
+    if (c2) S.mdctx_free(c2);
+    if (sha3) S.md_free(sha3);
+    if (shake) S.md_free(shake);
+    return ok ? 0 : -1;
 }
 
 static void *gen_named(const char *name) {
@@ -180,6 +242,20 @@ int tlsfp_kx_keygen(uint16_t group, uint8_t *pub, size_t publen, void **out) {
     case P384_GROUP:
         k->a = gen_ec(group == P256_GROUP ? "prime256v1" : "secp384r1");
         if (k->a) n = ec_pub(k->a, pub, publen);
+        break;
+    case KYBER_GROUP:
+        /* **顺序与 X25519MLKEM768 相反**：draft-tls-westerbaan-xyber768d00 是
+         * X25519 在前、Kyber 在后。Go 标准库 handshake_client.go 与 utls 的
+         * handshake_client_tls13.go 都是这个顺序（两份独立实现互相印证）。
+         * 记混的表现是长度完全正确、握手却在 Finished 阶段失败。 */
+        k->b = gen_named("X25519");
+        k->a = gen_named("ML-KEM-768");
+        if (k->a && k->b) {
+            int x = raw_pub(k->b, pub, publen);
+            int m = (x == X25519_LEN)
+                    ? raw_pub(k->a, pub + X25519_LEN, publen - X25519_LEN) : -1;
+            if (m == MLKEM_EK_LEN) n = x + m;
+        }
         break;
     case MLKEM_GROUP:
         /* 顺序按 draft-ietf-tls-ecdhe-mlkem：ML-KEM 在前，X25519 在后。
@@ -242,6 +318,23 @@ int tlsfp_kx_derive(void *ctx, const uint8_t *peer, size_t peerlen,
     case P256_GROUP:
     case P384_GROUP:
         return derive_ecdh(k->a, NULL, peer, peerlen, secret, seclen);
+    case KYBER_GROUP: {
+        if (peerlen != X25519_LEN + MLKEM_CT_LEN) return -1;
+        int x = derive_ecdh(k->b, "X25519", peer, X25519_LEN, secret, seclen);
+        if (x != X25519_LEN) return -1;
+        void *c = S.ctx_new(k->a, NULL);
+        if (!c) return -1;
+        uint8_t K[MLKEM_SS_LEN];
+        size_t n = MLKEM_SS_LEN;
+        int ok = (S.decap_init(c, NULL) == 1
+                  && S.decap(c, K, &n, peer + X25519_LEN, MLKEM_CT_LEN) == 1
+                  && n == MLKEM_SS_LEN);
+        S.ctx_free(c);
+        if (!ok) return -1;
+        if (kyber_wrap(K, peer + X25519_LEN, MLKEM_CT_LEN,
+                       secret + X25519_LEN) != 0) return -1;
+        return (int)need;
+    }
     case MLKEM_GROUP: {
         if (peerlen != MLKEM_CT_LEN + X25519_LEN) return -1;
         void *c = S.ctx_new(k->a, NULL);

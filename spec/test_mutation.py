@@ -299,6 +299,31 @@ MUTANTS = [
      ["test_kx"],
      "共享密钥要整段返回——截半后长度看着还像模像样"),
 
+    ("KX:0x6399 拼成 Kyber 在前", "csrc/tlsfp_kx.c",
+     "            int x = raw_pub(k->b, pub, publen);\n"
+     "            int m = (x == X25519_LEN)\n"
+     "                    ? raw_pub(k->a, pub + X25519_LEN, publen - X25519_LEN) : -1;\n"
+     "            if (m == MLKEM_EK_LEN) n = x + m;",
+     "            int m = raw_pub(k->a, pub, publen);\n"
+     "            int x = (m == MLKEM_EK_LEN)\n"
+     "                    ? raw_pub(k->b, pub + MLKEM_EK_LEN, publen - MLKEM_EK_LEN) : -1;\n"
+     "            if (x == X25519_LEN) n = x + m;",
+     ["test_kx"],
+     "X25519Kyber768Draft00 的顺序与 X25519MLKEM768 相反：X25519 在前"),
+
+    ("KX:0x6399 少那层 Kyber 包装", "csrc/tlsfp_kx.c",
+     "        if (kyber_wrap(K, peer + X25519_LEN, MLKEM_CT_LEN,\n"
+     "                       secret + X25519_LEN) != 0) return -1;",
+     "        memcpy(secret + X25519_LEN, K, MLKEM_SS_LEN);",
+     ["test_kx"],
+     "ML-KEM 要补回 SHAKE-256(K || SHA3-256(ct)) 才等于 Kyber 第三轮"),
+
+    ("KX:Kyber 包装少喂 SHA3(ct)", "csrc/tlsfp_kx.c",
+     "        && S.digest_update(c2, h, 32) == 1",
+     "        && 1",
+     ["test_kx"],
+     "那层包装的输入是 K || SHA3-256(密文)，少一半照样出 32 字节"),
+
     # —— 生产接口（Lua）这一层。**能力做在库里、出口没接上**是本项目撞过两次
     # 的形态（另一次是 C 构造器默认 VERBATIM），所以这四条从生产入口回打。
     ("Lua:client_hello 不注入 key_share", "lua/tlsfp.lua",

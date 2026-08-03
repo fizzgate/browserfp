@@ -18,6 +18,13 @@ Finished 阶段失败、报"解密失败"——与真因隔着两层。所以每
 X25519MLKEM768 的拼接顺序（ML-KEM 在前）单独做了阴性对照：把两段对调后必须
 对不上。顺序错是这一族里最容易犯又最难查的 —— 长度完全正确。
 
+**X25519Kyber768Draft00（0x6399）的顺序正好相反：X25519 在前、Kyber 在后。**
+两份独立实现印证：Go 标准库 handshake_client.go 与 utls 的
+handshake_client_tls13.go。它也不需要另一份密码学实现 —— ML-KEM 相对 Kyber
+第三轮只去掉了最后一步哈希，补回 SHAKE-256(K || SHA3-256(ct), 32) 就是
+Kyber v3（Go 与 utls 都这么做）。这条不是"看着像"：本门禁拿 CIRCL 的真·第三轮
+实现对我们生成的公钥做封装，两边的共享密钥必须逐字节相同。
+
 跑：python -m spec.test_kx
 """
 
@@ -37,9 +44,27 @@ ROUNDS = 3           # 每组跑几轮 —— 一轮碰巧对上也可能是常�
 GROUPS = [(0x001D, "X25519", 32, 32),
           (0x0017, "secp256r1", 65, 32),
           (0x0018, "secp384r1", 97, 48),
-          (0x11EC, "X25519MLKEM768", 1216, 64)]
+          (0x11EC, "X25519MLKEM768", 1216, 64),
+          (0x6399, "X25519Kyber768Draft00", 1216, 64)]
+
+# 0x6399 的对端要一份**真·第三轮 Kyber** 实现 —— OpenSSL 只有最终版 ML-KEM。
+# CIRCL 的 kem/kyber/kyber768 文档明确写着 "as submitted to round 3"，与它自己的
+# kem/mlkem 是两个包。拿它当判据，不是拿我们的实现跟我们自己比。
+KYBERCLI = os.path.join(ROOT, "oracle", "gotls", "kybercli", "kybercli")
 
 MLKEM_EK, MLKEM_CT, X_LEN = 1184, 1088, 32
+
+
+def have_kybercli():
+    if os.path.exists(KYBERCLI):
+        return True
+    import shutil as _sh
+    if not _sh.which("go"):
+        return False
+    subprocess.run(["go", "build", "-o", "kybercli/kybercli", "./kybercli"],
+                   cwd=os.path.join(ROOT, "oracle", "gotls"),
+                   env={**os.environ, "GOFLAGS": "-mod=mod"}, timeout=300)
+    return os.path.exists(KYBERCLI)
 
 
 def find_libcrypto():
@@ -96,6 +121,18 @@ def peer_side(group, pub):
                                             PublicFormat.UncompressedPoint),
                 k.exchange(ECDH(),
                            EllipticCurvePublicKey.from_encoded_point(curve, pub)))
+    if group == 0x6399:
+        # **顺序与 0x11ec 相反**：X25519 在前、Kyber 在后
+        xp, ek = pub[:X_LEN], pub[X_LEN:]
+        r = subprocess.run([KYBERCLI, "encap", ek.hex()],
+                           capture_output=True, text=True, timeout=60)
+        if r.returncode != 0:
+            raise RuntimeError("CIRCL 拒绝了这把 ek：" + r.stderr.strip()[:80])
+        ct_hex, ss_hex = r.stdout.strip().split("\t")
+        k = X25519PrivateKey.generate()
+        return (k.public_key().public_bytes_raw() + bytes.fromhex(ct_hex),
+                k.exchange(X25519PublicKey.from_public_bytes(xp))
+                + bytes.fromhex(ss_hex))
     ek, xp = pub[:MLKEM_EK], pub[MLKEM_EK:]
     ss, ct = MLKEM768PublicKey.from_public_bytes(ek).encapsulate()
     k = X25519PrivateKey.generate()
@@ -252,7 +289,13 @@ def main():
             bad.append(f"OpenSSL {major}.{minor} 没有 ML-KEM（要 ≥3.5）—— "
                        "64.9% 的生产 UA 会因此伪装不了")
 
-        for group, name, publen, seclen in GROUPS:
+        kyber_ok = have_kybercli()
+        groups = GROUPS
+        if not kyber_ok:
+            print("  --  0x6399 没验到：缺 kybercli 且没有 go 工具链 —— "
+                  "这一组的正确性当前无人看管")
+            groups = [g for g in GROUPS if g[0] != 0x6399]
+        for group, name, publen, seclen in groups:
             pubs = set()
             before = len(bad)
             for _ in range(ROUNDS):
@@ -325,11 +368,11 @@ def main():
             print("  ✅ 对照：长度不合法的对端 share 被拒绝")
 
         # —— 阴性对照 3：不认识的组必须拒绝，不能给个空结果 ——
-        if cli.cmd("gen 0x6399") != "ERR":
-            bad.append("Kyber768Draft00(0x6399) 我们做不了，却没有拒绝 —— "
+        if cli.cmd("gen 0x001e") != "ERR":
+            bad.append("不支持的组（0x001e）没有被拒绝 —— "
                        "静默产出一把无效公钥比报错难查得多")
         else:
-            print("  ✅ 对照：做不了的组（0x6399）当场拒绝")
+            print("  ✅ 对照：不支持的组（0x001e）当场拒绝")
     finally:
         cli.close()
 
@@ -339,7 +382,7 @@ def main():
         bad.append(f"Lua 侧只验到 {lua_n} 组 —— 应为 7（chrome 2 + firefox 3 "
                    "+ safari 2），少了说明有组没走到")
 
-    want_checks = ROUNDS * len(GROUPS)
+    want_checks = ROUNDS * (len(GROUPS) if kyber_ok else len(GROUPS) - 1)
     if checked < want_checks:
         bad.append(f"只比了 {checked}/{want_checks} 次 —— 有组没跑完，"
                    "剩下的断言等于没验")
@@ -347,7 +390,7 @@ def main():
     print(f"\n密钥交换差分 {checked}/{want_checks} 次")
     for b in bad:
         print(f"  ✗ {b}")
-    print(f"\n{'四组密钥交换与独立实现一致' if not bad else f'{len(bad)} 处问题'}")
+    print(f"\n{'五组密钥交换与独立实现一致' if not bad else f'{len(bad)} 处问题'}")
     return 1 if bad else 0
 
 
