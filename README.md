@@ -353,6 +353,21 @@ profile 那个字段干脆是空的。实测 firefox 153 就是空的，而第�
 `1:65536,2:0,4:131072,5:16384|12517377|0|m,p,a,s` —— 拿 profile 上那个字段
 去比，会得出「我们没有目标值」这种毫无意义的结论。
 
+#### QUIC / HTTP-3 的出网：不做
+
+这条一直挂着没定，把成本量出来之后结论是明确的。
+
+现状：**只识别、不构造** —— `oracle/quic.py` 只有 `parse_initial`，没有
+builder；网关那侧有 UDP cosocket，但没有任何 QUIC 地基。
+
+补出网意味着在 Lua 里从零写 QUIC 传输层（包保护与头保护、丢包恢复、拥塞控制、
+流控）再加 h3/QPACK，量级是整个 TLS 栈的十倍以上。而收益：**QUIC 只有 3 条
+profile，对比 h2 的 644 个 (品牌,版本) 组合**，且实测 iOS Safari 根本不发 UDP
+（Cloudflare trace 报 `http=http/2`）。
+
+所以记成 WONT_DO。识别侧的能力保留（`test_quic` / `test_h3` 照跑），哪天真需要
+h3 出网，正确的做法也不是在 Lua 里写，而是换一个承载。
+
 #### Kyber768Draft00（0x6399）：不用第二份密码学实现
 
 27 个 (品牌,版本) 的 key_share 里有 X25519Kyber768Draft00。它**不是** ML-KEM-768
