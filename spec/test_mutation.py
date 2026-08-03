@@ -214,6 +214,26 @@ MUTANTS = [
      ["test_ja4_vectors"],
      "C 侧同样要滤 —— 三方照同一份错理解写，互比永远一致"),
 
+    # —— UA 字符串解析（"按用户自己的浏览器出指纹"的第一步）
+    ("UA:Safari 规则放松成\"后面有 Safari 就算\"", "csrc/tlsfp.c",
+     '    while (*end == \'.\' || (*end >= \'0\' && *end <= \'9\')) end++;   /* [\\d.]* */',
+     "    return strstr(end, \"Safari/\") ? v : -1;",
+     ["test_ua_parse"],
+     "Safari 那个标记必须紧跟版本号（UC Browser 后面也有 Safari）"),
+
+    ("UA:衍生品牌不取内核版本", "csrc/tlsfp.c",
+     '            int core = ua_after(ua, "Chrome/");\n'
+     "            if (core >= 0) v = core;",
+     "            ;",
+     ["test_ua_parse"],
+     "Opera 110 的 UA 里内核是 Chrome/125，差了 15 个大版本"),
+
+    ("UA:版本号溢出夹到 65535 而不是判认不出", "csrc/tlsfp.c",
+     "    if (overflow) return -1;",
+     "    (void)overflow;",
+     ["test_ua_parse"],
+     "夹完是个看着合理的数，会去查表并可能命中某条 profile"),
+
     # —— Chrome 106+ 的扩展顺序置换。真 Chromium 每连接一个新顺序，恒定顺序
     # 是真 Chrome 110+ 永远产不出来的东西（本仓实测：真机 5 次连接 5 种顺序）。
     ("置换:padding 不钉住", "oracle/chbuild.py",

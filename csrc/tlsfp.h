@@ -96,6 +96,25 @@ typedef struct {
  * （29 个多库收录版本中 17 个有分歧），跨库比较没有意义。
  *
  * relaxed 非 0 时才在 fallback 档返回最近的 profile，仅供覆盖率分析，勿在生产使用。 */
+/* User-Agent 字符串 → (品牌, 主版本)。认不出返回 0，认出返回 1。
+ *
+ * **这一步此前只在 Python 里**（oracle/uamap.py 的 parse_ua），而"按用户自己的
+ * 浏览器出指纹"必须在数据面做 —— 网关拿到的是 UA 字符串，不是 (品牌, 版本)。
+ *
+ * 规则（与 Python 侧逐字节对齐，判据是 14026 条真实生产 UA 的全量差分）：
+ *   1. 不以 "Mozilla/" 开头一律不认 —— 那不是浏览器
+ *   2. 移动端另算一种指纹，品牌加 "-mobile" 后缀。实测：569 次移动端请求全部
+ *      命中桌面 profile，其中 287 次命中的 profile 连一个移动端别名都没有
+ *   3. iOS 上的第三方浏览器（CriOS/FxiOS/EdgiOS/OPiOS/YaBrowser）壳不同、
+ *      TLS 栈同为系统 WebKit，一律按 iOS Safari 处理，版本取 "CPU OS N"
+ *   4. 顺序有意义：Edge/Opera 的 UA 里也含 "Chrome/"，必须先匹配更具体的标记
+ *   5. **Chromium 系衍生浏览器取内核 Chrome/ 的版本号**，不是自己那个 ——
+ *      实证：Opera 110 的 UA 里是 Chrome/125，差了 15 个大版本
+ *
+ * brand 写进 brand_out（至少 32 字节）。 */
+int tlsfp_parse_ua(const char *ua, char *brand_out, size_t brand_cap,
+                   uint16_t *version);
+
 const tlsfp_profile *tlsfp_lookup_ua(const char *brand, uint16_t version,
                                      int *confidence);
 const tlsfp_profile *tlsfp_lookup_ua_ex(const char *brand, uint16_t version,

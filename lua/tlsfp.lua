@@ -50,6 +50,8 @@ typedef struct {
 } tlsfp_profile;
 
 int  tlsfp_parse_client_hello(const uint8_t *record, size_t len, tlsfp_hello *out);
+int  tlsfp_parse_ua(const char *ua, char *brand_out, size_t brand_cap,
+                    uint16_t *version);
 const tlsfp_profile *tlsfp_lookup_ua(const char *brand, uint16_t version, int *confidence);
 int  tlsfp_ja4(const tlsfp_hello *h, char transport, char *out, size_t outlen);
 int  tlsfp_build_client_hello(const tlsfp_profile *p, const char *sni,
@@ -206,6 +208,7 @@ local ks_buf   = ffi.new("tlsfp_keyshare[8]")
 local ks_grp   = ffi.new("uint16_t[8]")
 local ks_len   = ffi.new("size_t[8]")
 local h2_buf = ffi.new("uint8_t[?]", 8192)
+local ua_brand_buf = ffi.new("char[64]")
 local rnd_buf  = ffi.new("uint8_t[32]")
 local sid_buf  = ffi.new("uint8_t[32]")
 
@@ -344,6 +347,26 @@ function _M.key_share_groups(brand, version)
         out[#out + 1] = { group = tonumber(ks_grp[i]), len = tonumber(ks_len[i]) }
     end
     return out
+end
+
+
+--- User-Agent 字符串 → (品牌, 版本)。认不出返回 nil。
+--
+-- **"按用户自己的浏览器出指纹"就靠这一步**：网关拿到的是 UA 字符串，而底下
+-- 所有接口收的都是 (品牌, 版本)。规则与 Python 侧逐字节对齐，判据是 77 条 UA
+-- 的全量差分（60 条真实生产 UA + 17 条逐分支的合成用例）。
+--
+-- 认不出时**不要拿别的浏览器顶替** —— 那正是这个库一直在防的 split-brain。
+-- 调用方该做的是放弃伪装、走原来的通道，并把这次降级记下来。
+-- @return brand, version 或 nil
+function _M.parse_ua(ua)
+    if not lib then return nil, "libtlsfp.so 未加载" end
+    if type(ua) ~= "string" or ua == "" then return nil, "ua 必须是非空字符串" end
+    local vbuf = ffi.new("uint16_t[1]")
+    if lib.tlsfp_parse_ua(ua, ua_brand_buf, ffi.sizeof(ua_brand_buf), vbuf) ~= 1 then
+        return nil, "认不出这个 User-Agent"
+    end
+    return ffi.string(ua_brand_buf), tonumber(vbuf[0])
 end
 
 

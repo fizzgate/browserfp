@@ -245,6 +245,134 @@ int tlsfp_ja4(const tlsfp_hello *h, char transport, char *out, size_t outlen) {
 }
 
 /* UA → profile。语义与 Python 侧 oracle/uamap.py 完全一致（由差分门禁保证）。 */
+/* ---- User-Agent 解析 ---------------------------------------------------
+ *
+ * 与 Python 侧 oracle/uamap.py 的 parse_ua 逐字节对齐。**不用正则**：需要的
+ * 只有"找子串、读十进制"，手写反而更清楚，也不用把正则库拖进 worker。
+ */
+
+/* 从 p 处读一个十进制数；没有数字返回 -1，有则写回读到哪。 */
+static int ua_num(const char *p, const char **end) {
+    if (*p < '0' || *p > '9') return -1;
+    long v = 0;
+    int overflow = 0;
+    while (*p >= '0' && *p <= '9') {
+        v = v * 10 + (*p - '0');
+        if (v > 65535) { v = 65536; overflow = 1; }   /* 标记，不夹住 */
+        p++;
+    }
+    if (end) *end = p;
+    /* **溢出要当"认不出"，不能夹到 65535**：夹完是个看着合理的数，会去查表、
+       可能命中某条 profile。真浏览器的主版本从来没有超过三位数的。 */
+    if (overflow) return -1;
+    return (int)v;
+}
+
+/* 找 tag 之后紧跟的数字，如 "Chrome/151" → 151。找不到返回 -1。 */
+static int ua_after(const char *ua, const char *tag) {
+    const char *p = strstr(ua, tag);
+    if (!p) return -1;
+    return ua_num(p + strlen(tag), NULL);
+}
+
+/* Safari 那条比别人多一个条件：Version/N 之后**还要出现 Safari 那个标记**，
+   否则 Chrome 的 UA（它不含 Version 这个标记，但 iOS 上的壳会）会误命中。 */
+static int ua_safari_version(const char *ua) {
+    const char *p = strstr(ua, "Version/");
+    if (!p) return -1;
+    const char *end = NULL;
+    int v = ua_num(p + 8, &end);
+    if (v < 0) return -1;
+
+    /* **Safari 那个标记必须紧跟其后**，中间只允许 "Mobile/xxx "。
+       只检查"后面某处出现 Safari"是不够的：Android 上的 UC Browser 是
+       `Version/4.0 UCBrowser/13.4 Mobile Safari/537.36` —— 后面确实有
+       Safari，但它不是 Safari，而且整条 UA 里没有 Chrome/，Python 侧判的是
+       "认不出"。全量差分一跑就抓到了这一条。 */
+    while (*end == '.' || (*end >= '0' && *end <= '9')) end++;   /* [\d.]* */
+    if (*end != ' ' && *end != '\t') return -1;
+    while (*end == ' ' || *end == '\t') end++;
+    if (!strncmp(end, "Mobile/", 7)) {
+        end += 7;
+        while (*end && *end != ' ' && *end != '\t') end++;       /* \S+ */
+        if (*end != ' ' && *end != '\t') return -1;
+        while (*end == ' ' || *end == '\t') end++;
+    }
+    return !strncmp(end, "Safari/", 7) ? v : -1;
+}
+
+static int ua_is_mobile(const char *ua) {
+    return strstr(ua, "Android") || strstr(ua, "iPhone") || strstr(ua, "iPad")
+        || strstr(ua, "iPod") || strstr(ua, "; Mobile")
+        || strstr(ua, "Mobile Safari");
+}
+
+/* iOS 上的第三方浏览器壳。带 '/' 一起匹配，避免撞上别的词。 */
+static int ua_ios_third_party(const char *ua) {
+    static const char *tags[] = { "CriOS/", "FxiOS/", "EdgiOS/", "OPiOS/",
+                                  "YaBrowser/" };
+    for (size_t i = 0; i < sizeof(tags) / sizeof(tags[0]); i++)
+        if (strstr(ua, tags[i])) return 1;
+    return 0;
+}
+
+int tlsfp_parse_ua(const char *ua, char *brand_out, size_t brand_cap,
+                   uint16_t *version) {
+    if (!ua || !brand_out || !version || brand_cap < 16) return 0;
+    if (strncmp(ua, "Mozilla/", 8) != 0) return 0;   /* 不是浏览器 */
+
+    int mobile = ua_is_mobile(ua);
+
+    /* iOS 第三方壳：TLS 栈同为系统 WebKit，一律按 iOS Safari 处理 */
+    if (ua_ios_third_party(ua)) {
+        const char *p = strstr(ua, "CPU iPhone OS ");
+        if (p) p += 14;
+        else if ((p = strstr(ua, "CPU OS ")) != NULL) p += 7;
+        if (!p) return 0;
+        int v = ua_num(p, NULL);
+        if (v < 0) return 0;
+        snprintf(brand_out, brand_cap, "safari-mobile");
+        *version = (uint16_t)v;
+        return 1;
+    }
+
+    /* **顺序有意义**：Edge/Opera 的 UA 里也含 Chrome/ */
+    struct { const char *brand; const char *tag; } rules[] = {
+        { "edge",    NULL },      /* Edg / EdgA / EdgiOS 三种写法，单独处理 */
+        { "opera",   "OPR/" },
+        { "firefox", "Firefox/" },
+        { "safari",  NULL },      /* Version/N … Safari/ ，单独处理 */
+        { "chrome",  "Chrome/" },
+    };
+
+    for (size_t i = 0; i < sizeof(rules) / sizeof(rules[0]); i++) {
+        int v = -1;
+        if (!strcmp(rules[i].brand, "edge")) {
+            v = ua_after(ua, "Edg/");
+            if (v < 0) v = ua_after(ua, "EdgA/");
+            if (v < 0) v = ua_after(ua, "EdgiOS/");
+            if (v < 0) v = ua_after(ua, "Edge/");
+        } else if (!strcmp(rules[i].brand, "safari")) {
+            v = ua_safari_version(ua);
+        } else {
+            v = ua_after(ua, rules[i].tag);
+        }
+        if (v < 0) continue;
+
+        /* Chromium 系衍生：**指纹由内核决定**，取 Chrome/ 那个版本号 */
+        if (!strcmp(rules[i].brand, "edge") || !strcmp(rules[i].brand, "opera")) {
+            int core = ua_after(ua, "Chrome/");
+            if (core >= 0) v = core;
+        }
+        snprintf(brand_out, brand_cap, "%s%s", rules[i].brand,
+                 mobile ? "-mobile" : "");
+        *version = (uint16_t)v;
+        return 1;
+    }
+    return 0;
+}
+
+
 const tlsfp_profile *tlsfp_lookup_ua(const char *brand, uint16_t version,
                                      int *confidence) {
     return tlsfp_lookup_ua_ex(brand, version, confidence, 0);

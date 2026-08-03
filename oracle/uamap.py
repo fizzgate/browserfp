@@ -188,6 +188,12 @@ def parse_ua(ua):
         m = pat.search(ua)
         if m:
             ver = int(m.group(1))
+            # **大到不可能的版本号一律当认不出**。C 侧的接口是 uint16，
+            # 硬塞会截断成一个看着合理的数（999999999999 → 65535），那比
+            # "认不出"危险得多 —— 它会去查表、可能命中某条 profile。
+            # 真浏览器的主版本从来没有超过三位数的。
+            if ver > 65535:
+                return None, None
             if brand in CHROMIUM_DERIVED:
                 core = CHROME_VER.search(ua)
                 if core:
