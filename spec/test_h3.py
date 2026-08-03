@@ -9,12 +9,22 @@ H3 的 SETTINGS 里含 GREASE 项，其 id 与 value 每次连接都随机。参
 
 # 可选依赖：缺了就 SKIP 这一条，**并把原因打出来**。
 # 静默跳过等于假绿；报 FAIL 又会让别人以为代码坏了 —— 这两种都见过。
-def _has_aioquic():
+def _aioquic_state():
+    """返回 (可用?, 原因)。
+
+    **不能只 catch ModuleNotFoundError**：这几个包里带原生扩展，「装上了但
+    import 崩」是常见状态 —— 实测 macOS 上 curl_cffi 0.16.0 装得上，import 时
+    dlopen 报 `symbol not found '_CFArrayAppendValue'`，抛的是 ImportError，
+    从 ModuleNotFoundError 的 except 里漏出去，整条门禁直接崩成「无输出」。
+    装了但坏了与没装一样都是不可用，但原因要分开印出来 —— 前者要去修环境，
+    后者装一下就行。"""
     try:
         __import__("aioquic")
-        return True
+        return True, ""
     except ModuleNotFoundError:
-        return False
+        return False, "缺 aioquic（pip install -r requirements-dev.txt）"
+    except Exception as e:                       # ImportError / OSError / …
+        return False, f"aioquic 装了但不可用：{type(e).__name__}: {str(e)[:80]}"
 
 
 import os
@@ -72,8 +82,8 @@ def main(argv):
     tests = [("GREASE 判定", t_grease_detection),
              ("GREASE 被剔除", t_grease_excluded),
              ("跨连接稳定（含充分性）",
-              (lambda: t_stability(rounds)) if _has_aioquic() else
-              lambda: (True, "SKIP：缺 aioquic（pip install -r requirements-dev.txt）"))]
+              (lambda: t_stability(rounds)) if _aioquic_state()[0] else
+              lambda: (True, "SKIP：" + _aioquic_state()[1]))]
     failed = 0
     for name, fn in tests:
         try:

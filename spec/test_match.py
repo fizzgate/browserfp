@@ -9,12 +9,22 @@
 
 # 可选依赖：缺了就 SKIP 这一条，**并把原因打出来**。
 # 静默跳过等于假绿；报 FAIL 又会让别人以为代码坏了 —— 这两种都见过。
-def _has_curl_cffi():
+def _curl_cffi_state():
+    """返回 (可用?, 原因)。
+
+    **不能只 catch ModuleNotFoundError**：这几个包里带原生扩展，「装上了但
+    import 崩」是常见状态 —— 实测 macOS 上 curl_cffi 0.16.0 装得上，import 时
+    dlopen 报 `symbol not found '_CFArrayAppendValue'`，抛的是 ImportError，
+    从 ModuleNotFoundError 的 except 里漏出去，整条门禁直接崩成「无输出」。
+    装了但坏了与没装一样都是不可用，但原因要分开印出来 —— 前者要去修环境，
+    后者装一下就行。"""
     try:
         __import__("curl_cffi")
-        return True
+        return True, ""
     except ModuleNotFoundError:
-        return False
+        return False, "缺 curl_cffi（pip install -r requirements-dev.txt）"
+    except Exception as e:                       # ImportError / OSError / …
+        return False, f"curl_cffi 装了但不可用：{type(e).__name__}: {str(e)[:80]}"
 
 
 import copy
@@ -156,8 +166,8 @@ def main():
         ("自识别", t_self_identify),
         ("变异必须 unknown（阴性对照）", t_mutations_are_unknown),
         ("容忍 padding", t_padding_tolerated),
-        ("真实 HRR 端到端", t_real_hrr_identified if _has_curl_cffi() else
-         lambda _m: (True, "SKIP：缺 curl_cffi（pip install -r requirements-dev.txt）")),
+        ("真实 HRR 端到端", t_real_hrr_identified if _curl_cffi_state()[0] else
+         lambda _m: (True, "SKIP：" + _curl_cffi_state()[1])),
     ]
     failed = skipped = 0
     for name, fn in tests:
