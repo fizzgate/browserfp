@@ -103,6 +103,116 @@ def peer_side(group, pub):
             ss + k.exchange(X25519PublicKey.from_public_bytes(xp)))
 
 
+LUA_REPL = r"""
+package.path = "%s/lua/?.lua;" .. package.path
+local tlsfp = require "tlsfp"
+assert(tlsfp.load("%s"))
+local function hex(s)
+    return (s:gsub(".", function(c) return string.format("%%02x", c:byte()) end))
+end
+local keys
+for line in io.lines() do
+    local brand, ver = line:match("^gen (%%S+) (%%d+)$")
+    if brand then
+        if keys then keys:free() end
+        local k, e = tlsfp.gen_key_shares(brand, tonumber(ver))
+        if not k then print("ERR " .. tostring(e)) else
+            keys = k
+            -- 顺带确认这些密钥真能被 client_hello 收下
+            local rec, prof = tlsfp.client_hello(brand, tonumber(ver), "example.com",
+                                                 k.shares)
+            if not rec then print("ERR client_hello: " .. tostring(prof)) else
+                local out = {}
+                for g, pub in pairs(k.shares) do
+                    out[#out + 1] = string.format("%%d:%%s", g, hex(pub))
+                end
+                table.sort(out)
+                print(prof.id .. " " .. table.concat(out, ","))
+            end
+        end
+    else
+        local g, peer = line:match("^derive (%%d+) (%%x+)$")
+        if g then
+            local raw = peer:gsub("%%x%%x", function(h)
+                return string.char(tonumber(h, 16)) end)
+            local sec, e = keys:derive(tonumber(g), raw)
+            print(sec and hex(sec) or ("ERR " .. tostring(e)))
+        else
+            print("ERR 不认识的指令")
+        end
+    end
+    io.flush()
+end
+"""
+
+
+def lua_arm(bad):
+    """第二段：从**生产入口**（Lua）过一遍。
+
+    第一段验的是 C 那一层。但生产上调用它的是 `tlsfp.gen_key_shares()`，中间
+    隔着 FFI 的输出缓冲、句柄所有权与 ffi.gc —— 这些都能在不崩溃的情况下给出
+    错误结果（比如私钥被 GC 掉后 derive 出一段垃圾）。这一段的判据仍然是
+    "与 cryptography 算出同一个共享密钥"，只是密钥这次由 Lua 产。
+    """
+    lua = None
+    for c in ("luajit", "resty"):
+        r = subprocess.run(["which", c], capture_output=True, text=True)
+        if r.returncode == 0:
+            lua = r.stdout.strip()
+            break
+    if not lua:
+        bad.append("缺 luajit/resty —— 生产入口这一段没验到，不能算通过")
+        return 0
+
+    script = LUA_REPL % (ROOT, os.path.join(ROOT, "csrc", "libtlsfp.so"))
+    # 写临时文件而不是 spec/cache —— 变异测试里那个目录是软链回真仓的。
+    import tempfile
+    fd, src = tempfile.mkstemp(prefix="kx_repl_", suffix=".lua")
+    with os.fdopen(fd, "w") as f:
+        f.write(script)
+    p = subprocess.Popen([lua, src], stdin=subprocess.PIPE,
+                         stdout=subprocess.PIPE, text=True, bufsize=1)
+
+    def cmd(s):
+        p.stdin.write(s + "\n")
+        p.stdin.flush()
+        return p.stdout.readline().strip()
+
+    n = 0
+    try:
+        for brand, ver in (("chrome", 151), ("firefox", 153), ("safari-mobile", 27)):
+            line = cmd(f"gen {brand} {ver}")
+            if line.startswith("ERR") or " " not in line:
+                bad.append(f"Lua {brand} {ver}: {line[:90]}")
+                continue
+            pid, rest = line.split(" ", 1)
+            for item in rest.split(","):
+                g, hexpub = item.split(":")
+                group, pub = int(g), bytes.fromhex(hexpub)
+                try:
+                    share, want = peer_side(group, pub)
+                except Exception as e:
+                    bad.append(f"Lua {brand} {ver} 组 0x{group:04x}: 对端算不下去 "
+                               f"{type(e).__name__}: {str(e)[:60]}")
+                    continue
+                got = cmd(f"derive {group} {share.hex()}")
+                if got.startswith("ERR"):
+                    bad.append(f"Lua {brand} {ver} 组 0x{group:04x}: derive 失败 "
+                               f"{got[:70]}")
+                    continue
+                if bytes.fromhex(got) != want:
+                    bad.append(f"Lua {brand} {ver} 组 0x{group:04x}: 共享密钥与 "
+                               "cryptography 不同 —— 生产入口产的密钥握不上手")
+                n += 1
+            print(f"  ✅ Lua {brand} {ver} → {pid}，"
+                  f"{len(rest.split(','))} 组各自与 cryptography 一致")
+    finally:
+        p.stdin.close()
+        p.wait(timeout=10)
+        os.unlink(src)
+    return n
+
+
 def main():
     lib = find_libcrypto()
     if not lib:
@@ -222,6 +332,12 @@ def main():
             print("  ✅ 对照：做不了的组（0x6399）当场拒绝")
     finally:
         cli.close()
+
+    print("\n生产入口（Lua）这一段：")
+    lua_n = lua_arm(bad)
+    if lua_n < 7:      # chrome 2 组 + firefox 3 组 + safari 2 组
+        bad.append(f"Lua 侧只验到 {lua_n} 组 —— 应为 7（chrome 2 + firefox 3 "
+                   "+ safari 2），少了说明有组没走到")
 
     want_checks = ROUNDS * len(GROUPS)
     if checked < want_checks:

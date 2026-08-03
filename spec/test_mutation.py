@@ -260,6 +260,18 @@ MUTANTS = [
      ["test_kx"],
      "每次握手都要新密钥——复用等于一把固定公钥反复上线"),
 
+    ("KX-Lua:derive 用错私钥", "lua/tlsfp.lua",
+     "            local h = handles[group]",
+     "            local h = next(handles) and handles[(next(handles))]",
+     ["test_kx"],
+     "每一组要用它自己那把私钥算共享密钥"),
+
+    ("KX-Lua:共享密钥只取一半", "lua/tlsfp.lua",
+     "            return ffi.string(out, n)",
+     "            return ffi.string(out, n / 2)",
+     ["test_kx"],
+     "共享密钥要整段返回——截半后长度看着还像模像样"),
+
     # —— 生产接口（Lua）这一层。**能力做在库里、出口没接上**是本项目撞过两次
     # 的形态（另一次是 C 构造器默认 VERBATIM），所以这四条从生产入口回打。
     ("Lua:client_hello 不注入 key_share", "lua/tlsfp.lua",

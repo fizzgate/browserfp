@@ -63,6 +63,14 @@ int  tlsfp_build_client_hello_ex(const tlsfp_profile *p, const char *sni,
                                  uint8_t *out, size_t outlen);
 size_t tlsfp_key_share_groups(const tlsfp_profile *p, uint16_t *groups,
                               size_t *lens, size_t max);
+int    tlsfp_kx_init(const char *libcrypto_path);
+const char *tlsfp_kx_openssl_version(void);
+size_t tlsfp_kx_pub_len(uint16_t group);
+size_t tlsfp_kx_secret_len(uint16_t group);
+int    tlsfp_kx_keygen(uint16_t group, uint8_t *pub, size_t publen, void **out);
+int    tlsfp_kx_derive(void *ctx, const uint8_t *peer, size_t peerlen,
+                       uint8_t *secret, size_t seclen);
+void   tlsfp_kx_free(void *ctx);
 typedef struct {
     const uint32_t *settings; size_t n_settings;
     uint32_t        window;
@@ -197,6 +205,68 @@ local ks_len   = ffi.new("size_t[8]")
 local h2_buf = ffi.new("uint8_t[?]", 8192)
 local rnd_buf  = ffi.new("uint8_t[32]")
 local sid_buf  = ffi.new("uint8_t[32]")
+
+--- 为一个 profile 的每一组生成密钥，直接交给 client_hello 用。
+--
+-- **这是伪装链上唯一一处需要私钥的地方**，所以私钥不出这个模块：返回的
+-- keys 对象自己持有句柄，拿到 ServerHello 之后用 keys:derive(group, peer)
+-- 算共享密钥。私钥挂在 ffi.gc 上，协程被 kill 掉也会回收。
+--
+-- 密码学不是自己实现的 —— 走的是**运行时已经加载的那份 OpenSSL**（worker 里
+-- 就是 OpenResty 自带的 3.5.x，ML-KEM-768 在里面）。
+--
+-- @return keys 对象（keys.shares = {[组号]=公钥字符串}）或 nil, err
+function _M.gen_key_shares(brand, version)
+    if not lib then return nil, "libtlsfp.so 未加载" end
+    if lib.tlsfp_kx_init(nil) ~= 0 then
+        return nil, "解析 libcrypto 符号失败：这个进程里没有加载 OpenSSL？"
+    end
+    local groups, err = _M.key_share_groups(brand, version)
+    if not groups then return nil, err end
+
+    local shares, handles = {}, {}
+    for _, g in ipairs(groups) do
+        local buf = ffi.new("uint8_t[?]", g.len)
+        local hp = ffi.new("void*[1]")
+        local n = lib.tlsfp_kx_keygen(g.group, buf, g.len, hp)
+        if n ~= g.len then
+            return nil, string.format("组 0x%04x 生成密钥失败（要 %d 字节，得 %d）"
+                                      .. "——这一组当前的 OpenSSL 可能不支持",
+                                      g.group, g.len, tonumber(n))
+        end
+        shares[g.group] = ffi.string(buf, n)
+        handles[g.group] = ffi.gc(hp[0], lib.tlsfp_kx_free)
+    end
+
+    return {
+        shares = shares,
+        -- @return 共享密钥字符串；失败返回 nil, err
+        derive = function(self, group, peer)
+            local h = handles[group]
+            if not h then
+                return nil, string.format("没有为组 0x%04x 生成过密钥", group)
+            end
+            local want = tonumber(lib.tlsfp_kx_secret_len(group))
+            local out = ffi.new("uint8_t[?]", want)
+            local n = lib.tlsfp_kx_derive(h, peer, #peer, out, want)
+            if n ~= want then
+                return nil, string.format("组 0x%04x 算共享密钥失败 —— "
+                                          .. "服务端那段长度对不上？给了 %d 字节",
+                                          group, #peer)
+            end
+            return ffi.string(out, n)
+        end,
+        -- 用完尽早放，别等 GC —— 一个 ML-KEM 私钥不小
+        free = function(self)
+            for g, h in pairs(handles) do
+                ffi.gc(h, nil)
+                lib.tlsfp_kx_free(h)
+                handles[g] = nil
+            end
+        end,
+    }
+end
+
 
 --- 这个 profile 的 key_share 要哪些组、每组公钥多少字节。
 -- **调用方必须先问这个再去生成密钥**：组是 profile 决定的，不同浏览器、不同版本
