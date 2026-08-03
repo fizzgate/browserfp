@@ -108,6 +108,41 @@ def key_of(case):
     return f"{case['pid']}|{case['akamai']}"
 
 
+# 出不了指纹的 (品牌, 版本)。**这个名单必须是穷举的**：cases() 会静默跳过缺
+# profile 或缺 h2 表项的组合，不钉死的话，注册表哪天掉了一批，用例集跟着变小，
+# 「44/44 已确认」照样是绿的 —— 少验了谁没有任何地方看得出来。
+#
+#   safari 12–14         连 TLS profile 都没有（没有可采集的真机，WONT_DO）
+#   safari-mobile 12–14  有 TLS profile，但 h2 表里没有它们（iOS 12/13 那会儿
+#                        的采集没带 h2）。两层缺一层就出不了这个指纹 ——
+#                        web_proxy 的 fingerprint_connect 会在握手前挡掉。
+UNREACHABLE = {
+    ("safari", 12), ("safari", 13), ("safari", 14),
+    ("safari-mobile", 12), ("safari-mobile", 13), ("safari-mobile", 14),
+}
+
+
+def skipped():
+    """cases() 跳过了哪些 (品牌, 版本)，以及跳过的理由。"""
+    with open(os.path.join(SPEC, "profiles.json")) as f:
+        reg = {x["id"] for x in json.load(f)}
+    with open(os.path.join(SPEC, "h2table.json")) as f:
+        h2t = json.load(f)
+    mapper = UAMapper()
+
+    out = []
+    for brand, (tpl, lo, hi) in sorted(TARGETS.items()):
+        for v in range(lo, hi + 1):
+            if v in NEVER_RELEASED.get(brand, set()):
+                continue
+            pid = mapper.lookup(tpl.format(v=v))["profile"]
+            if pid not in reg:
+                out.append((brand, v, "没有 TLS profile"))
+            elif not (h2t.get(brand) or {}).get(str(v)):
+                out.append((brand, v, "有 TLS profile 但 h2 表里没有"))
+    return out
+
+
 def cases():
     """每种可发出的字节形态取一个代表，附上第三方应当看到的期望值。"""
     with open(os.path.join(SPEC, "profiles.json")) as f:

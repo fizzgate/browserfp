@@ -22,8 +22,8 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from oracle.echocases import (LEDGER, cases, key_of,          # noqa: E402
-                              load_ledger)
+from oracle.echocases import (LEDGER, UNREACHABLE, cases,     # noqa: E402
+                              key_of, load_ledger, skipped)
 
 # 多久算过期。取值要能容忍"一阵子没跑联网门禁"，又不能长到让结论失去意义。
 STALE_DAYS = 90
@@ -64,6 +64,19 @@ def main():
         bad.append(f"{c['brand']} {c['version']} 已经 {age} 天没复验（上限 "
                    f"{STALE_DAYS} 天）—— 浏览器与回显服务都在变，旧结论不作数")
 
+    # **静默跳过的组合要钉死**。cases() 对缺 profile / 缺 h2 表项的组合是
+    # `continue` —— 注册表哪天掉了一批，用例集跟着变小，上面那些数照样全是 0，
+    # 「全部已确认」于是变成「确认了剩下的那些」。
+    sk = skipped()
+    got = {(b, v) for b, v, _ in sk}
+    why = {(b, v): w for b, v, w in sk}
+    for bv in sorted(got - UNREACHABLE):
+        bad.append(f"{bv[0]} {bv[1]} 被静默跳出用例集（{why[bv]}）—— "
+                   "它出不了指纹却没人知道；确实出不了就加进 UNREACHABLE")
+    for bv in sorted(UNREACHABLE - got):
+        bad.append(f"{bv[0]} {bv[1]} 记在 UNREACHABLE 里，实际却能进用例集 —— "
+                   "补上数据之后忘了从名单里删")
+
     # 防平凡通过：用例集读空时"0 缺 0 残留"看着是绿的
     if len(cs) < 30:
         bad.append(f"用例集只有 {len(cs)} 条，远少于预期（44）—— "
@@ -73,6 +86,8 @@ def main():
                    "台账键不一致，两个数会永远对不上")
 
     print(f"  用例 {len(cs)} 种字节形态，台账 {len(led)} 条")
+    print(f"  出不了指纹的 {len(sk)} 个 (品牌, 版本)，与 UNREACHABLE 名单"
+          f"{'一致' if got == UNREACHABLE else '不一致'}")
     print(f"  从未确认 {len(missing)}，残留 {len(orphan)}，"
           f"超过 {STALE_DAYS} 天没复验 {len(stale)}")
     if not bad and cs:
