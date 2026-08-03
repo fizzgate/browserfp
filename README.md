@@ -57,6 +57,24 @@ only proves the uncompressed path still works.
 51 offline gates run without network. Network-dependent ones are opt-in
 (`LIVE=1`) so a normal test run never touches a public service.
 
+```sh
+python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
+.venv/bin/python spec/verify_all.py
+```
+
+Two things about the **first** run:
+
+- Some gates need small Go test servers (a TLS server that forces
+  HelloRetryRequest, an HTTP/2 echo). The binaries aren't committed — they're
+  built on demand, so the first run is slower and needs a Go toolchain. Without
+  Go those gates report a labelled SKIP.
+- `requirements-dev.txt` holds optional packages (`curl_cffi`, `aioquic`,
+  `wreq`) used for corpus collection and a few extra checks. They don't all
+  install everywhere — `wreq` needs Python ≥3.11, and `curl_cffi`'s macOS wheel
+  fails to load in some environments. Gates that need them SKIP with the exact
+  reason, and the summary counts skips separately from passes, so a machine with
+  nothing installed can never show up as "all green".
+
 ## Quick start
 
 ```lua
