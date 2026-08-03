@@ -26,3 +26,30 @@ oracle/gotls/kybercli/kybercli
 oracle/gotls/kyberserver/kyberserver
 oracle/gotls/h2strict/h2strict
 csrc/uastrcli
+
+# ---- 编译产物与本地环境：**都栽过，别再提交进来** ----
+# .venv-wreq 曾被提交进 git：874 个文件 35MB，占仓库的 91%，全是别人的编译 wheel
+# （cryptography / wreq / aioquic）。抽独立仓时靠 git filter-repo 才拔掉。
+.venv*/
+__pycache__/
+*.pyc
+
+# Go 测试服务端的编译产物。源码在仓里，用 go build 现编即可。
+# 历史里躺过 fizztls-probe(12.8M) / fizztls-utls(7.6M) / hrrserver(7.9M)，
+# 而且是 macOS arm64 的 —— 换个平台根本用不了。
+oracle/gotls/*/[a-z]*
+!oracle/gotls/*/*.go
+!oracle/gotls/*/go.*
+oracle/goutls/*[!.]*
+!oracle/goutls/*.go
+!oracle/goutls/go.*
+
+# C 构建产物
+csrc/*.o
+csrc/*.so
+csrc/*.dylib
+csrc/profiles.inc
+csrc/*.dSYM/
+
+# 联网门禁的抓包缓存（154MB）
+spec/cache/

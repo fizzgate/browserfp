@@ -1,0 +1,11 @@
+# browserfp 的门禁依赖。**这个仓此前没有依赖清单** —— 全靠一个被提交进 git 的
+# .venv（874 个文件 35MB，抽独立仓时才拔掉）。没有清单的后果：换台机器跑门禁，
+# 6 道会因为一个缺失的模块红掉，而报错是 ModuleNotFoundError，看着像代码坏了。
+#
+#   python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
+#
+# cryptography 是**独立对照实现**：密钥交换、ML-KEM、证书解析的每一条结论都要
+# 跟它对一遍才算数（见 spec/test_kx.py）。所以版本要求不是随便写的：
+#   >= 46  才有 asymmetric.mlkem（X25519MLKEM768 / X25519Kyber768Draft00 靠它对照）
+# 实测 46.0.3 缺 mlkem、49.0.0 有 —— 下限按能跑通的最低版本钉。
+cryptography>=49.0.0

@@ -26,7 +26,8 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
-PY = os.path.join(ROOT, ".venv", "bin", "python")
+PY = os.environ.get("BROWSERFP_PY") or os.path.join(ROOT, ".venv", "bin", "python")
+if not os.path.exists(PY): PY = sys.executable
 
 # 联网 / 需要容器的门禁单列，默认不跑。test_openresty 要拉镜像、编译、起容器，
 # 耗时以分钟计，不适合每次改动都跑；但它是唯一验证"生产形态"的一环。

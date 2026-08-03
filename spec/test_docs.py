@@ -22,13 +22,17 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
-README = os.path.join(ROOT, "README.md")
+# 详细指标住在研发记录里（原来那份 2649 行的 README，开源时移到 docs/DEVLOG.md）。
+# README.md 现在是开源首页，只放头条数字 —— 两份都要核，见下面 check_readme_headline。
+README = os.path.join(ROOT, "docs", "DEVLOG.md")
+README_FRONT = os.path.join(ROOT, "README.md")
 REGISTRY = os.path.join(HERE, "profiles.json")
 
 
 def check_paths(text):
     """README 中形如 oracle/xxx.py、spec/xxx.json 的路径必须存在。"""
     bad = []
+    check_readme_headline(bad)
     for m in re.finditer(r"`?((?:oracle|spec)/[\w./-]+\.(?:py|json|go|pem))`?", text):
         rel = m.group(1)
         if not os.path.exists(os.path.join(ROOT, rel)):
@@ -152,6 +156,29 @@ def check_numbers(text):
         if not re.search(pat, text):
             bad.append(f"{label} 实算 {value}，README 对应处不符（正则 {pat}）")
     return bad, facts
+
+
+def check_readme_headline(bad):
+    """开源首页的头条数字也要核。
+
+    移到 DEVLOG 之后，README.md 上那几个数就没人看着了 —— 而它恰恰是外人唯一
+    会读的一页，写错的代价最大。这里只钉**首页真的写了的**那几个，多了会逼着
+    首页去迁就门禁的格式。
+    """
+    import json
+    front = open(README_FRONT, encoding="utf-8").read()
+    reg = json.load(open(os.path.join(ROOT, "spec", "profiles.json")))
+    led = json.load(open(os.path.join(ROOT, "spec", "echo_ledger.json")))
+    n_gate = len([f for f in os.listdir(os.path.join(ROOT, "spec"))
+                  if f.startswith("test_") and f.endswith(".py")])
+    for what, want, pat in [
+        ("唯一指纹", len(reg), r"Unique fingerprints \| \*\*%d\*\*"),
+        ("第三方确认", len(led), r"\*\*%d / %d\*\*"),
+        ("离线门禁数", n_gate, r"%d offline gates"),
+    ]:
+        rx = pat % ((want, want) if pat.count("%d") == 2 else (want,))
+        if not re.search(rx, front):
+            bad.append(f"README 首页的「{what}」与实算 {want} 不符（正则 {rx}）")
 
 
 def main():
