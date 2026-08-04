@@ -12,6 +12,17 @@ ClientHello 与 HTTP/2 的开场帧。给一条 User-Agent，输出那个浏览�
 
 English: [README.md](README.md)
 
+## ❤️ 赞助商
+
+> [想出现在这里？](mailto:sale@fizzgate.com)
+
+<table>
+<tr>
+<td width="180"><a href="https://dash.augmunt.com/#/login"><img src="https://www.augmunt.com/logo.png" alt="Augmunt" width="150"></a></td>
+<td>Augmunt 是一家稳定、高效的 Agentic LLM 网关平台，覆盖主流代码智能体及国际领先模型生态，为开发者与企业提供统一接入能力。支持企业采购流程、对公付款，服务规范可靠。</td>
+</tr>
+</table>
+
 ## 支持范围
 
 | 浏览器 | 版本 |

@@ -15,8 +15,20 @@ has to be backed by something that can fail.
 
 **中文说明见 [README.zh-CN.md](README.zh-CN.md)。**
 
+## ❤️ Sponsor
+
+> [Want to appear here?](mailto:sale@fizzgate.com)
+
+<table>
+<tr>
+<td width="180"><a href="https://dash.augmunt.com/#/login"><img src="https://www.augmunt.com/logo.png" alt="Augmunt" width="150"></a></td>
+<td>Augmunt is a stable, high-performance Agentic LLM gateway platform, covering mainstream coding agents and leading international model ecosystems, offering unified access for developers and enterprises. It supports enterprise procurement workflows and corporate payment, with dependable service standards.</td>
+</tr>
+</table>
+
 ## Contents
 
+- [Sponsor](#-sponsor)
 - [Coverage](#coverage)
 - [Installation](#installation)
 - [Usage](#usage)
