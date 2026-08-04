@@ -248,3 +248,27 @@ func min(a, b int) int {
 	}
 	return b
 }
+
+// 跨绑定一致性：Go 与 Lua 用的是同一份 C 实现和同一份 profile 表，
+// **同一 profile 的注册表 JA4 与 akamai 必须逐字节相同**。
+// 两边漂移的话，用 Lua 验过的指纹不能代表 Go 出去的字节，反之亦然。
+func TestSameRegistryAsLuaBinding(t *testing.T) {
+	// 这些值取自 Lua 侧实测输出（spec 与生产日志里都能对上）
+	want := map[string]struct{ ja4, akamai string }{
+		"chrome/150": {
+			ja4:    "t13i1515h2_8daaf6152771_806a8c22fdea",
+			akamai: "1:65536,2:0,4:6291456,6:262144|15663105|0|m,a,s,p",
+		},
+	}
+	p, err := Select(Spec{Brand: "chrome", Version: 150})
+	if err != nil {
+		t.Fatal(err)
+	}
+	w := want["chrome/150"]
+	if p.JA4 != w.ja4 {
+		t.Errorf("注册表 JA4 与 Lua 侧不一致\n  Go  : %s\n  Lua : %s", p.JA4, w.ja4)
+	}
+	if p.Akamai != w.akamai {
+		t.Errorf("akamai 与 Lua 侧不一致\n  Go  : %s\n  Lua : %s", p.Akamai, w.akamai)
+	}
+}

@@ -24,6 +24,7 @@ package browserfp
 import "C"
 
 import (
+	cryptorand "crypto/rand"
 	"errors"
 	"fmt"
 	"runtime"
@@ -252,10 +253,16 @@ func (p *Profile) Keygen() (*Keys, error) {
 		}
 		pub := make([]byte, int(publen))
 		var ctx unsafe.Pointer
-		if C.browserfp_kx_keygen(g, (*C.uint8_t)(unsafe.Pointer(&pub[0])),
-			publen, &ctx) != 0 {
+		// ⚠ 返回值是**公钥长度**，不是 0/非 0。失败返回 -1。
+		// Lua 绑定判的也是 `n ~= len`。按 !=0 写会把每次成功都当成失败 ——
+		// 2026-08-04 我就是这么写的，然后把它误诊成「macOS + Go 宿主的
+		// 已知限制」，还写进了 README。纯 C + 同样只靠 dlopen 的对照实验
+		// （rc=32/65/1216 全成功）才把这个错判打掉。
+		if n := C.browserfp_kx_keygen(g, (*C.uint8_t)(unsafe.Pointer(&pub[0])),
+			publen, &ctx); n != C.int(publen) {
 			k.Close()
-			return nil, fmt.Errorf("组 0x%04x 生成密钥失败", uint16(g))
+			return nil, fmt.Errorf("组 0x%04x 生成密钥失败（要 %d 字节，得 %d）——"+
+				"这一组当前的 OpenSSL 可能不支持", uint16(g), int(publen), int(n))
 		}
 		k.groups = append(k.groups, uint16(g))
 		k.ctxs = append(k.ctxs, ctx)
@@ -284,10 +291,12 @@ func (k *Keys) Derive(group uint16, peer []byte) ([]byte, error) {
 		if len(peer) == 0 {
 			return nil, errors.New("peer 公钥为空")
 		}
-		if C.browserfp_kx_derive(k.ctxs[i],
+		// 同 keygen：返回值是**共享密钥长度**，失败返回 -1
+		if n := C.browserfp_kx_derive(k.ctxs[i],
 			(*C.uint8_t)(unsafe.Pointer(&peer[0])), C.size_t(len(peer)),
-			(*C.uint8_t)(unsafe.Pointer(&out[0])), slen) != 0 {
-			return nil, fmt.Errorf("组 0x%04x 算共享密钥失败", group)
+			(*C.uint8_t)(unsafe.Pointer(&out[0])), slen); n != C.int(slen) {
+			return nil, fmt.Errorf("组 0x%04x 算共享密钥失败（要 %d 字节，得 %d）——"+
+				"服务端那段长度对不上？", group, int(slen), int(n))
 		}
 		return out, nil
 	}
@@ -323,15 +332,42 @@ func (p *Profile) ClientHello(sni string, keys *Keys) ([]byte, error) {
 	csni := C.CString(sni)
 	defer C.free(unsafe.Pointer(csni))
 
+	// cgo 规则：传给 C 的 Go 内存里**不能再含 Go 指针**，否则 GC 移动了就悬空。
+	// ks 数组本身可以传（顶层 Go 指针允许），但它内部的 pub 指向 pubs 那些切片，
+	// 属于"unpinned Go pointer"，运行时会直接 panic。用 Pinner 钉住，
+	// 比 C.malloc 拷一份省事且不会漏 free。
+	var pinner runtime.Pinner
+	defer pinner.Unpin()
+
 	ks := make([]C.browserfp_keyshare, len(keys.groups))
 	for i := range keys.groups {
+		pinner.Pin(&keys.pubs[i][0])
 		ks[i].group = C.uint16_t(keys.groups[i])
 		ks[i].pub = (*C.uint8_t)(unsafe.Pointer(&keys.pubs[i][0]))
 		ks[i].pub_len = C.size_t(len(keys.pubs[i]))
 	}
 
+	// random(32B) 与 session_id 都是**必填**（C 侧：!random32 || (session_id_len &&
+	// !session_id) → -1），而且**每次调用都要重新生成**：照抄 golden 里那份会让
+	// 所有连接的 ClientHello 逐字节相同，比不伪装还容易被判。
+	random := make([]byte, 32)
+	if _, err := cryptorand.Read(random); err != nil {
+		return nil, fmt.Errorf("取随机数失败: %w", err)
+	}
+	sidLen := int(p.p.session_id_len)
+	sid := make([]byte, 32) // 给足；C 侧按 profile 的 session_id_len 取用
+	if sidLen > 0 {
+		if _, err := cryptorand.Read(sid[:sidLen]); err != nil {
+			return nil, fmt.Errorf("取 session_id 失败: %w", err)
+		}
+	}
+	pinner.Pin(&random[0])
+	pinner.Pin(&sid[0])
+
 	out := make([]byte, 8192)
-	n := C.browserfp_build_client_hello_ex(p.p, csni, nil, nil,
+	n := C.browserfp_build_client_hello_ex(p.p, csni,
+		(*C.uint8_t)(unsafe.Pointer(&random[0])),
+		(*C.uint8_t)(unsafe.Pointer(&sid[0])),
 		&ks[0], C.size_t(len(ks)), 0,
 		(*C.uint8_t)(unsafe.Pointer(&out[0])), C.size_t(len(out)))
 	if n <= 0 {
@@ -429,11 +465,19 @@ func keygenOne(group uint16) (*Keys, error) {
 	}
 	pub := make([]byte, int(publen))
 	var ctx unsafe.Pointer
-	if C.browserfp_kx_keygen(C.uint16_t(group),
-		(*C.uint8_t)(unsafe.Pointer(&pub[0])), publen, &ctx) != 0 {
-		return nil, fmt.Errorf("组 0x%04x keygen 返回非 0", group)
+	if n := C.browserfp_kx_keygen(C.uint16_t(group),
+		(*C.uint8_t)(unsafe.Pointer(&pub[0])), publen, &ctx); n != C.int(publen) {
+		return nil, fmt.Errorf("组 0x%04x keygen 得 %d，期望 %d", group, int(n), int(publen))
 	}
 	k := &Keys{groups: []uint16{group}, ctxs: []unsafe.Pointer{ctx}, pubs: [][]byte{pub}}
 	runtime.SetFinalizer(k, (*Keys).Close)
 	return k, nil
+}
+
+
+// lastCryptoError 取最近一条 OpenSSL 错误（诊断用）。没有 ERR_* 符号时返回 0。
+func lastCryptoError() (uint64, string) {
+	buf := make([]C.char, 512)
+	code := C.browserfp_kx_last_error(&buf[0], C.size_t(len(buf)))
+	return uint64(code), C.GoString(&buf[0])
 }

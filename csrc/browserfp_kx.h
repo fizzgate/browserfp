@@ -24,6 +24,10 @@
  * 返回 0 成功，-1 失败。可重复调用，只做一次。 */
 int browserfp_kx_init(const char *libcrypto_path);
 
+/* 最近一条 OpenSSL 错误（并清空队列）。没有 ERR_* 符号时返回 0。
+ * keygen 失败时**先看它** —— 否则分不清算法找不到、provider 没加载、还是别的。 */
+unsigned long browserfp_kx_last_error(char *out, size_t outlen);
+
 /* 已解析到的 OpenSSL 版本串；未初始化时返回 NULL。**要记进日志** —— 版本不同
  * 意味着能不能做 ML-KEM 不同。 */
 const char *browserfp_kx_openssl_version(void);

@@ -25,6 +25,8 @@ typedef int (*fn_set_group_name)(void *, const char *);
 typedef int (*fn_get_raw_pub)(const void *, unsigned char *, size_t *);
 typedef int (*fn_get_octet_param)(const void *, const char *, unsigned char *,
                                   size_t, size_t *);
+typedef unsigned long (*fn_err_get)(void);
+typedef void (*fn_err_str)(unsigned long, char *, size_t);
 typedef void *(*fn_new_raw_pub_ex)(void *, const char *, const char *,
                                    const unsigned char *, size_t);
 typedef void *(*fn_pkey_new)(void);
@@ -77,6 +79,9 @@ static struct {
     fn_digest_update     digest_update;
     fn_digest_final      digest_final;
     fn_digest_xof        digest_xof;
+    /* 诊断用，可选：缺了不影响主流程，但 keygen 失败就查不出所以然 */
+    fn_err_get           err_get;
+    fn_err_str           err_str;
 } S;
 
 /* 私钥句柄。混合组要拿两把。 */
@@ -149,6 +154,11 @@ int browserfp_kx_init(const char *libcrypto_path) {
     SYM(pkey_free,         "EVP_PKEY_free");
     SYM(ctx_free,          "EVP_PKEY_CTX_free");
     SYM(version,           "OpenSSL_version");
+    /* ERR_* 是**可选**的（老/裁剪版可能没有），所以不走 SYM —— 那个宏缺符号就
+     * 返回 -1，会把整个初始化拖垮。没有它时 keygen 失败只剩"返回非 0"，
+     * 2026-08-04 在 macOS + Go 宿主上就是卡在这一点上查不下去。 */
+    S.err_get = (fn_err_get)(h ? dlsym(h, "ERR_get_error") : dlsym(RTLD_DEFAULT, "ERR_get_error"));
+    S.err_str = (fn_err_str)(h ? dlsym(h, "ERR_error_string_n") : dlsym(RTLD_DEFAULT, "ERR_error_string_n"));
     /* SHA3-256 / SHAKE256：Kyber768Draft00 的那层包装要用，见 kyber_wrap() */
     SYM(md_fetch,          "EVP_MD_fetch");
     SYM(md_free,           "EVP_MD_free");
@@ -392,4 +402,16 @@ void browserfp_kx_free(void *ctx) {
         if (k->b) S.pkey_free(k->b);
     }
     free(k);
+}
+
+
+/* 最近一条 OpenSSL 错误并清空队列。没有 ERR_* 符号时返回 0。 */
+unsigned long browserfp_kx_last_error(char *out, size_t outlen) {
+    if (!S.err_get) return 0;
+    unsigned long e = S.err_get();
+    if (out && outlen) {
+        out[0] = 0;
+        if (e && S.err_str) S.err_str(e, out, outlen);
+    }
+    return e;
 }

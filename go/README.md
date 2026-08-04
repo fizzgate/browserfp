@@ -23,18 +23,44 @@ cgo 直接编译 C 源，`go build` 一步到位，不需要先 make 出 `.so`�
 make -C ../csrc profiles.inc
 ```
 
-## 已知限制：macOS 上 Keygen 不可用
+## C 侧返回值约定（最容易踩的一处）
 
-Go 宿主本身不链 libcrypto，只能 `dlopen`。而 dlopen 来的那份在 EVP keygen 上会失败
-（符号全部解析成功、`OpenSSL_version` 也调得通，但 `EVP_PKEY_generate` 返回错误），
-X25519 / P-256 / ML-KEM **全部**如此。同一份 `.so` 在 OpenResty 里是好的。
+`browserfp_*` 的整型返回**不是** C 惯例的 0=成功：
 
-- 未在 Linux 上复现；生产（Linux + OpenResty）走 `RTLD_DEFAULT` 那条路，不受影响。
-- 受影响的只有 `Keygen` 及依赖它的 `ClientHello` / `JA4For`；
-  `SelectUA` / `H2Preface` / `JA4` / `Coherence` / `LookupJA4` 正常。
-- 测试遇到时会 **SKIP 并打印原因**，不会假装通过。
-- 可以用 `InitCrypto("/path/to/libcrypto.dylib")` 显式指定一份试试。
+| 函数 | 成功 | 失败 |
+|---|---|---|
+| `browserfp_parse_ua` | **1** | 0 |
+| `browserfp_kx_keygen` | **公钥长度**（32 / 65 / 1216…） | -1 |
+| `browserfp_kx_derive` | **共享密钥长度** | -1 |
+| `browserfp_build_client_hello_ex` | **record 长度** | -1 |
 
-⚠ 另：macOS 的系统 `libcrypto.dylib` 是 LibreSSL，被 dlopen 时**主动 abort**
-（`loading libcrypto in an unsafe way` + SIGABRT）。所以 `csrc` 里的候选列表
-只用绝对路径，不用裸名 —— 改那个列表时别把裸名加回去。
+Lua 绑定判的是 `n ~= len`。按 `!= 0` 写会把每次成功都当失败 —— 写这个绑定时连着
+踩了两次，还一度误诊成「macOS + Go 宿主的已知限制」写进文档，直到用**纯 C + 同样
+只靠 dlopen** 的对照实验（rc=32/65/1216 全成功）才打掉那个错判。
+
+## ClientHello 的两个必填参数
+
+`random`(32B) 与 `session_id` 都必须给（C 侧 `!random32 || (session_id_len &&
+!session_id)` 直接返回 -1），而且**每次调用都要重新生成** —— 照抄一份固定值会让
+所有连接的 ClientHello 逐字节相同，比不伪装还容易被判。本绑定用 `crypto/rand`。
+
+## cgo 指针规则
+
+传给 C 的 Go 内存里不能再含 Go 指针（`keyshare.pub` 指向 Go 切片就是这种），
+否则运行时 panic `cgo argument has Go pointer to unpinned Go pointer`。
+本绑定用 `runtime.Pinner` 钉住，比 `C.malloc` 拷一份省事且不会漏 free。
+
+## macOS 上的 libcrypto
+
+系统 `libcrypto.dylib` 是 LibreSSL，被 dlopen 时**主动 abort**
+（`loading libcrypto in an unsafe way` + SIGABRT）。所以 `csrc` 的候选列表只用
+绝对路径、不用裸名 —— 改那个列表时别把裸名加回去。
+
+需要指定别的 libcrypto 时用 `InitCrypto("/path/to/libcrypto...")`，
+**必须在任何 Keygen 之前调用**。
+
+## 与 Lua 绑定的一致性
+
+两边共用同一份 C 实现与 profile 表。`TestSameRegistryAsLuaBinding` 断言同一
+profile 的注册表 JA4 与 akamai 逐字节相同 —— 漂移了的话，用一边验过的指纹就不能
+代表另一边发出去的字节。
