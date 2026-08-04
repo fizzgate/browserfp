@@ -99,8 +99,20 @@ typedef struct {
  * 2026-08-03 实测：只留 RTLD_DEFAULT 的话 test_kx / test_hrr / test_lua_keyshare
  * 一起红，而在 OpenResty 里跑却是好的 —— 典型的「本机能跑不等于没坏」。 */
 static const char *const KX_CRYPTO_SONAMES[] = {
+    /* Linux 优先（生产就是它）：进程里通常已经加载，dlopen 只是兜底 */
     "libcrypto.so.3", "libcrypto.so.1.1", "libcrypto.so",
-    "libcrypto.3.dylib", "libcrypto.1.1.dylib", "libcrypto.dylib",
+    /* macOS：**必须给绝对路径**。裸名 "libcrypto.dylib" 会命中系统那份
+     * LibreSSL，而它被 dlopen 时主动 abort：
+     *     WARNING: … is loading libcrypto in an unsafe way
+     *     SIGABRT
+     * 在 OpenResty 里碰不到（进程已链好 libcrypto，走 RTLD_DEFAULT 就命中），
+     * 但 Go 绑定 / 离线 CLI 这类**自己没链 libcrypto 的宿主**一试就崩。
+     * 2026-08-04 写 Go 绑定时撞到。 */
+    "/opt/homebrew/opt/openssl@3/lib/libcrypto.3.dylib",
+    "/usr/local/opt/openssl@3/lib/libcrypto.3.dylib",
+    "/opt/homebrew/lib/libcrypto.3.dylib",
+    "/usr/local/lib/libcrypto.3.dylib",
+    "libcrypto.3.dylib", "libcrypto.1.1.dylib",
     NULL
 };
 
