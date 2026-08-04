@@ -26,6 +26,7 @@ has to be backed by something that can fail.
 - [Scope](#scope)
 - [Contributing](#contributing)
 - [License](#license)
+- [Disclaimer](#disclaimer)
 
 ## Coverage
 
@@ -266,7 +267,15 @@ opening a PR; both must be green (skips are fine and are counted separately).
 Licensed under the Apache License, Version 2.0. See [LICENSE](LICENSE) and
 [NOTICE](NOTICE).
 
-Impersonating a browser is a dual-use capability. This library exists for
-building compatible clients, testing anti-bot systems you own, and reproducing
-protocol behaviour under test. Using it to evade access controls you have not
-been authorised to bypass is out of scope and not supported.
+## Disclaimer
+
+**Read [DISCLAIMER.md](DISCLAIMER.md) before using this.** In short:
+
+- Provided **as is, without warranty**. Fingerprints go stale — a green test run
+  means the bytes match *what was recorded*, not *what the current browser sends*.
+- **No affiliation** with Google, Mozilla, Apple, Microsoft, Opera, Cloudflare or
+  Akamai. Browser and fingerprint names are used nominatively, to identify the
+  wire behaviour being reproduced.
+- Impersonating a browser is a **dual-use capability**. Using it to circumvent
+  access controls you have not been authorised to bypass is out of scope, not
+  supported, and your responsibility alone.
