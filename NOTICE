@@ -1,0 +1,56 @@
+browserfp
+Copyright 2026 The browserfp Authors
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+
+--------------------------------------------------------------------------------
+Provenance of the fingerprint data
+--------------------------------------------------------------------------------
+
+The profile registry records, for each entry, where its bytes were observed
+(the `source` prefix of the profile id). No source code from these projects is
+copied into or redistributed by this repository -- the entries were produced by
+running each tool and recording the bytes it put on the wire, which are
+observable facts about a network protocol.
+
+    real:        captured from real browsers on real machines
+    linux:       captured from browsers on Linux
+    derived:     computed from another entry (documented at the entry)
+    utls:        observed from github.com/refraction-networking/utls
+                 (via oracle/goutls)
+    tls_client:  observed from github.com/bogdanfinn/tls-client
+                 (via oracle/gotls, which uses github.com/bogdanfinn/utls)
+    curl_cffi:   observed from the curl_cffi Python package
+                 (via oracle/utlscollect.py)
+    wreq:        observed from the wreq Python package
+                 (via oracle/wreqcollect.py)
+
+--------------------------------------------------------------------------------
+Build-time dependencies of the verification tools
+--------------------------------------------------------------------------------
+
+The Go programs under oracle/ are test oracles written for this project. They
+are not part of the library and are not built or shipped with it. They declare
+third-party modules in their go.mod files, fetched at build time and governed by
+their own licenses:
+
+    github.com/bogdanfinn/tls-client
+    github.com/bogdanfinn/utls
+    github.com/refraction-networking/utls
+    github.com/cloudflare/circl
+    github.com/enetx/http, github.com/enetx/http2, github.com/enetx/http3
+    github.com/andybalholm/brotli
+    golang.org/x/net, golang.org/x/crypto, golang.org/x/sys
+
+The optional Python packages in requirements-dev.txt (curl_cffi, aioquic, wreq)
+are likewise fetched at install time and governed by their own licenses.

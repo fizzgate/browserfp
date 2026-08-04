@@ -36,7 +36,7 @@ __pycache__/
 *.pyc
 
 # Go 测试服务端的编译产物。源码在仓里，用 go build 现编即可。
-# 历史里躺过 fizztls-probe(12.8M) / fizztls-utls(7.6M) / hrrserver(7.9M)，
+# 历史里躺过几个 go build 产物（probe / utls / hrrserver，合计 ~28MB），
 # 而且是 macOS arm64 的 —— 换个平台根本用不了。
 oracle/gotls/*/[a-z]*
 !oracle/gotls/*/*.go
