@@ -459,6 +459,68 @@ function _M.client_hello(brand, version, sni, key_shares)
     return ffi.string(ch_buf, n), prof
 end
 
+--- 内部：从已选中的 profile 组装 ClientHello（codex/rustls 这类**非浏览器**客户端用）。
+--
+-- codex 真身（rustls 保守 TLS1.2，JA3 e4d448 / JA4 t12d2207…）三点决定：
+--   1. **无 key_share**：TLS1.2 的 ECDHE 公钥在 ClientKeyExchange 才发，ClientHello 里没有
+--      key_share（0x0033），所以不需要、也不能注入 key_shares。
+--   2. **VERBATIM**：codex 无 GREASE、扩展顺序恒定；照 profile 字节原样出。非 VERBATIM 会触发
+--      Chrome 那套（重掷 GREASE / 每连接打乱扩展 / padding 到 512），把 e4d448 破坏成不存在的组合。
+--   3. random / session_id 每次强随机——照抄 golden 会让所有连接逐字节相同。
+local function client_hello_from_profile(p, sni)
+    if type(sni) ~= "string" or sni == "" then
+        return nil, "必须提供 sni：多租户站点缺 SNI 会直接 handshake_failure"
+    end
+    local strong = nil
+    local ok_rand, rnd = pcall(require, "resty.random")
+    if ok_rand and rnd and rnd.bytes then strong = rnd.bytes(64, true) end
+    if strong and #strong >= 64 then
+        ffi.copy(rnd_buf, strong, 32)
+        ffi.copy(sid_buf, strong:sub(33, 64), 32)
+    else
+        for i = 0, 31 do rnd_buf[i] = math.random(0, 255); sid_buf[i] = math.random(0, 255) end
+    end
+    -- key_shares=NULL/0，flags=TLSFP_BUILD_VERBATIM(=1)。
+    -- **这几行之间不能有让出点**（同 client_hello 的告诫）：ch_buf 是 worker 级共享。
+    local n = lib.browserfp_build_client_hello_ex(p, sni, rnd_buf, sid_buf,
+                                              nil, 0,
+                                              1, ch_buf, ffi.sizeof(ch_buf))
+    if n < 0 then return nil, "组装 ClientHello 失败（缓冲区不足或 profile 缺字段）" end
+    return ffi.string(ch_buf, n), { id = ffi.string(p.id), ja4 = ffi.string(p.ja4) }
+end
+
+--- 按 **profile id**（profiles.json 主键，如 "codex:rustls-tls12"）选指纹并组装 ClientHello。
+--
+-- 给 codex/rustls 这类**非浏览器**客户端用：它们没有 UA（进不了 by_ua 的品牌表），且调用方
+-- 该按**语义主键**选，而不是在业务代码里背一串 ja4 哈希。id 是稳定主键（ja4 会随指纹微调变化，
+-- id 不会），指纹知识（包括对应哪条 ja4）留在指纹库这一层。
+--
+-- @param id   profiles.json 里的 profile id（主键）
+-- @param sni  目标域名，必须给
+-- @return record 字符串, profile 信息表；失败返回 nil, err
+function _M.client_hello_by_id(id, sni)
+    if not lib then return nil, "libbrowserfp.so 未加载" end
+    if type(id) ~= "string" or id == "" then return nil, "必须提供 profile id" end
+    for i = 0, tonumber(lib.browserfp_profile_count()) - 1 do
+        local p = lib.browserfp_profile_at(i)
+        if p ~= nil and ffi.string(p.id) == id then
+            return client_hello_from_profile(p, sni)
+        end
+    end
+    return nil, "profile id 无可用 profile：" .. id
+end
+
+--- 按 JA4 选指纹并组装 ClientHello（通用 by-ja4；业务侧语义化选择优先用 client_hello_by_id）。
+-- @param ja4  目标 profile 的 JA4，须与 profile.ja4 一致
+-- @param sni  目标域名，必须给
+function _M.client_hello_by_ja4(ja4, sni)
+    if not lib then return nil, "libbrowserfp.so 未加载" end
+    if type(ja4) ~= "string" or ja4 == "" then return nil, "必须提供 ja4" end
+    local p = lib.browserfp_lookup_ja4(ja4)
+    if p == nil then return nil, "ja4 无可用 profile：" .. ja4 end
+    return client_hello_from_profile(p, sni)
+end
+
 -- HTTP/2 连接开场：PREFACE + SETTINGS + WINDOW_UPDATE + PRIORITY。
 --
 -- **按 (品牌, 版本) 独立查，不从 TLS profile 上读**。注册表按 TLS 指纹去重，
