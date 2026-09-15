@@ -22,6 +22,9 @@ function encodeRequest({ method, path, headers, body }) {
 }
 
 // 一路读到"两个连续 CRLF"，返回 { headerBuf, rest }
+// (LEGACY, kept for back-compat callers that still use it standalone —— new request()
+//  path uses the single-listener _readResponse below, avoiding the off/re-add flow-mode
+//  hole that made this function drop 后续 bytes.)
 function _readHeaders(stream) {
   return new Promise((resolve, reject) => {
     let buf = Buffer.alloc(0);
@@ -206,39 +209,153 @@ function _readChunked(stream, initial) {
  *   timeout  毫秒（整个请求周期）
  */
 async function request({ stream, method, path, headers, body, timeout = 30000 }) {
-  const req = encodeRequest({ method: method || 'GET', path: path || '/', headers: headers || [], body });
+  // ⚠ Head 和 body **分两次 write** —— 对齐真实 axios (bun node:https + http.ClientRequest)
+  // 内部就是 headers write + body write 两次分开。encodeRequest 只返 head,body 由这里另发。
+  const headBuf = encodeRequest({ method: method || 'GET', path: path || '/', headers: headers || [], body: undefined });
 
   const to = setTimeout(() => stream.destroy(new Error(`HTTP/1.1 请求超时`)), timeout);
   try {
-    stream.write(req);
-    const { headerBuf, rest } = await _readHeaders(stream);
-    const { status, statusText, headers: respHeaders } = parseHead(headerBuf);
-
-    // 决定 body 读法
-    const cl = findHeader(respHeaders, 'content-length');
-    const te = findHeader(respHeaders, 'transfer-encoding');
-    let bodyBuf;
-    if (te && te.toLowerCase().includes('chunked')) {
-      bodyBuf = await _readChunked(stream, rest);
-    } else if (cl !== null) {
-      const n = parseInt(cl, 10);
-      if (!Number.isFinite(n) || n < 0) throw new Error(`Content-Length 非法：${cl}`);
-      bodyBuf = n === 0 ? Buffer.alloc(0) : await _readN(stream, rest, n);
-    } else if (status === 204 || status === 304 || (method || 'GET').toUpperCase() === 'HEAD') {
-      bodyBuf = Buffer.alloc(0);
-    } else {
-      // 无 CL 无 TE：读到 EOF
-      bodyBuf = await new Promise((resolve, reject) => {
-        const parts = [rest];
-        stream.on('data', (c) => parts.push(c));
-        stream.once('end', () => resolve(Buffer.concat(parts)));
-        stream.once('error', reject);
-      });
+    stream.write(headBuf);
+    if (body && body.length > 0) {
+      stream.write(Buffer.isBuffer(body) ? body : Buffer.from(body));
     }
-    return { status, statusText, headers: respHeaders, body: bodyBuf };
+
+    // ⚠ **单个 data listener 贯穿整个请求周期** —— 不 off/re-add 是关键指纹要点!
+    // 之前实测挂 30s 就是这个坑:
+    //   _readHeaders 拿到 headers 后调 `stream.off('data', onData)` → listener count 归 0 →
+    //   Node Readable 内部退出 flowing → 后续 chunk data (来自 socket.on('data') → tls.push)
+    //   到达时无 listener,数据滞留 buffer 或丢弃 → _readChunked 里新 attach 也 catch 不到。
+    // 解法:一个 stateful onData 从头听到尾,内部维护 phase = 'headers' | 'chunked' | ...
+    // 数据来了按 phase 分派,只有整个 request 完成才 off。
+    const collected = await _readResponse(stream, method || 'GET');
+    return collected;
   } finally {
     clearTimeout(to);
   }
+}
+
+// 单持久 listener 的整块 response reader。
+// phase machine:
+//   'headers'  → 读到 \r\n\r\n 后转 phase
+//   'chunked'  → chunked encoding 状态机(size → data → trailer)
+//   'fixed'    → Content-Length 剩余字节
+//   'eof'      → 无 CL 无 TE,读到 stream end
+function _readResponse(stream, method) {
+  return new Promise((resolve, reject) => {
+    let phase = 'headers';
+    let buf = Buffer.alloc(0);
+    let status, statusText, respHeaders;
+    // chunked state:
+    let chunkState = 'size', chunkDataLen = 0;
+    let chunkedOut = [];
+    // fixed state:
+    let fixedN = 0, fixedGot = 0, fixedParts = [];
+    // eof state:
+    let eofParts = [];
+
+    function done(err, res) {
+      stream.off('data', onData);
+      stream.off('error', onErr);
+      stream.off('end', onEnd);
+      if (err) reject(err); else resolve(res);
+    }
+
+    function processHeaders() {
+      const idx = buf.indexOf('\r\n\r\n');
+      if (idx < 0) return; // 更多数据
+      const headerBuf = buf.subarray(0, idx + 4);
+      buf = buf.subarray(idx + 4);
+      let parsed;
+      try { parsed = parseHead(headerBuf); }
+      catch (e) { return done(e); }
+      status = parsed.status; statusText = parsed.statusText; respHeaders = parsed.headers;
+      // 决定 body phase
+      const cl = findHeader(respHeaders, 'content-length');
+      const te = findHeader(respHeaders, 'transfer-encoding');
+      if (te && te.toLowerCase().includes('chunked')) {
+        phase = 'chunked';
+        processChunked();
+      } else if (cl !== null) {
+        const n = parseInt(cl, 10);
+        if (!Number.isFinite(n) || n < 0) return done(new Error(`Content-Length 非法：${cl}`));
+        if (n === 0) return done(null, { status, statusText, headers: respHeaders, body: Buffer.alloc(0) });
+        fixedN = n; phase = 'fixed';
+        processFixed();
+      } else if (status === 204 || status === 304 || (method || 'GET').toUpperCase() === 'HEAD') {
+        return done(null, { status, statusText, headers: respHeaders, body: Buffer.alloc(0) });
+      } else {
+        phase = 'eof';
+        if (buf.length > 0) { eofParts.push(buf); buf = Buffer.alloc(0); }
+      }
+    }
+
+    function processChunked() {
+      for (;;) {
+        if (chunkState === 'size') {
+          const idx = buf.indexOf('\r\n');
+          if (idx < 0) return;
+          const line = buf.subarray(0, idx).toString('ascii');
+          const sizeStr = line.split(';')[0].trim();
+          chunkDataLen = parseInt(sizeStr, 16);
+          if (!Number.isFinite(chunkDataLen) || chunkDataLen < 0) return done(new Error(`chunk size 非法：${line}`));
+          buf = buf.subarray(idx + 2);
+          if (chunkDataLen === 0) chunkState = 'trailer';
+          else chunkState = 'data';
+        } else if (chunkState === 'data') {
+          if (buf.length < chunkDataLen + 2) return;
+          chunkedOut.push(Buffer.from(buf.subarray(0, chunkDataLen)));
+          buf = buf.subarray(chunkDataLen + 2);
+          chunkState = 'size';
+        } else if (chunkState === 'trailer') {
+          const idx = buf.indexOf('\r\n');
+          if (idx < 0) return;
+          if (idx === 0) {
+            return done(null, { status, statusText, headers: respHeaders, body: Buffer.concat(chunkedOut) });
+          }
+          buf = buf.subarray(idx + 2);
+        }
+      }
+    }
+
+    function processFixed() {
+      if (buf.length > 0) {
+        const take = Math.min(buf.length, fixedN - fixedGot);
+        fixedParts.push(buf.subarray(0, take));
+        fixedGot += take;
+        buf = buf.subarray(take);
+      }
+      if (fixedGot >= fixedN) {
+        return done(null, { status, statusText, headers: respHeaders, body: Buffer.concat(fixedParts, fixedGot) });
+      }
+    }
+
+    function onData(chunk) {
+      if (phase === 'headers') {
+        buf = Buffer.concat([buf, chunk]);
+        processHeaders();
+      } else if (phase === 'chunked') {
+        buf = Buffer.concat([buf, chunk]);
+        processChunked();
+      } else if (phase === 'fixed') {
+        buf = Buffer.concat([buf, chunk]);
+        processFixed();
+      } else if (phase === 'eof') {
+        eofParts.push(chunk);
+      }
+    }
+    function onErr(e) { done(e); }
+    function onEnd() {
+      if (phase === 'eof') {
+        done(null, { status, statusText, headers: respHeaders, body: Buffer.concat(eofParts) });
+      } else {
+        done(new Error('对端在响应完整前关闭 (phase=' + phase + ')'));
+      }
+    }
+
+    stream.on('data', onData);
+    stream.once('error', onErr);
+    stream.once('end', onEnd);
+  });
 }
 
 module.exports = { request, encodeRequest, parseHead, findHeader };

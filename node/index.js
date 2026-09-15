@@ -27,7 +27,7 @@ const tls13 = require('./tls13.js');
 const http1 = require('./http1.js');
 const http2 = require('./http2.js');
 const { fetch, Response, Headers } = require('./fetch.js');
-const { createAxios } = require('./axios.js');
+const { createAxios, axiosAdapter } = require('./axios.js');
 
 module.exports = {
   ...browserfp,
@@ -39,4 +39,5 @@ module.exports = {
   Response,
   Headers,
   axios: createAxios,
+  axiosAdapter,
 };

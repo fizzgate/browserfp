@@ -657,6 +657,21 @@ class TLS13Client extends Duplex {
     });
   }
 
+  // TLS13Client 是 "push-driven" Duplex —— 底层 socket.on('data') 一来就调 this.push(chunk),
+  // 数据从**外部**推入,不靠消费方 _read() 触发。但 Node Readable 内部状态机要求实现 _read():
+  // 当消费方 `.on('data', ...)` **lazy attach**（stream 已 push 过数据、buffer 里有货、然后
+  // 消费方才注册 listener）时,Node 内部 `resume()` 需要调用 `_read()` 才能进入 flowing 模式,
+  // 把已 buffer 的字节 dispatch 出去。缺 `_read()` → resume 找不到实现 → 永远保持 paused →
+  // buffered chunks 永远不 emit → 消费方挂死。
+  //
+  // 实测: 本 fix 前 http1.request 内部先 write 再 _readHeaders 里 `.on('data')`,若 server
+  // 快速响应(anthropic /v1/oauth/token 700ms),数据 push 到 buffer 但 listener 还没 attach →
+  // attach 后再无 flow → 挂 30s。加空 _read 后消费方 attach 时 Node 正确 flush buffer → 200/400
+  // 立即返回。
+  //
+  // 空实现是正确的:我们没有下层可"按需读"(socket 一直往里灌),_read 只做 flow control 状态标记。
+  _read() { /* no-op: 外部 push-driven,不按需 pull */ }
+
   handshake() {
     if (this._handshakeDone) return this._handshakeDone;
     this._handshakeDone = new Promise((resolve, reject) => {
