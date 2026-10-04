@@ -52,6 +52,7 @@ const CERT_COMPRESS_ZSTD = 3;
 
 const EXT_SERVER_NAME = 0;
 const EXT_ALPN = 16;
+const EXT_EXTENDED_MASTER_SECRET = 23; // RFC 7627
 const EXT_SUPPORTED_VERSIONS = 43;
 
 // TLS 1.2 GCM/CHACHA20 密码套件
@@ -491,6 +492,7 @@ class TLS12Client extends Duplex {
     }
     r.u8(); // legacy_compression_method
     // extensions (可选)
+    this.useExtendedMasterSecret = false;
     if (r.remaining() > 0) {
       const extsRaw = r.vec(2);
       const er = new Reader(extsRaw);
@@ -503,6 +505,18 @@ class TLS12Client extends Duplex {
           const lr = new Reader(listRaw);
           const nameLen = lr.u8();
           this.negotiatedAlpn = lr.bytes(nameLen).toString('ascii');
+        } else if (t === EXT_EXTENDED_MASTER_SECRET) {
+          // RFC 7627: 服务端 ServerHello 里带 extended_master_secret 扩展（空 body）
+          // 即代表**同意**用 extended master secret 派生 —— 我方 ClientHello 里也
+          // 带了这个扩展（codex profile ext 0x0017），所以两侧都要走 EMS 路径。
+          //
+          // ⚠ 不实现 EMS 的后果：master_secret 用 "master secret" + (client||server)
+          // random 派生，服务端用 "extended master secret" + session_hash 派生 —— 两
+          // 侧 master 不同 → key expansion 不同 → 客户端首条加密 record (Finished)
+          // 送出去后服务端 AEAD decrypt 失败 → 服务端回 `bad_record_mac` fatal alert，
+          // 与真实故障模式一致（旧 tls12.js 对所有支持 EMS 的服务端都直接挂 —— 现代
+          // rustls / OpenSSL / SChannel 缺省全开 EMS，所以是**几乎所有对手都挂**）。
+          this.useExtendedMasterSecret = true;
         }
       }
     }
@@ -607,11 +621,25 @@ class TLS12Client extends Duplex {
     // 是否在同一 TCP 段里到达极度敏感，分开写会被无声 RST。用 cork 一次性刷。
     if (typeof this.sock.cork === 'function') this.sock.cork();
     this.rl.writePlain(CT_HANDSHAKE, ckeHs);
+
+    // 先 push CKE 进 transcript —— RFC 7627 §4 session_hash 定义：
+    //   session_hash = Hash(handshake_messages up to and INCLUDING ClientKeyExchange)
+    // 早前把 push 挪到派生 master **之后**，得到的 session_hash 缺 CKE = 与服务端算出的
+    // session_hash 不同 → EMS master 不同 → key expansion 不同 → bad_record_mac
+    // 依然复现（症状与不做 EMS 时一模一样）。修正：push CKE 后立刻算 session_hash。
     this.transcript.push(ckeHs);
 
-    // 派生 master_secret 与 key material（PRF）
-    const master = prf(this.suite.prfHash, preMaster, 'master secret',
-      Buffer.concat([this.clientRandom, this.serverRandom]), 48);
+    // 派生 master_secret：RFC 7627 EMS vs RFC 5246 baseline。
+    let master;
+    if (this.useExtendedMasterSecret) {
+      const th = crypto.createHash(this.suite.prfHash);
+      for (const m of this.transcript) th.update(m);
+      const sessionHash = th.digest();
+      master = prf(this.suite.prfHash, preMaster, 'extended master secret', sessionHash, 48);
+    } else {
+      master = prf(this.suite.prfHash, preMaster, 'master secret',
+        Buffer.concat([this.clientRandom, this.serverRandom]), 48);
+    }
 
     // key expansion：seed 顺序是 server_random || client_random（**跟 master 相反**）
     const keySeed = Buffer.concat([this.serverRandom, this.clientRandom]);

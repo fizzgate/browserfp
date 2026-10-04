@@ -1451,6 +1451,15 @@ async function connect(opts) {
     // TLS 1.2 的 keys（profile.keygen 那批）用不上，立即释放
     keys.close();
     client.once('close', () => {});
+    // 与 TLS 1.3 分支（line ~1425 `client.once('error', () => keys.close())`）对齐：
+    // TLS 1.2 分支之前只挂 'close'，没挂 'error'。post-handshake 收到 fatal alert
+    // 时 TLS12Client._fail → this.destroy(err) 异步 emit('error')；此时 http1/
+    // http2 的 once('error') 只在 request 生命周期内挂着，两次请求之间的**空档**
+    // 里没有监听者 → Node 抛 uncaughtException 把宿主进程干掉（ccreplay
+    // /v1/responses 观察到 `TLS 1.2 alert：fatal bad_record_mac`）。挂一个 passive
+    // no-op 监听（真正的错误仍会通过 request 层的 once('error') 传给调用方）
+    // 保证 listenerCount('error') >= 1，Node 就不会 uncaughtException。
+    client.on('error', () => {});
     info = await Promise.race([
       client.handshake(),
       new Promise((_, rej) =>

@@ -598,7 +598,14 @@ function _keygenForProfile(pptr) {
   const groups = new Array(maxGroups).fill(0);
   const lens = new Array(maxGroups).fill(0);
   const n = Number(fn.key_share_groups(pptr, groups, lens, maxGroups));
-  if (n <= 0) throw new Error('该 profile 没有 key_share 组');
+  // TLS 1.2-only profiles (e.g. `codex:rustls-tls12` at profiles.inc:861) do
+  // NOT declare a `key_share` extension. tls13.js:1390 unconditionally calls
+  // `profile.keygen()` BEFORE peeking ServerHello (tls13.js:1414); if we
+  // threw here, the TLS 1.2 branch (tls13.js:1436-1461, which explicitly
+  // releases the keys as "TLS 1.2 的 keys 用不上，立即释放") would never
+  // run. Return an empty Keys so tls13.connect() can send the ClientHello
+  // and let the ServerHello version-peek decide which record layer to use.
+  if (n <= 0) return new Keys([], [], []);
 
   const outGroups = [];
   const outCtxs = [];
