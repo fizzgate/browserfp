@@ -2493,6 +2493,66 @@
    ],
    "why": "1 个库一致",
    "window_update": 15663105
+  },
+  "154": {
+   "akamai_fingerprint": "1:65536,2:0,4:6291456,6:262144|15663105|0|m,a,s,p",
+   "priorities": [],
+   "pseudo_header_order": [
+    ":method",
+    ":authority",
+    ":scheme",
+    ":path"
+   ],
+   "settings": [
+    [
+     1,
+     65536
+    ],
+    [
+     2,
+     0
+    ],
+    [
+     4,
+     6291456
+    ],
+    [
+     6,
+     262144
+    ]
+   ],
+   "why": "源码推导",
+   "window_update": 15663105
+  },
+  "155": {
+   "akamai_fingerprint": "1:65536,2:0,4:6291456,6:262144|15663105|0|m,a,s,p",
+   "priorities": [],
+   "pseudo_header_order": [
+    ":method",
+    ":authority",
+    ":scheme",
+    ":path"
+   ],
+   "settings": [
+    [
+     1,
+     65536
+    ],
+    [
+     2,
+     0
+    ],
+    [
+     4,
+     6291456
+    ],
+    [
+     6,
+     262144
+    ]
+   ],
+   "why": "源码推导",
+   "window_update": 15663105
   }
  },
  "chrome-mobile": {
@@ -4988,6 +5048,66 @@
     ]
    ],
    "why": "1 个库一致",
+   "window_update": 15663105
+  },
+  "154": {
+   "akamai_fingerprint": "1:65536,2:0,4:6291456,6:262144|15663105|0|m,a,s,p",
+   "priorities": [],
+   "pseudo_header_order": [
+    ":method",
+    ":authority",
+    ":scheme",
+    ":path"
+   ],
+   "settings": [
+    [
+     1,
+     65536
+    ],
+    [
+     2,
+     0
+    ],
+    [
+     4,
+     6291456
+    ],
+    [
+     6,
+     262144
+    ]
+   ],
+   "why": "源码推导",
+   "window_update": 15663105
+  },
+  "155": {
+   "akamai_fingerprint": "1:65536,2:0,4:6291456,6:262144|15663105|0|m,a,s,p",
+   "priorities": [],
+   "pseudo_header_order": [
+    ":method",
+    ":authority",
+    ":scheme",
+    ":path"
+   ],
+   "settings": [
+    [
+     1,
+     65536
+    ],
+    [
+     2,
+     0
+    ],
+    [
+     4,
+     6291456
+    ],
+    [
+     6,
+     262144
+    ]
+   ],
+   "why": "源码推导",
    "window_update": 15663105
   }
  },

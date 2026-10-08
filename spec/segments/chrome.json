@@ -2,7 +2,7 @@
   "brand": "chrome",
   "scanned": [
     70,
-    154
+    155
   ],
   "segments": [
     {
@@ -969,7 +969,7 @@
       "from": 153,
       "same_as_desktop": false,
       "substitutable": true,
-      "substitution_reason": "['real'] 各自内部一致（共 1 个版本） (M154 三表同 M153)",
+      "substitution_reason": "['real'] 各自内部一致（共 1 个版本） (M154 & M155 三表同 M153；BoringSSL revision 变但扩展/签名/curves 表未变)",
       "tables": {
         "alps": true,
         "boringssl": "1a5078d343ba5d9501062caf11e3173fc364dc59",
@@ -1065,7 +1065,7 @@
           "SSL_SIGN_RSA_PKCS1_SHA1"
         ]
       },
-      "to": 154
+      "to": 155
     }
   ],
   "substitutable_segments": 10,
