@@ -310,14 +310,9 @@ async function fetch(urlStr, init = {}) {
         if (!hasHost) h1Headers.unshift(['Host', host + (port === 443 ? '' : `:${port}`)]);
         // 单请求：主动 Connection: close 让服务端在 body 后关流
         if (!userHeaders.has('connection')) h1Headers.push(['Connection', 'close']);
-        if (streamSink) {
-          // h1 的 request() 还没有流式钩子。宁可明确报错，也不要静默退回
-          // "攒齐再回"——那会让 SSE 调用方以为自己在流式、实际整轮卡住。
-          throw new Error(
-            'browserfp fetch: onChunk（流式响应）目前只支持 HTTP/2，' +
-            '本次连接 ALPN 协商为 ' + (conn.alpn || 'http/1.1'),
-          );
-        }
+        // ⭐ (2026-10-15) h1 也支持流式了 —— 而且这才是 codex 的实际路径：
+        // `codex:rustls-tls12` 不发 ALPN 扩展（csrc/profiles.inc p81_exts 无 0x0010）
+        // ⇒ 服务端协商不出 h2 ⇒ codex→chatgpt.com 的 HTTP 恒是 HTTP/1.1。
         res = await http1.request({
           stream: conn.stream,
           method,
@@ -325,6 +320,7 @@ async function fetch(urlStr, init = {}) {
           headers: h1Headers,
           body: bodyBuf,
           timeout,
+          ...(streamSink ? streamSink.h2Hooks() : {}),
         });
       }
     } finally {

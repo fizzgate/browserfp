@@ -279,10 +279,97 @@ function startRequest(stream, opts = {}) {
     assert.doesNotThrow(() => h.onBodyChunk(Buffer.from('x')));
   });
 
-  t('⛔ 源码门禁：h1 + onChunk 必须明确报错，不许静默退回"攒齐"', () => {
+  t('⛔ 源码门禁：h1 与 h2 都要把流式钩子接上；流式下跳过 redirect follow', () => {
     const src = require('fs').readFileSync(__dirname + '/fetch.js', 'utf8');
-    assert.ok(/onChunk（流式响应）目前只支持 HTTP\/2/.test(src), '缺少 h1 流式的明确报错');
+    // h1 分支（codex 的实际路径：其 profile 不发 ALPN ⇒ 协商不出 h2）
+    const h1At = src.indexOf('http1.request({');
+    const h2At = src.indexOf('http2.request({');
+    assert.ok(h1At > 0 && h2At > 0);
+    assert.ok(/streamSink \? streamSink\.h2Hooks\(\) : \{\}/.test(src.slice(h1At, h1At + 500)),
+      'h1 分支必须接流式钩子');
+    assert.ok(/streamSink \? streamSink\.h2Hooks\(\) : \{\}/.test(src.slice(h2At, h2At + 600)),
+      'h2 分支必须接流式钩子');
     assert.ok(/redirect === 'follow' && !streamSink/.test(src), '流式下必须跳过 redirect follow');
+  });
+
+  // --- http1.js 流式（codex 的实际路径） -----------------------------------
+  console.log('\nhttp1 流式响应（codex 走这条）：');
+
+  const http1 = require('./http1.js');
+  function h1Stream() {
+    const ee = new EventEmitter();
+    ee.written = [];
+    ee.write = (b) => { ee.written.push(b); return true; };
+    ee.destroy = (e) => ee.emit('error', e || new Error('destroyed'));
+    ee.feed = (s2) => ee.emit('data', Buffer.isBuffer(s2) ? s2 : Buffer.from(s2));
+    ee.off = ee.removeListener.bind(ee);
+    return ee;
+  }
+  function h1Request(st, opts) {
+    return http1.request({
+      stream: st, method: 'POST', path: '/backend-api/codex/responses',
+      headers: [['Host', 'chatgpt.com'], ['Content-Type', 'application/json']],
+      body: Buffer.from('{}'), ...opts,
+    });
+  }
+
+  await ta('⭐ chunked SSE：每个 chunk 解帧后立即回调，不等 0 终止块', async () => {
+    const st = h1Stream();
+    const got = []; let sawStatus = null;
+    const p = h1Request(st, {
+      onHeaders: (s2) => { sawStatus = s2; },
+      onBodyChunk: (c) => got.push(c.toString('utf8')),
+    });
+    st.feed('HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\nTransfer-Encoding: chunked\r\n\r\n');
+    assert.strictEqual(sawStatus, 200, 'onHeaders 应在 body 之前');
+    const e1 = 'event: a\ndata: 1\n\n';
+    st.feed(e1.length.toString(16) + '\r\n' + e1 + '\r\n');
+    assert.deepStrictEqual(got, [e1], '第一个 chunk 应已回调');
+    const e2 = 'event: b\ndata: 2\n\n';
+    st.feed(e2.length.toString(16) + '\r\n' + e2 + '\r\n');
+    assert.strictEqual(got.length, 2);
+    st.feed('0\r\n\r\n');
+    const res = await p;
+    assert.strictEqual(res.status, 200);
+    assert.strictEqual(res.body.length, 0, '流式下不累积 body');
+  });
+
+  await ta('⛔ 不传 onBodyChunk → chunked body 仍完整累积（既有调用方不受影响）', async () => {
+    const st = h1Stream();
+    const p = h1Request(st);
+    st.feed('HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\n');
+    st.feed('5\r\nhello\r\n');
+    st.feed('6\r\n world\r\n');
+    st.feed('0\r\n\r\n');
+    const res = await p;
+    assert.strictEqual(res.body.toString('utf8'), 'hello world');
+  });
+
+  await ta('Content-Length 响应也逐段交出', async () => {
+    const st = h1Stream();
+    const got = [];
+    const p = h1Request(st, { onBodyChunk: (c) => got.push(c.toString('utf8')) });
+    st.feed('HTTP/1.1 200 OK\r\nContent-Length: 10\r\n\r\n');
+    st.feed('abcde');
+    assert.deepStrictEqual(got, ['abcde'], '先到的半段就该交出去');
+    st.feed('fghij');
+    const res = await p;
+    assert.strictEqual(res.status, 200);
+    assert.strictEqual(got.join(''), 'abcdefghij');
+  });
+
+  await ta('h1 流式下 timeout 是**空闲**超时：持续收 chunk 不被掐', async () => {
+    const st = h1Stream();
+    const got = [];
+    const p = h1Request(st, { timeout: 120, onBodyChunk: (c) => got.push(c) });
+    st.feed('HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\n');
+    for (let i = 0; i < 5; i++) {
+      await new Promise((r) => setTimeout(r, 60));
+      st.feed('1\r\n' + i + '\r\n');
+    }
+    st.feed('0\r\n\r\n');
+    await p;
+    assert.strictEqual(got.length, 5, '总时长 300ms > timeout 120ms，但每段重置空闲计时');
   });
 
   console.log(`\n${pass} passed, ${fail} failed`);

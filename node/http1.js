@@ -208,12 +208,38 @@ function _readChunked(stream, initial) {
  *   body     Buffer | string | undefined
  *   timeout  毫秒（整个请求周期）
  */
-async function request({ stream, method, path, headers, body, timeout = 30000 }) {
+async function request({
+  stream, method, path, headers, body, timeout = 30000,
+  // ⭐ (2026-10-15) 流式响应（SSE）—— **可选，不传时行为逐字节不变**。
+  //
+  // ⛔ 为什么必须是 h1 而不只是 h2：`codex:rustls-tls12` 这个 profile 的扩展列表
+  // （csrc/profiles.inc p81_exts = {0000,000a,000b,000d,0005,0012,0017}）**不含
+  // 0x0010 ALPN** ⇒ 服务端无法协商 h2 ⇒ codex 到 chatgpt.com 的 HTTP 恒是
+  // HTTP/1.1（真实语料 48 条 POST 的 header_order 里有 `host` 与 `content-length`
+  // 也印证这点）。所以 codex 的 HTTP-SSE 上游走的就是这里。
+  //
+  //   onBodyChunk(chunk)          每段 body 到达即回调（chunked 已解帧）
+  //   onHeaders(status, headers)  响应头解出即回调，早于 body
+  // 传了 onBodyChunk 后 `timeout` 退化为**空闲**超时：每段重置，而不是对整轮计时
+  // （SSE 一轮可能几分钟，总超时必然误杀）。
+  onBodyChunk = null,
+  onHeaders = null,
+}) {
   // ⚠ Head 和 body **分两次 write** —— 对齐真实 axios (bun node:https + http.ClientRequest)
   // 内部就是 headers write + body write 两次分开。encodeRequest 只返 head,body 由这里另发。
   const headBuf = encodeRequest({ method: method || 'GET', path: path || '/', headers: headers || [], body: undefined });
 
-  const to = setTimeout(() => stream.destroy(new Error(`HTTP/1.1 请求超时`)), timeout);
+  const streaming = typeof onBodyChunk === 'function';
+  let to = null;
+  const armTimeout = () => {
+    if (to) clearTimeout(to);
+    to = setTimeout(
+      () => stream.destroy(new Error(streaming ? 'HTTP/1.1 响应空闲超时' : 'HTTP/1.1 请求超时')),
+      timeout,
+    );
+  };
+  armTimeout();
+  const resetIdle = () => { if (streaming) armTimeout(); };
   try {
     stream.write(headBuf);
     if (body && body.length > 0) {
@@ -227,10 +253,14 @@ async function request({ stream, method, path, headers, body, timeout = 30000 })
     //   到达时无 listener,数据滞留 buffer 或丢弃 → _readChunked 里新 attach 也 catch 不到。
     // 解法:一个 stateful onData 从头听到尾,内部维护 phase = 'headers' | 'chunked' | ...
     // 数据来了按 phase 分派,只有整个 request 完成才 off。
-    const collected = await _readResponse(stream, method || 'GET');
+    const collected = await _readResponse(stream, method || 'GET', {
+      onBodyChunk: streaming ? onBodyChunk : null,
+      onHeaders: typeof onHeaders === 'function' ? onHeaders : null,
+      resetIdle,
+    });
     return collected;
   } finally {
-    clearTimeout(to);
+    if (to) clearTimeout(to);
   }
 }
 
@@ -240,7 +270,16 @@ async function request({ stream, method, path, headers, body, timeout = 30000 })
 //   'chunked'  → chunked encoding 状态机(size → data → trailer)
 //   'fixed'    → Content-Length 剩余字节
 //   'eof'      → 无 CL 无 TE,读到 stream end
-function _readResponse(stream, method) {
+function _readResponse(stream, method, sink) {
+  const onBodyChunk = sink && sink.onBodyChunk;
+  const onHeadersCb = sink && sink.onHeaders;
+  const resetIdle = (sink && sink.resetIdle) || function () {};
+  const streaming = typeof onBodyChunk === 'function';
+  /** 流式下交出一段 body；非流式交给调用方原来的累积逻辑。 */
+  const emit = (b) => {
+    resetIdle();
+    try { onBodyChunk(b); } catch (_) { /* 调用方的 bug 不该掐断传输 */ }
+  };
   return new Promise((resolve, reject) => {
     let phase = 'headers';
     let buf = Buffer.alloc(0);
@@ -269,6 +308,9 @@ function _readResponse(stream, method) {
       try { parsed = parseHead(headerBuf); }
       catch (e) { return done(e); }
       status = parsed.status; statusText = parsed.statusText; respHeaders = parsed.headers;
+      if (onHeadersCb) {
+        try { onHeadersCb(status, respHeaders); } catch (_) { /* 同上 */ }
+      }
       // 决定 body phase
       const cl = findHeader(respHeaders, 'content-length');
       const te = findHeader(respHeaders, 'transfer-encoding');
@@ -285,7 +327,10 @@ function _readResponse(stream, method) {
         return done(null, { status, statusText, headers: respHeaders, body: Buffer.alloc(0) });
       } else {
         phase = 'eof';
-        if (buf.length > 0) { eofParts.push(buf); buf = Buffer.alloc(0); }
+        if (buf.length > 0) {
+          if (streaming) emit(Buffer.from(buf)); else eofParts.push(buf);
+          buf = Buffer.alloc(0);
+        }
       }
     }
 
@@ -303,7 +348,8 @@ function _readResponse(stream, method) {
           else chunkState = 'data';
         } else if (chunkState === 'data') {
           if (buf.length < chunkDataLen + 2) return;
-          chunkedOut.push(Buffer.from(buf.subarray(0, chunkDataLen)));
+          const piece = Buffer.from(buf.subarray(0, chunkDataLen));
+          if (streaming) emit(piece); else chunkedOut.push(piece);
           buf = buf.subarray(chunkDataLen + 2);
           chunkState = 'size';
         } else if (chunkState === 'trailer') {
@@ -320,7 +366,8 @@ function _readResponse(stream, method) {
     function processFixed() {
       if (buf.length > 0) {
         const take = Math.min(buf.length, fixedN - fixedGot);
-        fixedParts.push(buf.subarray(0, take));
+        const piece = buf.subarray(0, take);
+        if (streaming) emit(Buffer.from(piece)); else fixedParts.push(piece);
         fixedGot += take;
         buf = buf.subarray(take);
       }
@@ -340,7 +387,7 @@ function _readResponse(stream, method) {
         buf = Buffer.concat([buf, chunk]);
         processFixed();
       } else if (phase === 'eof') {
-        eofParts.push(chunk);
+        if (streaming) emit(chunk); else eofParts.push(chunk);
       }
     }
     function onErr(e) { done(e); }
