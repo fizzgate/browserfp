@@ -288,6 +288,10 @@ async function request({
             }
           }
           headerBufFor = null;
+          // ⛔ (2026-10-15) 这里以前漏了 deliverHeaders()：响应头跨 HEADERS+
+          // CONTINUATION 时 onHeaders 永不触发 ⇒ 流式调用方建不起解压器 ⇒
+          // gzip 的 SSE 被当明文交出去。回归锁见 test-h2-streaming.js。
+          if (respStatus !== null) deliverHeaders();
         }
         return;
       }
@@ -304,6 +308,9 @@ async function request({
           respBytes += c.length;
           if (streaming) {
             resetIdle();
+            // 兜底：HTTP/2 里 HEADERS 必先于 DATA，但即便哪天不是，也要保证
+            // 调用方的解压器在拿到第一段 body 之前就建好（deliverHeaders 幂等）。
+            if (respStatus !== null) deliverHeaders();
             // 流式：交给调用方,不在内存里攒整份 body
             try { onBodyChunk(c); } catch (e) { return finish(e); }
           } else {

@@ -38,7 +38,7 @@ function fakeStream() {
   return ee;
 }
 
-const FRAME_DATA = 0x0, FRAME_HEADERS = 0x1, FRAME_SETTINGS = 0x4;
+const FRAME_DATA = 0x0, FRAME_HEADERS = 0x1, FRAME_SETTINGS = 0x4, FRAME_CONTINUATION = 0x9;
 const F_END_STREAM = 0x1, F_END_HEADERS = 0x4;
 
 function serverHeaders(status, extra = []) {
@@ -133,6 +133,60 @@ function startRequest(stream, opts = {}) {
     let msg = '';
     try { await p; } catch (e) { msg = e.message; }
     assert.ok(/空闲超时/.test(msg), '应报空闲超时，实际: ' + msg);
+  });
+
+  await ta('⭐⛔ 响应头跨 HEADERS+CONTINUATION → onHeaders 仍必须触发（曾漏）', async () => {
+    const st = fakeStream();
+    let sawStatus = null;
+    const chunks = [];
+    const p = startRequest(st, {
+      onHeaders: (status) => { sawStatus = status; },
+      onBodyChunk: (c) => chunks.push(c),
+    });
+    st.feed(http2.writeFrame(FRAME_SETTINGS, 0, 0, Buffer.alloc(0)));
+    // 把 header block 切成两半：HEADERS(不带 END_HEADERS) + CONTINUATION(带)
+    const block = hpack.encodeHeaderBlock([
+      [':status', '200'],
+      ['content-type', 'text/event-stream'],
+      ['x-filler', 'y'.repeat(200)],
+    ]);
+    const cut = Math.floor(block.length / 2);
+    st.feed(http2.writeFrame(FRAME_HEADERS, 0, 1, block.subarray(0, cut)));
+    assert.strictEqual(sawStatus, null, 'header 未收齐时不该交付');
+    st.feed(http2.writeFrame(FRAME_CONTINUATION, F_END_HEADERS, 1, block.subarray(cut)));
+    assert.strictEqual(sawStatus, 200, 'CONTINUATION 收齐后必须交付 onHeaders');
+    st.feed(serverData('data: 1\n\n', true));
+    const res = await p;
+    assert.strictEqual(res.status, 200);
+    assert.strictEqual(chunks.length, 1);
+  });
+
+  await ta('跨帧 header + gzip body → 调用方拿到的仍是明文（端到端串起来）', async () => {
+    const st = fakeStream();
+    const original = 'event: x\ndata: 42\n\n';
+    const gz = zlib.gzipSync(Buffer.from(original));
+    // 用 fetch 的 sink 把 http2 的回调接起来，复刻真实链路
+    const got = [];
+    const sink = createStreamSink({ onChunk: (c) => got.push(c) }, true);
+    const hooks = sink.h2Hooks();
+    const p = startRequest(st, hooks);
+    st.feed(http2.writeFrame(FRAME_SETTINGS, 0, 0, Buffer.alloc(0)));
+    const block = hpack.encodeHeaderBlock([
+      [':status', '200'],
+      ['content-encoding', 'gzip'],
+      ['x-filler', 'z'.repeat(200)],
+    ]);
+    const cut = Math.floor(block.length / 2);
+    st.feed(http2.writeFrame(FRAME_HEADERS, 0, 1, block.subarray(0, cut)));
+    st.feed(http2.writeFrame(FRAME_CONTINUATION, F_END_HEADERS, 1, block.subarray(cut)));
+    // ⚠ 必须直接喂 Buffer：gzip 是二进制，经 toString('binary') + Buffer.from(utf8)
+    // 会被破坏（第一版测试就栽在这里，源码没问题）。
+    st.feed(http2.writeFrame(FRAME_DATA, 0, 1, gz.subarray(0, 8)));
+    st.feed(http2.writeFrame(FRAME_DATA, F_END_STREAM, 1, gz.subarray(8)));
+    await p;
+    sink.finish();
+    await new Promise((r) => setTimeout(r, 30));
+    assert.strictEqual(Buffer.concat(got).toString('utf8'), original);
   });
 
   // --- fetch.js 的增量解压器 -------------------------------------------------
