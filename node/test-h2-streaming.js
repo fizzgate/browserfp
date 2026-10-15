@@ -15,7 +15,7 @@ const { EventEmitter } = require('events');
 const http2 = require('./http2.js');
 const hpack = require('./hpack.js');
 const zlib = require('zlib');
-const { createStreamingDecompressor } = require('./fetch.js');
+const { createStreamingDecompressor, createStreamSink } = require('./fetch.js');
 
 let pass = 0, fail = 0;
 function t(name, fn) {
@@ -163,6 +163,72 @@ function startRequest(stream, opts = {}) {
     assert.ok(createStreamingDecompressor('br'));
     assert.ok(createStreamingDecompressor('deflate'));
     assert.ok(createStreamingDecompressor('GZIP'), '大小写不敏感');
+  });
+
+
+  // --- fetch.js 的流式 sink 接线（真正的集成点） ---------------------------
+  console.log('\nfetch 流式 sink：');
+
+  t('没给 onChunk → sink 为 null（调用方走"攒齐"老路）', () => {
+    assert.strictEqual(createStreamSink({}, true), null);
+    assert.strictEqual(createStreamSink(null, true), null);
+    assert.strictEqual(createStreamSink({ onChunk: 'nope' }, true), null);
+  });
+
+  t('未压缩响应 → chunk 原样透传', () => {
+    const got = [];
+    const sink = createStreamSink({ onChunk: (c) => got.push(c.toString('utf8')) }, true);
+    const h = sink.h2Hooks();
+    h.onHeaders(200, [['content-type', 'text/event-stream']]);
+    h.onBodyChunk(Buffer.from('data: 1\n\n'));
+    h.onBodyChunk(Buffer.from('data: 2\n\n'));
+    sink.finish();
+    assert.deepStrictEqual(got, ['data: 1\n\n', 'data: 2\n\n']);
+  });
+
+  await ta('⭐ gzip 响应 → 先建解压器再喂 body，调用方拿到的是明文 SSE', async () => {
+    const original = 'event: a\ndata: {"x":1}\n\nevent: b\ndata: {"x":2}\n\n';
+    const gz = zlib.gzipSync(Buffer.from(original));
+    const got = [];
+    const sink = createStreamSink({ onChunk: (c) => got.push(c) }, true);
+    const h = sink.h2Hooks();
+    // 关键顺序：onHeaders 必须先到，否则解压器建不起来
+    h.onHeaders(200, [['content-type', 'text/event-stream'], ['content-encoding', 'gzip']]);
+    h.onBodyChunk(gz.subarray(0, 10));
+    h.onBodyChunk(gz.subarray(10));
+    sink.finish();
+    await new Promise((r) => setTimeout(r, 30));  // 让 zlib 的 data 事件跑完
+    assert.strictEqual(Buffer.concat(got).toString('utf8'), original);
+  });
+
+  t('decompress:false → 即使 content-encoding 是 gzip 也不解（尊重调用方）', () => {
+    const got = [];
+    const sink = createStreamSink({ onChunk: (c) => got.push(c) }, /*decompressResp*/ false);
+    const h = sink.h2Hooks();
+    h.onHeaders(200, [['content-encoding', 'gzip']]);
+    const raw = Buffer.from([1, 2, 3]);
+    h.onBodyChunk(raw);
+    assert.deepStrictEqual(Buffer.concat(got), raw, '应原样给出压缩字节');
+  });
+
+  t('onResponseHeaders 被转发，且 onChunk 抛异常不会炸传输', () => {
+    let seen = null;
+    const sink = createStreamSink({
+      onChunk: () => { throw new Error('调用方自己的 bug'); },
+      onResponseHeaders: (status, headers) => { seen = { status, headers }; },
+    }, true);
+    const h = sink.h2Hooks();
+    h.onHeaders(201, [['x-a', 'b']]);
+    assert.strictEqual(seen.status, 201);
+    assert.deepStrictEqual(seen.headers, [['x-a', 'b']]);
+    // onChunk 抛错必须被吞掉 —— 否则一个调用方 bug 会掐断整条连接
+    assert.doesNotThrow(() => h.onBodyChunk(Buffer.from('x')));
+  });
+
+  t('⛔ 源码门禁：h1 + onChunk 必须明确报错，不许静默退回"攒齐"', () => {
+    const src = require('fs').readFileSync(__dirname + '/fetch.js', 'utf8');
+    assert.ok(/onChunk（流式响应）目前只支持 HTTP\/2/.test(src), '缺少 h1 流式的明确报错');
+    assert.ok(/redirect === 'follow' && !streamSink/.test(src), '流式下必须跳过 redirect follow');
   });
 
   console.log(`\n${pass} passed, ${fail} failed`);

@@ -146,6 +146,50 @@ function createStreamingDecompressor(contentEncoding) {
   return null;
 }
 
+/**
+ * ⭐ 流式响应 sink 工厂 —— 从 fetch() 里抽出来,为的是能单测。
+ *
+ * 接线顺序是最容易写错的地方：**必须先收 onHeaders 建好解压器,再收 onBodyChunk**。
+ * 若 content-encoding 是压缩的却没建解压器,调用方会拿到一堆压缩字节当 SSE 解析。
+ *
+ * @param init            fetch 的 init（读 onChunk / onResponseHeaders）
+ * @param decompressResp  是否自动解压（init.decompress !== false）
+ * @returns sink | null —— 没给 onChunk 时返回 null（调用方走"攒齐"老路）
+ */
+function createStreamSink(init, decompressResp) {
+  if (!init || typeof init.onChunk !== 'function') return null;
+  let inflater = null;
+  let inflaterReady = false;
+  const emit = (buf) => { try { init.onChunk(buf); } catch (_) {} };
+  return {
+    h2Hooks() {
+      return {
+        onHeaders: (status, headers) => {
+          if (decompressResp && !inflaterReady) {
+            inflaterReady = true;
+            const ce = (headers.find(([k]) => k === 'content-encoding') || [])[1];
+            inflater = createStreamingDecompressor(ce);
+            if (inflater) {
+              inflater.on('data', emit);
+              inflater.on('error', () => {});
+            }
+          }
+          if (typeof init.onResponseHeaders === 'function') {
+            try { init.onResponseHeaders(status, headers); } catch (_) {}
+          }
+        },
+        onBodyChunk: (chunk) => {
+          if (inflater) inflater.write(chunk);
+          else emit(chunk);
+        },
+      };
+    },
+    finish() {
+      if (inflater) { try { inflater.end(); } catch (_) {} }
+    },
+  };
+}
+
 function decompress(headers, body) {
   const ce = (headers.get('content-encoding') || '').toLowerCase();
   if (!ce || ce === 'identity') return body;
@@ -205,40 +249,7 @@ async function fetch(urlStr, init = {}) {
 
   // ⭐ 流式响应 sink。只在调用方给了 onChunk 时存在；否则全程 null，
   // 下面所有分支都退回原来的"攒齐"路径。
-  const streamSink = typeof init.onChunk === 'function'
-    ? (() => {
-        let inflater = null;
-        let inflaterReady = false;
-        const emit = (buf) => { try { init.onChunk(buf); } catch (_) {} };
-        return {
-          h2Hooks() {
-            return {
-              onHeaders: (status, headers) => {
-                if (decompressResp && !inflaterReady) {
-                  inflaterReady = true;
-                  const ce = (headers.find(([k]) => k === 'content-encoding') || [])[1];
-                  inflater = createStreamingDecompressor(ce);
-                  if (inflater) {
-                    inflater.on('data', emit);
-                    inflater.on('error', () => {});
-                  }
-                }
-                if (typeof init.onResponseHeaders === 'function') {
-                  try { init.onResponseHeaders(status, headers); } catch (_) {}
-                }
-              },
-              onBodyChunk: (chunk) => {
-                if (inflater) inflater.write(chunk);
-                else emit(chunk);
-              },
-            };
-          },
-          finish() {
-            if (inflater) { try { inflater.end(); } catch (_) {} }
-          },
-        };
-      })()
-    : null;
+  const streamSink = createStreamSink(init, decompressResp);
 
   let current = urlStr;
   let redirected = false;
@@ -362,4 +373,4 @@ async function fetch(urlStr, init = {}) {
   }
 }
 
-module.exports = { fetch, Response, Headers, createStreamingDecompressor };
+module.exports = { fetch, Response, Headers, createStreamingDecompressor, createStreamSink };
