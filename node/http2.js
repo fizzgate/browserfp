@@ -128,6 +128,20 @@ async function request({
   headers,
   body,
   timeout = 30000,
+  // ⭐ (2026-10-15) 流式响应（SSE）支持 —— **可选,不传时行为逐字节不变**。
+  //
+  // 为什么需要：codex 的 /backend-api/codex/responses 走 HTTP 时是 SSE 长流,
+  // 一轮可能几分钟。原实现把 DATA 帧全攒在 respBodyChunks 里、END_STREAM 才
+  // resolve,而且 `timeout` 是**总超时**(默认 30s) —— 对 SSE 两条都不成立。
+  //
+  //   onBodyChunk(chunk)  每个 DATA 帧载荷到达即回调(已去 padding,未解压)
+  //   onHeaders(status, headers)  响应头到达即回调(早于 body)
+  //   idleTimeout         有 onBodyChunk 时,`timeout` 退化为**空闲**超时:
+  //                       每收到一帧就重置,而不是对整轮计时
+  //
+  // 不传 onBodyChunk ⇒ 既有调用方(lua/go/resty 侧与 axios.js)完全不受影响。
+  onBodyChunk = null,
+  onHeaders = null,
 }) {
   // 1. 发我方 h2 开场（原封不动）
   stream.write(prefaceBytes);
@@ -147,15 +161,35 @@ async function request({
   // HEADERS 跨帧：CONTINUATION
   let headerBufFor = null; // { streamId, block: [Buffer], endStream }
   let firstServerSettingsSeen = false;
+  const streaming = typeof onBodyChunk === 'function';
+  let resetIdle = function () {};
+  let deliverHeaders = function () {};
+  let headersDelivered = false;
 
   const done = new Promise((resolve, reject) => {
     var _res = resolve, _rej = reject;
     var complete = false;
-    var to = setTimeout(() => {
-      if (complete) return;
-      complete = true;
-      _rej(new Error('HTTP/2 请求超时'));
-    }, timeout);
+    var to = null;
+    function armTimeout() {
+      if (to) clearTimeout(to);
+      to = setTimeout(() => {
+        if (complete) return;
+        complete = true;
+        _rej(new Error(streaming ? 'HTTP/2 响应空闲超时' : 'HTTP/2 请求超时'));
+      }, timeout);
+    }
+    // 流式模式下每收一帧重置;非流式保持原来的"总超时"语义。
+    armTimeout();
+    resetIdle = function () { if (streaming && !complete) armTimeout(); };
+    // 响应头一到齐就交出去（只交一次）——流式调用方要用它决定怎么处理 body
+    // （状态码 / content-encoding / content-type）。
+    deliverHeaders = function () {
+      if (headersDelivered || typeof onHeaders !== 'function') return;
+      headersDelivered = true;
+      try {
+        onHeaders(respStatus, respHeaders.filter(([k]) => !k.startsWith(':')));
+      } catch (e) { /* 调用方的问题不该掐掉传输 */ }
+    };
 
     function finish(err) {
       if (complete) return;
@@ -236,6 +270,7 @@ async function request({
         } else {
           headerBufFor = { block: [block] };
         }
+        if (respStatus !== null) deliverHeaders();
         if (fr.flags & F_END_STREAM) ended = true;
         if (ended && respStatus !== null) return finish(null);
         return;
@@ -266,8 +301,14 @@ async function request({
         const dat = fr.payload.subarray(p, fr.payload.length - padLen);
         if (dat.length > 0) {
           const c = Buffer.from(dat);
-          respBodyChunks.push(c);
           respBytes += c.length;
+          if (streaming) {
+            resetIdle();
+            // 流式：交给调用方,不在内存里攒整份 body
+            try { onBodyChunk(c); } catch (e) { return finish(e); }
+          } else {
+            respBodyChunks.push(c);
+          }
           // 简易流控：每收 32KB 补一次 WINDOW_UPDATE，避免服务端因窗见底停发
           if (respBytes > 0 && respBytes % 32768 < c.length) {
             const wu = Buffer.alloc(4);

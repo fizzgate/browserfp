@@ -125,6 +125,27 @@ class Response {
 
 // ----- 内容解压（Content-Encoding） -----------------------------------------
 
+/**
+ * ⭐ (2026-10-15) 增量解压器 —— 流式响应用。
+ *
+ * `decompress()` 是**整份** sync 解压（gunzipSync 等），SSE 流用不了。
+ * 这里按 content-encoding 建一个 zlib transform；未压缩就返回 null（直接透传）。
+ * 未知编码同样返回 null —— 与 decompress() 的"原样返回"口径一致。
+ */
+function createStreamingDecompressor(contentEncoding) {
+  const ce = (contentEncoding || '').toLowerCase().trim();
+  if (!ce || ce === 'identity') return null;
+  try {
+    if (ce === 'gzip') return zlib.createGunzip();
+    if (ce === 'deflate') return zlib.createInflate();
+    if (ce === 'br') return zlib.createBrotliDecompress();
+    if (ce === 'zstd' && typeof zlib.createZstdDecompress === 'function') {
+      return zlib.createZstdDecompress();
+    }
+  } catch (_) { /* 落到下面返回 null */ }
+  return null;
+}
+
 function decompress(headers, body) {
   const ce = (headers.get('content-encoding') || '').toLowerCase();
   if (!ce || ce === 'identity') return body;
@@ -161,6 +182,13 @@ function decompress(headers, body) {
  *   timeout               整个请求超时 ms（默认 30000）
  *   decompress            默认 true —— 自动解 gzip/br
  *   verify                默认 true —— 关掉证书链校验（诊断用；生产不要）
+ *   onChunk(bytes)        ⭐ 流式响应（SSE）：每段 body 到达即回调（已按
+ *                         content-encoding 增量解压）。给了它之后：
+ *                           · `timeout` 退化为**空闲**超时（每段重置）
+ *                           · 返回的 Response.body 为空（不在内存攒整份）
+ *                           · 不走 redirect follow（流式语义下无意义）
+ *                         不传则行为与以前**逐字节一致**。
+ *   onResponseHeaders(status, headers)  ⭐ 流式：响应头到齐即回调，早于 onChunk
  *
  * 返回 Response。
  */
@@ -174,6 +202,43 @@ async function fetch(urlStr, init = {}) {
   const timeout = init.timeout ?? 30000;
   const decompressResp = init.decompress !== false;
   const proxy = init.proxy || null;
+
+  // ⭐ 流式响应 sink。只在调用方给了 onChunk 时存在；否则全程 null，
+  // 下面所有分支都退回原来的"攒齐"路径。
+  const streamSink = typeof init.onChunk === 'function'
+    ? (() => {
+        let inflater = null;
+        let inflaterReady = false;
+        const emit = (buf) => { try { init.onChunk(buf); } catch (_) {} };
+        return {
+          h2Hooks() {
+            return {
+              onHeaders: (status, headers) => {
+                if (decompressResp && !inflaterReady) {
+                  inflaterReady = true;
+                  const ce = (headers.find(([k]) => k === 'content-encoding') || [])[1];
+                  inflater = createStreamingDecompressor(ce);
+                  if (inflater) {
+                    inflater.on('data', emit);
+                    inflater.on('error', () => {});
+                  }
+                }
+                if (typeof init.onResponseHeaders === 'function') {
+                  try { init.onResponseHeaders(status, headers); } catch (_) {}
+                }
+              },
+              onBodyChunk: (chunk) => {
+                if (inflater) inflater.write(chunk);
+                else emit(chunk);
+              },
+            };
+          },
+          finish() {
+            if (inflater) { try { inflater.end(); } catch (_) {} }
+          },
+        };
+      })()
+    : null;
 
   let current = urlStr;
   let redirected = false;
@@ -219,6 +284,9 @@ async function fetch(urlStr, init = {}) {
           headers: h2Headers,
           body: bodyBuf,
           timeout,
+          // ⭐ 流式（SSE）：init.onChunk 存在时逐帧回调，并按 content-encoding
+          // 增量解压。不传则完全走老路（攒齐再 resolve）。
+          ...(streamSink ? streamSink.h2Hooks() : {}),
         });
       } else {
         // HTTP/1.1 —— 保调用方传入的头**大小写**
@@ -231,6 +299,14 @@ async function fetch(urlStr, init = {}) {
         if (!hasHost) h1Headers.unshift(['Host', host + (port === 443 ? '' : `:${port}`)]);
         // 单请求：主动 Connection: close 让服务端在 body 后关流
         if (!userHeaders.has('connection')) h1Headers.push(['Connection', 'close']);
+        if (streamSink) {
+          // h1 的 request() 还没有流式钩子。宁可明确报错，也不要静默退回
+          // "攒齐再回"——那会让 SSE 调用方以为自己在流式、实际整轮卡住。
+          throw new Error(
+            'browserfp fetch: onChunk（流式响应）目前只支持 HTTP/2，' +
+            '本次连接 ALPN 协商为 ' + (conn.alpn || 'http/1.1'),
+          );
+        }
         res = await http1.request({
           stream: conn.stream,
           method,
@@ -242,6 +318,7 @@ async function fetch(urlStr, init = {}) {
       }
     } finally {
       conn.close();
+      if (streamSink) streamSink.finish();
     }
 
     // 组装 Response
@@ -252,7 +329,9 @@ async function fetch(urlStr, init = {}) {
     // 重定向
     const location = respHeaders.get('location');
     const isRedirect = [301, 302, 303, 307, 308].includes(status) && location;
-    if (isRedirect && redirect === 'follow') {
+    // 流式语义下不跟随重定向：body 已经逐段交给调用方了，再跳一次没有意义，
+    // 而且会让调用方收到两段来自不同响应的 body。
+    if (isRedirect && redirect === 'follow' && !streamSink) {
       if (hops >= maxRedirects) throw new Error(`重定向超过 ${maxRedirects} 次`);
       hops++;
       redirected = true;
@@ -283,4 +362,4 @@ async function fetch(urlStr, init = {}) {
   }
 }
 
-module.exports = { fetch, Response, Headers };
+module.exports = { fetch, Response, Headers, createStreamingDecompressor };
